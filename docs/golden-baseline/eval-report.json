@@ -1,0 +1,1146 @@
+{
+  "generatedAt": "2026-10-20T05:38:14.658Z",
+  "ticketCount": 49,
+  "skippedCount": 0,
+  "meanEgr": 0.9542,
+  "evaluatedEgrCount": 40,
+  "unknownEgrCount": 9,
+  "meanSignalRecall": 0.95,
+  "meanKeywordHit": 0.7857,
+  "categoryCounts": {
+    "signal_missing": 18,
+    "time_window_mismatch": 15,
+    "log_evidence_missing": 12,
+    "low_confidence_evidence": 7,
+    "ungrounded_conclusion": 3
+  },
+  "tickets": [
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7105128814/PL0C1RIbDYZcpENE5f7di",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 12,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch",
+        "log_evidence_missing",
+        "low_confidence_evidence"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": [
+        "FLZCU_FLSitPosnSts",
+        "FRZCU_FRSitPosnSts",
+        "FLZCU_9_PowerMode"
+      ],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7105718470/aiZPFdGb6F0CXthlKroQH",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 1,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7107639236/gF21DJ2MLKQV17yLCm2zV",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7108290559/Lr71JsIK8MlBd1Zkv3P2Z",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7109625485/ydF8V7lTm7syBJcDfT0nM",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 2,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "EngineCoolantTemperature"
+      ],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7113205903/Cz4VqWURtMyXd0O6QkxjM",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 6,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7114351323/B2njWdfYpE9zR7Dh2-0Wl",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 13,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7115609833/VVl9B9hsXFVpr5He0sZxS",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 12,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "FLZCU_CarMode",
+        "FLZCU_CARMOD",
+        "CarMode",
+        "ICC_PetmodeFb"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7117523715/9zsU-okLMvPyUnPMhNrdw",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [],
+      "topMissingEvidence": [],
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7117562806/PRzZMqGajlHXqg4e7z9x5",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [],
+      "topMissingEvidence": [],
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7117749333/5l2cSgeJsDN1O2oh98SUJ",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 5,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7117772893/f9JLS0nB80VL1kwxZfUf4",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 7,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch",
+        "log_evidence_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": [
+        "BMS_DCCHGMODE",
+        "FLZCU_9_PowerMode"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7117836467/AGmnedRzf6_MpY9VbQ8dB",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 7,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "BMS_DCChgMode",
+        "FLZCU_9_PowerMode"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 0
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7117839963/S--6ekN49TOEvOjycR-_3",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 2,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "log_evidence_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7118037963/ZGNLFqJTErg3Jejyxas6L",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7121683964/VNKrn_i224GxrzVMXBdQu",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 10,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "TBOX_PetmodeSwitch",
+        "VCU_2_G_HVREADY",
+        "FLZCU_9_PowerMode"
+      ],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7121925168/eGvan4_JEpw_r-3ghtEmW",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "HCU_DRAGGINGMODEREMIND",
+        "FLZCU_9_PowerMode",
+        "Working"
+      ],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7124632438/OHuZBjih0z5i0CitxepyY",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 14,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7125209266/SZrY1FhUgj__xsiSG2Odw",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 7,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "ICC_WindowCmd"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 0
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7125569922/zMnTE4wxXC_Zwk8GmI33u",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 6,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7125647144/onf49oxJGZvhmvmT21JZD",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 14,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "log_evidence_missing",
+        "low_confidence_evidence"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": [
+        "ICC_SUSPENSIONHEIGHT",
+        "ASU_1_SUSPTARLVL",
+        "FLZCU_SUSPENSIONHEIGHT",
+        "ASU_1_HMIFAILFB",
+        "ASU_1_ECASSYSSTS",
+        "FLZCU_9_PowerMode"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7127669539/wLqOqllimWfLXNaEboByb",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 6,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7128241853/3vvRdh_hTZW1EMExzKh-r",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 1,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "ADS_4_ACCTextMessage",
+        "ADS_4",
+        "ADS_3_ACCSts"
+      ],
+      "signalRecall": 0,
+      "keywordHitRate": 0
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7128979749/Q4sCB97-D5n_4gpQeMGQL",
+      "egr": 0.6667,
+      "groundingStatus": "evaluated",
+      "total": 3,
+      "ungrounded": [
+        "13:24:20.88"
+      ],
+      "ungroundedAudit": [
+        {
+          "type": "time_window",
+          "subject": "13:24:20.88",
+          "expected": "13:24:20.88",
+          "rawText": "13:24:20.88",
+          "grounded": false,
+          "normalizedSubject": "t132420f88",
+          "normalizedExpected": "t132420f88",
+          "checkedEvidenceSources": [
+            "evidence_packet",
+            "can_signal_summary",
+            "can_trace_extracted_result",
+            "signals_id",
+            "extract",
+            "input_comments"
+          ],
+          "missReason": "subject_not_found"
+        }
+      ],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "ungrounded_conclusion"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "13:24:20.88"
+      ],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7130260820/u-klzwGfWTPnPjXqvA_sv",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7131893090/5vo7Y6OL-yHJvmWf7Et0u",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 4,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch",
+        "log_evidence_missing",
+        "low_confidence_evidence"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": [
+        "EPB_1_ParkLamp",
+        "OnEPBParkFromBosch",
+        "epbPark",
+        "Cluster"
+      ],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7132079937/tnLFfZ8bhRO19L_qUMyzE",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 12,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "FLZCU_STEERINGMODE"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7132453568/qQJPsOovSokaQ6zeVSoqe",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [],
+      "topMissingEvidence": [],
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7135184872/YUPfltzpniOiJZ7ha9Ivt",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 11,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "ICC_DriveModeExitSet",
+        "HCU_25_DCM_Warn"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7136324797/aQeSHdODuL4VMfX7UhHfH",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 3,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7137389315/6zqjTQE2_AdF2xgosMpvT",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 2,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7137864231/IlOgSxaQkT36gqc_nbcnd",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 5,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01/meegle-7138339685/pdYluwhaDnzpT2Rv-gJu5",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 3,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "can_signal_summary",
+        "can_trace_extracted_result"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "missing_can_signal_summary",
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01P国际/meegle-7047579460/wFV5K4hpI7w8hD_s9YQPU",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 13,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "FLZCU_9_PowerMode"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01P国际/meegle-7058453085/XxH3XrPHFmHZJviAFj_4o",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 7,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch",
+        "log_evidence_missing",
+        "low_confidence_evidence"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": [
+        "onSRF_SUNSHADE_POSITIONSTS"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01P国际/meegle-7133339463/cibUCCS_4dpISG0n3x27_",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 8,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "CTP_PowerModeSet",
+        "CTP_PowerModeSe",
+        "HCU_POWERMODEFED",
+        "FLZCU_9_PowerMode"
+      ],
+      "signalRecall": 1,
+      "keywordHitRate": 1
+    },
+    {
+      "ticketDir": "chery D01-8255/D01P国际/meegle-7137993044/N2XFgWHPkPNdAZgNcrrP-",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 10,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery D01-8255/D01国际/meegle-7108312397/S0U-moow74BvetNJtPugX",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 5,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing",
+        "time_window_mismatch"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "BMS_CHRGDCCNCTRDETD"
+      ],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery T1J_FL3-8255/T1J-FL3-8255/meegle-7120953350/PYKJh5VV_jigyq1ZxRudT",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery T1J-FL2-8255/T1J_FL2/meegle-7119080671/QN1z2K7QJ8-fHGJ28A9iz",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery-8155-others/T1J_FL2_8155/meegle-7121246002/rUTU5cVb6-cb8aGkCt0lo",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "can_signal_summary",
+        "can_trace_extracted_result"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "missing_can_signal_summary",
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery-8155-others/T1L_FL1_8155/meegle-7067382654/vXnu67hmn0pBeXf3n8I6s",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 12,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery-8155-others/T1L_FL1_8155/meegle-7134693618/y_D71IHhHQwH1R1y2bbKR",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 10,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "signal_missing"
+      ],
+      "riskFlags": [
+        "unmatched_signal_tokens"
+      ],
+      "topMissingEvidence": [
+        "TRM_1_MotorHomeConnectSts"
+      ],
+      "signalRecall": 1
+    },
+    {
+      "ticketDir": "chery-8155-others/unknown/meegle-7047248025/7VYPSpn8N07SdszH4voSA",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 2,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "log_evidence_missing"
+      ],
+      "riskFlags": [
+        "missing_can_signal_summary",
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery-8155-others/unknown/meegle-7063561983/HmuZAjq5Wy1KodYdcJ1Op",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 2,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "log_evidence_missing"
+      ],
+      "riskFlags": [
+        "missing_can_signal_summary",
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "chery-8155-others/unknown/meegle-7128871145/Vei8XkhQ3xSkPHwRUE4c7",
+      "egr": 1,
+      "groundingStatus": "evaluated",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "log_evidence_missing"
+      ],
+      "riskFlags": [
+        "missing_can_signal_summary",
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "maxux/PKK1_PHEV/MXS-29227",
+      "egr": null,
+      "groundingStatus": "unknown_missing_evidence",
+      "total": 0,
+      "ungrounded": [],
+      "ungroundedAudit": [],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "time_window_mismatch",
+        "log_evidence_missing",
+        "low_confidence_evidence"
+      ],
+      "riskFlags": [
+        "missing_can_signal_summary",
+        "missing_comment_time_window",
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": []
+    },
+    {
+      "ticketDir": "maxux/unknown/GLY-1693",
+      "egr": 0.5,
+      "groundingStatus": "evaluated",
+      "total": 2,
+      "ungrounded": [
+        "carmod=normal"
+      ],
+      "ungroundedAudit": [
+        {
+          "type": "signal_value",
+          "subject": "carmod",
+          "expected": "normal",
+          "rawText": "carmod=normal",
+          "grounded": false,
+          "normalizedSubject": "carmod",
+          "normalizedExpected": "normal",
+          "checkedEvidenceSources": [
+            "evidence_packet",
+            "input_comments"
+          ],
+          "missReason": "subject_value_pair_not_found"
+        }
+      ],
+      "missingEvidenceSources": [
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "log_evidence_missing",
+        "ungrounded_conclusion",
+        "low_confidence_evidence"
+      ],
+      "riskFlags": [
+        "missing_can_signal_summary",
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": [
+        "carmod=normal"
+      ]
+    },
+    {
+      "ticketDir": "maxux/unknown/MXS-29152",
+      "egr": 0,
+      "groundingStatus": "evaluated",
+      "total": 1,
+      "ungrounded": [
+        "08:05:32.014"
+      ],
+      "ungroundedAudit": [
+        {
+          "type": "time_window",
+          "subject": "08:05:32.014",
+          "expected": "08:05:32.014",
+          "rawText": "08:05:32.014",
+          "grounded": false,
+          "normalizedSubject": "t080532f014",
+          "normalizedExpected": "t080532f014",
+          "checkedEvidenceSources": [],
+          "missReason": "missing_evidence"
+        }
+      ],
+      "missingEvidenceSources": [
+        "evidence_packet",
+        "can_signal_summary",
+        "can_trace_extracted_result",
+        "signals_id",
+        "extract"
+      ],
+      "evidenceReadErrors": [],
+      "evidenceSourceErrors": [],
+      "errorCategories": [
+        "time_window_mismatch",
+        "log_evidence_missing",
+        "ungrounded_conclusion",
+        "low_confidence_evidence"
+      ],
+      "riskFlags": [
+        "missing_can_signal_summary",
+        "missing_comment_time_window",
+        "unmatched_signal_tokens",
+        "missing_log_hits"
+      ],
+      "topMissingEvidence": [
+        "08:05:32.014"
+      ]
+    }
+  ],
+  "skipped": []
+}

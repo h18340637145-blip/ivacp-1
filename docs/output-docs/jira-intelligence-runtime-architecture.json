@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Jira 智能票据分析系统：高层运行时架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1360, 740]
+  },
+  "components": [
+    {
+      "id": "analyst",
+      "type": "external",
+      "label": "分析人员浏览器",
+      "sublabel": "受信任会话后的交互入口",
+      "pos": [48, 290],
+      "size": [152, 66]
+    },
+    {
+      "id": "webApp",
+      "type": "frontend",
+      "label": "Next.js App Router",
+      "sublabel": "React 看板、详情页与 Store",
+      "pos": [265, 290],
+      "size": [166, 66]
+    },
+    {
+      "id": "apiBoundary",
+      "type": "security",
+      "label": "会话与 API 边界",
+      "sublabel": "proxy.ts + Route Handlers",
+      "pos": [500, 290],
+      "size": [168, 66]
+    },
+    {
+      "id": "pipeline",
+      "type": "backend",
+      "label": "共享分析流水线",
+      "sublabel": "提取需求 → 映射信号 → 证据分析",
+      "pos": [735, 290],
+      "size": [186, 66]
+    },
+    {
+      "id": "qwen",
+      "type": "external",
+      "label": "Qwen AI API",
+      "sublabel": "推理、识图与复核",
+      "pos": [992, 290],
+      "size": [152, 66]
+    },
+    {
+      "id": "results",
+      "type": "database",
+      "label": "浏览器 IndexedDB",
+      "sublabel": "Dexie：任务、结果与历史",
+      "pos": [323, 488],
+      "size": [174, 66]
+    },
+    {
+      "id": "runArtifacts",
+      "type": "database",
+      "label": "本地运行产物",
+      "sublabel": "log/.../runId 的只读证据",
+      "pos": [729, 488],
+      "size": [194, 66]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "浏览器数据边界：IndexedDB 仅在本机浏览器保存",
+      "wraps": ["webApp", "results"],
+      "pad": 24
+    },
+    {
+      "kind": "security-group",
+      "label": "应用信任边界：鉴权后才进入服务端处理",
+      "wraps": ["apiBoundary", "pipeline", "runArtifacts"],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    { "from": "analyst", "to": "webApp", "label": "HTTPS：操作与查看", "variant": "emphasis", "labelDy": 57 },
+    { "from": "webApp", "to": "apiBoundary", "label": "受保护的 /api/* 请求", "variant": "security", "labelDy": 57 },
+    { "from": "apiBoundary", "to": "pipeline", "label": "POST /api/issues/process", "variant": "emphasis", "labelDy": -27 },
+    { "from": "pipeline", "to": "qwen", "label": "受控模型调用", "variant": "security" },
+    { "from": "pipeline", "to": "runArtifacts", "label": "运行级证据", "route": "orthogonal-v" },
+    { "from": "pipeline", "to": "results", "label": "成功响应后持久化", "route": "orthogonal-v", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "主路径",
+      "items": [
+        "浏览器发起已鉴权操作；Next.js API 进入共享分析流水线。",
+        "流水线调用 Qwen 生成分析结论；成功响应后浏览器再写入 IndexedDB。",
+        "CANtrace 读取、解码和绘图只在 Step 2 已成功映射信号后发生。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "外部依赖（为避免杂乱不额外连线）",
+      "items": [
+        "Jira REST：JQL、详情、附件、评论和工作流回填。",
+        "飞书项目 / 附件插件：MQL、工作项上下文、附件与人工复核回填。",
+        "Python CAN 解码、飞书 Webhook 与 Docupedia：仅在各自受控服务路径中使用。"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "信任与数据边界",
+      "items": [
+        "浏览器 IndexedDB 是主要业务持久化；Jira 与飞书项目来源表相互隔离。",
+        "Jira Basic Auth 仅发送到 Jira 主机，不向飞书或附件插件泄露。",
+        "运行产物以不可变 runId 隔离；artifactRef 采用白名单只读访问。"
+      ]
+    }
+  ]
+}

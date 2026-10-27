@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-06-17T10:40:29.772Z",
+  "sampleCount": 0,
+  "duration": {
+    "count": 0,
+    "averageMs": 0,
+    "p50Ms": 0,
+    "p90Ms": 0,
+    "maxMs": 0
+  },
+  "accuracy": {
+    "statusCounts": {},
+    "averageEvidenceScore": 0
+  },
+  "evidenceCompleteness": {
+    "canTraceFound": {
+      "passed": 0,
+      "total": 0,
+      "ratio": 0
+    },
+    "dbcMatched": {
+      "passed": 0,
+      "total": 0,
+      "ratio": 0
+    },
+    "signalsExtracted": {
+      "passed": 0,
+      "total": 0,
+      "ratio": 0
+    },
+    "propIdsResolved": {
+      "passed": 0,
+      "total": 0,
+      "ratio": 0
+    },
+    "commentTimeWindowFound": {
+      "passed": 0,
+      "total": 0,
+      "ratio": 0
+    },
+    "androidQnxLogLinesFound": {
+      "passed": 0,
+      "total": 0,
+      "ratio": 0
+    },
+    "canSignalSummaryFound": {
+      "passed": 0,
+      "total": 0,
+      "ratio": 0
+    }
+  },
+  "stageDurations": {},
+  "samples": []
+}

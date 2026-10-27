@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "飞书项目分析任务生命周期",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 680]
+  },
+  "lanes": [
+    { "id": "main", "label": "当前任务主生命周期" },
+    { "id": "recovery", "label": "恢复与重新分析" },
+    { "id": "terminal", "label": "保留结果的退出" }
+  ],
+  "states": [
+    { "id": "pending", "type": "start", "label": "Pending", "sublabel": "snapshot / task 已创建", "lane": "main", "col": 0, "step": "01", "tag": "新 runId" },
+    { "id": "processing", "type": "active", "label": "Processing", "sublabel": "共享处理 API", "lane": "main", "col": 1, "step": "02", "tag": "latestAttemptTaskId" },
+    { "id": "completed", "type": "success", "label": "Completed", "sublabel": "完整成功产物 + 本地 result", "lane": "main", "col": 2, "step": "03", "tag": "可复核" },
+    { "id": "failed", "type": "failure", "label": "Failed", "sublabel": "失败或超过恢复时限", "lane": "recovery", "col": 0, "tag": "可重试" },
+    { "id": "reanalyze", "type": "active", "label": "Reanalyze", "sublabel": "创建新 task / runId", "lane": "recovery", "col": 2, "tag": "新尝试" }
+  ],
+  "transitions": [
+    { "from": "processing", "to": "failed", "label": "失败或超时收敛", "variant": "security", "route": "drop", "labelDy": 36 },
+    { "from": "failed", "to": "reanalyze", "label": "用户重新分析", "variant": "emphasis", "route": "straight", "labelDy": 53 },
+    { "from": "reanalyze", "to": "processing", "label": "创建新 runId", "variant": "emphasis", "route": "top-channel", "labelDy": -36 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "完成条件", "items": ["只有同一 runId 的 pipeline-metrics success、身份匹配且 final_reply 非空，才能恢复为 Completed。", "浏览器在外层处理响应成功后，才写入 MeegleProcessResult。"] },
+    { "dot": "amber", "title": "失败与恢复", "items": ["刷新时不扫描其他历史运行；未满恢复时限的 processing 不被武断改写。", "超过时限的不完整任务收敛为 Failed，允许用户发起新的 runId。"] },
+    { "dot": "rose", "title": "保留边界", "items": ["重新分析会归档旧 result；历史、运行产物和审计信息不因重试删除。", "latestAttemptTaskId 使晚到写入不能覆盖新的任务边界。"] }
+  ]
+}

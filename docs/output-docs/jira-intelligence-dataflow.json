@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Jira 智能票据分析：证据与结果数据流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 700]
+  },
+  "stages": [
+    { "label": "来源" },
+    { "label": "规范化" },
+    { "label": "提取与映射" },
+    { "label": "证据与结论" },
+    { "label": "本地消费" }
+  ],
+  "nodes": [
+    { "id": "tickets", "type": "external", "label": "Jira / 飞书项目", "sublabel": "工单与附件", "stage": 0, "row": 1, "tag": "外部来源" },
+    { "id": "snapshot", "type": "backend", "label": "统一工单上下文", "sublabel": "snapshot + 规范化附件", "stage": 1, "row": 1, "tag": "来源隔离" },
+    { "id": "step1", "type": "backend", "label": "AI Step 1", "sublabel": "需求与问题时间窗", "stage": 2, "row": 0, "tag": "文本证据" },
+    { "id": "step2", "type": "backend", "label": "AI Step 2 + 配置映射", "sublabel": "仅保留 matched signals", "stage": 2, "row": 2, "tag": "CAN 门禁", "width": 150 },
+    { "id": "evidence", "type": "database", "label": "运行级证据包", "sublabel": "signals、extract、trace、metrics", "stage": 3, "row": 1, "tag": "runId 隔离", "width": 150 },
+    { "id": "qwen", "type": "external", "label": "Qwen", "sublabel": "推理与一致性分析", "stage": 3, "row": 3, "tag": "模型调用" },
+    { "id": "result", "type": "database", "label": "IndexedDB 结果", "sublabel": "result、history、review", "stage": 4, "row": 1, "tag": "浏览器主存储" }
+  ],
+  "flows": [
+    { "from": "tickets", "to": "snapshot", "label": "票据字段、评论与选中附件", "classification": "外部工单数据", "variant": "security", "labelDy": 53 },
+    { "from": "snapshot", "to": "step1", "label": "问题上下文", "classification": "文本输入", "variant": "emphasis" },
+    { "from": "step1", "to": "step2", "label": "需求与候选信号", "classification": "中间推理结果", "variant": "emphasis", "labelDy": 24 },
+    { "from": "step2", "to": "evidence", "label": "映射信号后读取的 CAN / 日志证据", "classification": "结构化证据", "variant": "security", "labelAt": [638, 428] },
+    { "from": "evidence", "to": "qwen", "label": "受限的证据摘要", "classification": "模型上下文", "variant": "emphasis", "labelAt": [745, 314] },
+    { "from": "qwen", "to": "result", "label": "分析结论与置信信息", "classification": "AI 输出", "variant": "emphasis" },
+    { "from": "evidence", "to": "result", "label": "artifactRef", "classification": "只读证据引用", "variant": "dashed", "route": "straight", "labelAt": [862, 238] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "数据主线", "items": ["工单与附件先被规范化，再经过需求提取、信号映射、证据分析，最后生成浏览器本地结果。", "Jira 与飞书项目共享算法，但业务表与生命周期保持来源隔离。"] },
+    { "dot": "amber", "title": "CANtrace 门禁", "items": ["CANtrace 不是通用前置输入：必须先有 Step 2 成功映射的信号。", "无 matched signals 时，不读取、不解码、不绘制 CANtrace，也不伪造 PARSING 阶段。"] },
+    { "dot": "rose", "title": "数据保护", "items": ["完整证据落盘；模型只接收按 Token 预算裁剪的上下文。", "Jira Basic Auth 只发送到 Jira 主机；artifactRef 以白名单和 containment 约束只读访问。"] }
+  ]
+}

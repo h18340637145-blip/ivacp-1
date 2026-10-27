@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Jira / 飞书项目：统一分析工作流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1140, 690]
+  },
+  "lanes": [
+    { "id": "analyst", "label": "分析人员" },
+    { "id": "orchestrator", "label": "统一规则组编排" },
+    { "id": "pipeline", "label": "共享分析流水线" },
+    { "id": "outcome", "label": "结果与复核" }
+  ],
+  "phases": [
+    { "id": "select", "label": "选择范围", "fromCol": 0, "toCol": 1 },
+    { "id": "prepare", "label": "持久化上下文", "fromCol": 2, "toCol": 2, "variant": "emphasis" },
+    { "id": "analyze", "label": "分析与证据", "fromCol": 3, "toCol": 4, "variant": "emphasis" },
+    { "id": "conclude", "label": "结果闭环", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["trigger", "filter", "snapshot", "process", "evidence", "review"],
+  "nodes": [
+    { "id": "trigger", "lane": "analyst", "col": 0, "type": "frontend", "label": "触发筛票或处理", "sublabel": "主页统一规则组", "width": 148 },
+    { "id": "filter", "lane": "orchestrator", "col": 1, "type": "backend", "label": "并发筛选来源", "sublabel": "JQL 与 MQL 相互隔离", "width": 154 },
+    { "id": "snapshot", "lane": "orchestrator", "col": 2, "type": "database", "label": "保存快照与任务", "sublabel": "IndexedDB；task ID 作 runId", "width": 162 },
+    { "id": "process", "lane": "pipeline", "col": 3, "type": "backend", "label": "POST /api/issues/process", "sublabel": "共享 Jira / Meegle 入口", "width": 168 },
+    { "id": "evidence", "lane": "pipeline", "col": 4, "type": "backend", "label": "提取、映射与推理", "sublabel": "Step 2 映射成功后才解析 CANtrace", "width": 178 },
+    { "id": "review", "lane": "outcome", "col": 5, "type": "frontend", "label": "持久化结果并人工复核", "sublabel": "成功响应后写入；复核是回填门禁", "width": 184 }
+  ],
+  "edges": [
+    { "from": "trigger", "to": "filter", "label": "请求本次规则组工作", "variant": "emphasis", "role": "main" },
+    { "from": "filter", "to": "snapshot", "label": "仅保存各自来源成功结果", "variant": "security", "role": "main" },
+    { "from": "snapshot", "to": "process", "label": "携带 source 与 runId", "variant": "emphasis", "role": "main" },
+    { "from": "process", "to": "evidence", "label": "结构化分析路径", "variant": "emphasis", "role": "main" },
+    { "from": "evidence", "to": "review", "label": "成功结果与证据引用", "variant": "emphasis", "role": "main" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "主工作流", "items": ["Jira 与飞书项目在统一看板中编排，但筛选数据、任务与失败状态彼此隔离。", "飞书项目在创建 snapshot / task 后直接调用共享处理 API；兼容 /api/meegle/analyze 不是正常路径。"] },
+    { "dot": "amber", "title": "关键数据依赖", "items": ["AI Step 1 提取需求，AI Step 2 提取并配置映射信号。", "只有 mapped signals 存在时才读取、解码或绘制 CANtrace；无匹配时跳过该分支。"] },
+    { "dot": "rose", "title": "完成边界", "items": ["浏览器只在外层 HTTP 成功后写入当前结果；服务端完成不等于前端已持久化。", "Docupedia 是 success-only 的异步归档，失败不阻断结果；人工复核是 Jira / 飞书回填的门禁。"] }
+  ]
+}

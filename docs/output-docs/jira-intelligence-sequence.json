@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "飞书项目处理：浏览器到共享流水线的顺序",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1080, 820]
+  },
+  "participants": [
+    { "id": "browser", "type": "frontend", "label": "浏览器", "sublabel": "处理 Store" },
+    { "id": "idb", "type": "database", "label": "IndexedDB", "sublabel": "Dexie 专用表" },
+    { "id": "context", "type": "backend", "label": "Meegle Context API", "sublabel": "/api/meegle/context" },
+    { "id": "process", "type": "backend", "label": "共享 Process API", "sublabel": "/api/issues/process" },
+    { "id": "qwen", "type": "external", "label": "Qwen API", "sublabel": "模型推理" },
+    { "id": "artifacts", "type": "database", "label": "Run Artifacts", "sublabel": "不可变 runId 目录" }
+  ],
+  "segments": [
+    { "from": 150, "to": 325, "label": "准备上下文" },
+    { "from": 345, "to": 590, "label": "共享分析" },
+    { "from": 610, "to": 750, "label": "返回与持久化" }
+  ],
+  "messages": [
+    { "from": "browser", "to": "context", "y": 180, "label": "读取工作项、评论与附件上下文", "variant": "security" },
+    { "from": "context", "to": "browser", "y": 225, "label": "规范化 snapshot", "variant": "return" },
+    { "from": "browser", "to": "idb", "y": 270, "label": "写入 snapshot + task", "variant": "emphasis" },
+    { "from": "browser", "to": "process", "y": 330, "label": "POST：source=meegle，runId=task.id", "variant": "security" },
+    { "from": "process", "to": "qwen", "y": 385, "label": "AI Step 1 / Step 2 与结论推理", "variant": "emphasis" },
+    { "from": "qwen", "to": "process", "y": 430, "label": "结构化模型输出", "variant": "return" },
+    { "from": "process", "to": "artifacts", "y": 485, "label": "写入阶段、证据与 artifactRef", "variant": "emphasis" },
+    { "from": "process", "to": "browser", "y": 555, "label": "HTTP success：结果与分析回执", "variant": "return" },
+    { "from": "browser", "to": "idb", "y": 630, "label": "仅在成功后写入 result / history", "variant": "emphasis" },
+    { "from": "browser", "to": "artifacts", "y": 690, "label": "通过白名单 artifactRef 只读展示", "variant": "dashed" }
+  ],
+  "activations": [
+    { "participant": "context", "from": 174, "to": 229, "type": "backend" },
+    { "participant": "idb", "from": 264, "to": 640, "type": "database" },
+    { "participant": "process", "from": 324, "to": 560, "type": "backend" },
+    { "participant": "qwen", "from": 378, "to": 436, "type": "external" },
+    { "participant": "artifacts", "from": 480, "to": 700, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "正常请求边界", "items": ["标准处理链路是 processAssignment → context → snapshot/task → /api/issues/process。", "浏览器直接调用共享 Process API；服务端 compatibility 路由不定义正常持久化语义。"] },
+    { "dot": "rose", "title": "一致性保护", "items": ["latestAttemptTaskId 与 runId 防止旧请求或晚到响应覆盖新运行。", "恢复只接受同一 runId 的完整成功产物；不完整产物不能直接生成结果。"] }
+  ]
+}

@@ -1,0 +1,1153 @@
+# 业务流程文档（Next.js 版）
+
+## 本年度统计查看
+
+在平时保留处理记录的浏览器及同一项目地址打开首页，点击「本年度统计」，可选择年份与起止月份后点「查询」（如 7–9 月），查看该范围的处理票数和分析次数；「重新统计」重新读取当前数据。Jira 显示含 AI 判断的复核通过率，飞书显示可确认人工复核的准确率，未复核或无法确认记录不进入比率分母。统计使用每张票今年最后一次成功分析的状态，不修改结果、样本或复核记录。
+
+## Bosch Jira 规则组
+
+管理员点击首页「新建 Bosch Jira 规则组」，填写名称、Bosch JQL 及路径/车型/Prompt（或导入含 `jiraProvider: "bosch"` 的规则组文件）。「一键筛选 / 处理」与普通 Jira 规则组流程相同，仅服务地址与凭据切换为 `BOSCH_JIRA_*`。
+
+## 主页统一规则组筛选与处理
+
+规则组「一键筛选」并发执行已配置的 Jira JQL 和飞书项目 MQL；任一来源失败只显示该来源错误，另一来源成功快照仍可处理。「一键处理」按来源分派到既有 Jira 或飞书项目处理生命周期，AI 分析、人工复核和回填权限保持不变。
+
+> **项目**：博世汽车软件 · Jira 缺陷票 AI 辅助分析系统（Next.js 全栈实现）  
+> **技术栈**：Next.js + React + TypeScript + shadcn/ui + IndexedDB + dnd kit + Qwen API  
+> **适用范围**：分析员、项目管理员、自动化运维人员  
+> **更新日期**：2025-07
+
+## Docupedia 月度统计查看
+
+- 单篇文本文章上传成功（新建或确认已存在）后，正文字符数严格大于 700 时记录一行；同月重复标题不再累计。字符数使用合并后的正文 `text.length`（UTF-16 代码单元，包含空白和文件分节标题，不包含 HTML 包装），不是文件字节数。
+- 月份按服务器本地时间划分，历史月文件保留，新月份自动写入新文件。只统计启用后成功确认的文章，不扫描旧日志补算；统计写入失败只在服务终端告警。
+- 最新一行的 `monthlyTotal` 是本月累计数，每行保留文章明细。尚无合格文章时不会创建文件。查看当前月份：
+
+```bash
+tail -n 1 "log/docupedia-upload-stats/$(date +%Y-%m).jsonl"
+```
+
+- `npm run test:docupedia-upload-stats` 验证阈值、去重、单进程并发、重启续计、跨月和清理保留边界；`cleanup:data` 不删除月度统计文件。
+
+## 飞书项目 MQL 筛票流程
+
+飞书筛选依赖运行 Next.js 的同一系统用户下的 Meegle CLI 登录态，与本应用登录及 Jira Basic Auth 相互独立。CLI 返回 `AUTH_REQUIRED` 时，筛选失败审计保留明确的重新授权提示；在同一环境执行 `meegle auth login --device-code --host project.feishu.cn`，完成授权后重新筛选。不要在服务端请求内自动发起交互登录，也不能将认证失败当成成功的空结果。`/api/meegle/filter` 的 HTTP 200 仅表示已返回审计，仍需检查 `audits` 和成功规则组列表。
+
+1. 用户在 `/meegle` 触发一键筛选，或在规则组触发筛选票。
+2. 浏览器优先从完整 `RuleGroup.meegleMql` 的 `FROM` 数据源解析项目 key，再由服务端执行 MQL 查询；当前用户“我的待办”为空也不能阻断完整 MQL。只有兼容旧条件式 MQL 时才回退从“我的待办”推断项目 key。
+3. 同一工作项命中多个规则组时，按 `sortOrder`、再按规则组 `id` 决定唯一归属；成功 MQL 查询会解除该组未再次命中的所有分配（包括已完成、已回填和人工分配），仅保留其结果与历史；MQL 是规则组展示和处理范围的唯一依据。
+4. 飞书 MQL 返回 `data: {}`、`list: null` 时视为成功的 0 条结果，继续对账并解除不再命中的分配；单个规则组的 MQL 响应确实失败时，写入本地飞书筛选审计并保留该组既有归属，但当前筛选票列表保持为空，不得回退展示更早的成功快照；失败不触发、不写入也不修改 Jira 筛票、任务或数据。
+
+---
+
+## 目录
+
+1. [流程总览](#1-流程总览)
+2. [手动筛票流程](#2-手动筛票流程)
+3. [手动单票处理流程](#3-手动单票处理流程)
+4. [AI 复核流程](#4-ai-复核流程)
+5. [人工复核流程](#5-人工复核流程)
+6. [Jira 回填流程](#6-jira-回填流程)
+7. [AI 校验流程](#7-ai-校验流程)
+8. [人工改判流程](#8-人工改判流程)
+9. [自动周期运行流程](#9-自动周期运行流程)
+10. [一键筛选 / 一键处理流程](#10-一键筛选--一键处理流程)
+11. [Jira 状态流转流程](#11-jira-状态流转流程)
+12. [拖拽排序流程](#12-拖拽排序流程)
+13. [业务决策点说明](#13-业务决策点说明)
+14. [自动化与手动操作边界](#14-自动化与手动操作边界)
+
+---
+
+## 1. 流程总览
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                 博世 Jira 缺陷票 AI 分析系统 · 全局流程（Next.js 版）          │
+│                                                                             │
+│  ┌─────────┐   筛票    ┌──────────────┐  处理   ┌─────────────────────┐    │
+│  │  Jira   │ ───────> │FilteredIssue │ ──────> │ IssueProcessResult  │    │
+│  │（奇瑞/  │          │  Snapshot    │         │  (Qwen AI 分析结论)  │    │
+│  │  吉利…）│          └──────────────┘         └──────────┬──────────┘    │
+│  └─────────┘                                              │               │
+│                                                    ┌──────▼──────┐        │
+│                                             AI 复核 │ AI Review   │        │
+│                                                    └──────┬──────┘        │
+│                                                           │               │
+│                                                    ┌──────▼──────┐        │
+│                                           人工复核  │Manual Review│        │
+│                                                    └──────┬──────┘        │
+│                                                           │               │
+│                                            ┌─────────────▼──────────────┐ │
+│                                  AI 校验   │  IssueValidationRun        │ │
+│                                            │  (PASS/FAIL/WARNING/UNKNOWN)│ │
+│                                            └─────────────┬──────────────┘ │
+│                                                          │               │
+│                                                   ┌──────▼──────┐       │
+│                                         Jira 回填  │  Jira 评论  │       │
+│                                                   └─────────────┘       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 核心业务对象（TypeScript 类型）
+
+| 对象 | 说明 | 存储位置 |
+|------|------|----------|
+| `RuleGroup` | 规则组，每个对应一个汽车项目，包含 JQL 配置 | IndexedDB `ruleGroups` 表 |
+| `FilterTask` | 筛票任务，记录一次 JQL 查询执行的生命周期 | IndexedDB `filterTasks` 表 |
+| `FilteredIssueSnapshot` | 筛票快照，每张 Jira 票对应一条记录 | IndexedDB `filteredIssueSnapshots` 表 |
+| `IssueProcessTask` | 单票处理任务，驱动 AI 分析流程 | IndexedDB `issueProcessTasks` 表 |
+| `IssueProcessResult` | 处理结果，存储 AI 分析结论和复核状态 | IndexedDB `issueProcessResults` 表 |
+| `IssueValidationRun` | 校验运行记录，存储 AI 校验 + 人工改判结果 | IndexedDB `issueValidationRuns` 表 |
+| `IssueReviewSample` | 历史错例，用于 Few-shot AI 复核 | IndexedDB `issueReviewSamples` 表 |
+| `LearningMemory` | AI 学习记忆，持久化错误案例 | IndexedDB `learningMemories` 表 |
+| `AutoCycleState` | 自动周期运行状态 | IndexedDB `autoCycleStates` 表 |
+
+### UI 组件与业务对象映射
+
+> **设计说明**：本项目不强制使用 Card 组件。规则组采用行式布局（`RuleGroupRow`），左侧彩条区分角色，信息密度更高。
+
+| 业务对象 | 实现组件 | 交互方式 |
+|----------|---------|---------|
+| RuleGroup | **RuleGroupRow**（自定义行，左彩条） | dnd kit 拖拽排序 |
+| FilterTask / ProcessTask | 行内嵌列表（待实现） | ScrollArea 滚动展示 |
+| 新建/编辑规则组 | **RuleGroupDialog**（Radix Dialog Primitive）| 暗色弹框表单 |
+| 任务详情 | **Dialog**（待实现） | 弹框查看 |
+| 操作按钮 | 内联 `<button>` + CSS 变量样式 | 筛票/处理/复核/回填 |
+| 标签/状态 | 内联 `<span>` | 车型、角色、Jira 项目标识 |
+
+---
+
+## 2. 手动筛票流程
+
+### 2.1 触发条件
+
+- 用户在首页 RuleGroupCard（Card 组件）上点击 **"筛票"** Button（单规则组），或
+- 用户点击首页的 **"一键筛选"** Button（所有规则组）。
+
+### 2.2 前置条件
+
+- 规则组已正确配置 JQL 查询语句（通过 Dialog 表单编辑保存）。
+- Jira 服务可用，且当前账号有权限执行 JQL。
+- 距上次同规则组筛票任务启动超过 **10 分钟**（防重复提交）。
+
+### 2.3 流程步骤
+
+```
+用户点击"筛票"Button
+      │
+      ▼
+[React] POST /api/rule-groups/{roleIndex}/filter-tasks
+      │     使用 React Query useMutation
+      ▼
+[API Route] 检查同规则组是否存在 10 分钟内的运行中任务
+      │
+      ├─ 存在 ──► 返回 409 Conflict（前端 Toast 提示，流程终止）
+      │
+      └─ 不存在
+            │
+            ▼
+      [API Route] IndexedDB 创建 FilterTask（状态：PENDING）
+            │
+            ▼
+      [Store] 写入本地任务状态，前端显示筛票中
+            │
+            ▼
+      [异步 Promise] jiraClient.searchIssues(jql) → 执行 JQL 查询
+            │
+            ▼
+      [异步 Promise] 为每张返回的 Jira 票创建 FilteredIssueSnapshot
+            │
+            ▼
+      [异步 Promise] FilterTask 状态 → SUCCESS
+            │
+            ▼
+      [Store] 更新任务状态和快照数量
+            │
+            ▼
+      [React] RuleGroupCard 重渲染，显示筛票结果数量
+```
+
+### 2.4 后置条件
+
+- `FilterTask.status = 'SUCCESS'`，`filteredCount` 记录命中票数。
+- 每张命中的 Jira 票均有对应的 `FilteredIssueSnapshot` 记录存入 IndexedDB。
+
+### 2.5 异常处理
+
+| 异常场景 | 处理方式 | UI 反馈 |
+|----------|----------|---------|
+| 同规则组 10 分钟内已有运行中任务 | 返回 409 | Toast 提示用户等待 |
+| Jira 连接失败 / 认证失败 | FilterTask.status = FAILED | Card 显示错误状态 |
+| JQL 语法错误 | FilterTask.status = FAILED | Toast 显示 JQL 错误详情 |
+| JQL 查询超时 | FilterTask.status = EXPIRED | 规则组行恢复可重新筛票 |
+
+### 2.6 启动恢复
+
+- 首页启动时会先检查 IndexedDB 中历史 `running` / `pending` 筛票任务。
+- 若任务创建时间已超过 `FILTER_TASK_TIMEOUT_MS`（当前为 10 分钟），系统会自动将其标记为 `expired`，并写入“筛票任务超时，已在启动恢复时自动过期”错误信息。
+- 当前会话中的 Jira 筛票请求超过同一阈值时，也会写入 `expired`，而不是永久停留在 `running`。
+- `expired` 任务不再被前端视为正在筛票，规则组行会恢复可点击的“筛票”按钮，避免页面关闭、刷新或请求中断后永久显示“筛票中...”。
+
+---
+
+## 3. 手动单票处理流程
+
+### 3.0 飞书项目工作台入口
+
+1. `/meegle` 调用 `/api/meegle/mywork`，后端执行 `meegle mywork todo` 获取当前用户待办。
+2. 自动筛票从完整 `RuleGroup.meegleMql` 解析项目 key，并以 MQL 查询结果作为唯一展示与处理范围；多规则组命中按 `sortOrder`、再按规则组 `id` 决定唯一归属。成功查询会解除所有未再次命中的分配（包括人工拖拽、已完成和已回填），但保留结果与历史；所需 MQL 响应失败写入 `meegleFilterAudits` 并保留原有归属，同时隐藏旧成功快照，避免将历史票显示为当前命中。
+3. 未分配工作项显示在左侧卡池；分析员将卡片拖入现有规则组，分配状态写入 IndexedDB `meegleAssignments`。
+4. 规则组队列手动处理待办卡片。`meegleProcessStore` 先调用 `/api/meegle/context`，将工作项详情、评论、评论附件和插件附件保存为不可变 `MeegleIssueSnapshot`：评论附件从 Markdown、`file_url`、`file_urls` 提取。共享处理 run 会预取评论附件以补齐真实文件名、类型和大小，再以评论创建时间与插件附件的上传时间统一筛选；选中的评论附件复用预取文件。两类来源均无 CAN trace 或日志压缩包时直接返回固定补件结论，不调用仅评论 AI 分析；随后创建并完成 `MeegleProcessTask`。
+5. `meegleProcessStore` 将已保存快照、规则组 prompts、JSON/Proto/DBC 路径、车型映射和 task ID 直接提交给 `/api/issues/process`。共享流水线复用 Jira 的下载、解压、信号解析、Qwen 推理与后处理算法，但 Meegle 每次运行写入独立 run 目录。主链路不再经过 `/api/meegle/analyze` 的服务端 HTTP 回环，避免长耗时分析在完成前因响应头等待超时而跳过 IndexedDB 结果事务；该路由仅暂时保留旧调用兼容。
+6. 共享处理成功后按 `ENABLE_DOCUPEDIA` 对当前 Meegle run 的日志执行归档；浏览器完整保存 `replyText`、阶段、模型、耗时、CAN 图、信号摘要、trace、ticks 和 `artifactRef` 到 Meegle 专用结果表，并发送带“飞书项目处理通知”来源的成功通知。若浏览器在此事务前中断，首页和结果详情仅针对持久化的 `processing` task，以其不可变 runId 校验 `pipeline-metrics.json=status:success` 与完整最终结论；校验通过后重建签名产物引用、结果和回填凭据，并改为 completed。恢复接口对无完整产物返回 HTTP 200 `recoverable: false`：任务创建未满 2 小时时客户端保持处理中，超过 2 小时则在同一 IndexedDB 事务中将 task 和 assignment 标记为 failed 并允许重试。失败时保存 failed task/assignment 后发送失败通知；通知和归档失败均不改变处理结果。
+7. 完成卡进入 `/meegle/issues/{workItemId}/result`。详情页左侧展示工单内容，右侧展示处理过程，并提供分析结果、运行日志、历史记录和原始数据四个视图。结果页读取当前工作项详情凭据，复用 `MeegleAssigneeControl` 从项目完整人员目录按姓名、邮箱或用户 ID 模糊搜索并修改经办人；写入仍经过目标绑定授权和二次读取冲突校验。
+8. 结果页的「重新分析」需要用户确认，调用当前 assignment 所属规则组的 `processAssignment`。store 先将旧 result 写入 `meegleAnalysisHistories`，再创建新的 snapshot/task/run；成功后新 result 成为 `latestResultId`，失败则保留旧 result 并显示失败信息。重新分析不会自动评论或流转飞书项目。
+9. AI 复核只写入建议字段；人工通过，或人工驳回且填写正确结论后，才允许进入飞书回填。人工通过写入受证据门槛约束的正样本；人工驳回写入纠错样本与学习记忆。
+10. 用户编辑评论、选择是否附带 CAN 图、按需选择 transition，并勾选授权后提交。评论 API 每次先按 result marker 查询已有评论；多行 Markdown 正文通过 Meegle CLI 的 JSON `--params` 通道提交，避免命令行 flag 解析丢失正文；评论成功立即持久化，再单独执行状态流转。流转失败时只重试流转，不重复评论。
+
+非 `issue` 工作项不进入该链路。插件列表不可用时仅记录告警并继续评论分析；真实飞书评论和状态流转只能由用户在详情页显式确认触发。
+
+### 3.1 触发条件
+
+用户在规则组详情页（ScrollArea 内）找到目标 Jira 票，点击 **"处理"** Button。
+
+### 3.2 前置条件
+
+- 该票存在对应的 `FilteredIssueSnapshot`。
+- 当前无活跃的处理任务（`PENDING` 或 `RUNNING` 状态）。
+- 该票即使已经分析过，也允许再次分析；旧结果只作为历史记录，不作为新结果的复核状态。
+
+### 3.3 流程步骤
+
+```
+用户点击"处理"Button
+      │
+      ▼
+[React] POST /api/filter-tasks/{filterTaskId}/issues/{issueKey}/process-tasks
+      │     useMutation + onSuccess 回调
+      ▼
+      [API Route] 检查是否存在活跃处理任务（PENDING/RUNNING）
+      │
+      ├─ 存在 ──► 返回 409，Toast 提示（流程终止）
+      │
+      └─ 不存在
+            │
+            ▼
+      [React] 将同票旧 IssueProcessResult 归档为 IssueAnalysisHistory
+            │
+            ▼
+      [API Route] IndexedDB 创建 IssueProcessTask（状态：PENDING）
+            │
+            ▼
+      ┌─────────────────────────────────────────────────────────────┐
+      │       异步执行 issueAnalysisService.runIssueProcessTask      │
+      │                                                             │
+      │  ① PREPARING       加载规则组配置、初始化分析上下文         │
+      │  ② DOWNLOADING     fetch Jira REST API 下载附件（ZIP/PNG）  │
+      │  ③ UNPACKING       递归解压日志包/嵌套压缩包，提取 CAN 与 Android/QNX 日志 │
+      │  ④ PARSING         解析 CAN trace + DBC，输出信号持续区间摘要 │
+      │                    并生成 signals.json / signals_id.json / extract.md │
+      │  ⑤ MODEL_INFERENCE fetch Qwen API 多轮推理                  │
+      │       ├─ EXTRACT_SIGNALS_SYSTEM    提取关键信号              │
+      │       ├─ LOG_SUMMARY_SYSTEM        日志摘要生成              │
+      │       ├─ COMPARE_CANTRACE          CAN 日志比对              │
+      │       ├─ REQUIREMENT_EXTRACT_SYSTEM 需求文本提取             │
+      │       └─ CONSISTENCY_SYSTEM        一致性分析                │
+      │  ⑥ GENERATING_REPLY 生成 replyText（自然语言分析结论，若包含信号/报文不存在则追加从最大 cycle 文件夹 Buildinfo.txt 提取的博世 MAIN_VERSION） │
+      │  ⑦ SAVING_RESULT    保存 IssueProcessResult + 生成波形图    │
+      │                    写入 pipeline-metrics.json 作为耗时/准确率基线 │
+      │                    服务端成功响应完成后，Next.js `after` 异步归档当前 run 的 logRoot；浏览器独立持久化 IndexedDB │
+      └─────────────────────────────────────────────────────────────┘
+            │
+            ▼
+      [Store] 写入最终 SUCCESS / FAILED 状态
+      [React] Zustand 状态更新 → TaskItem 重渲染，详情页以纯散点图展示 CAN 信号时序，不绘制折线连接
+```
+
+### 3.4 AI 推理子流程说明（MODEL_INFERENCE 阶段）
+
+| 步骤 | Qwen System Prompt | 作用 |
+|------|-------------------|------|
+| 1 | `EXTRACT_SIGNALS_SYSTEM` | 从 CANtrace 解析出与缺陷相关的信号列表 |
+| 2 | `LOG_SUMMARY_SYSTEM` | 对日志数据生成人类可读的摘要 |
+| 3 | `COMPARE_CANTRACE` | 将 Jira 票描述的现象与 CAN 实测数据逐项比对 |
+| 4 | `REQUIREMENT_EXTRACT_SYSTEM` | 从 Jira 票提取需求 / 期望行为描述 |
+| 5 | `CONSISTENCY_SYSTEM` | 基于 CAN trace 提取后结果，综合上层日志判断缺陷是否可复现、是否与描述一致 |
+
+**Step 2 信号识别补救**：
+
+- `step2_signals.md` 解析出的 token 先按既有精确规则匹配 `prop`、`getSignals`、`setSignals`。
+- 精确未命中的 token 会进入模糊 / 别名补救；仍未命中时，系统只用一次受限模型自检，并要求模型只能从真实候选 `prop` 列表中选择或返回 `null`。
+- 系统会从 Step 2 输出、Jira 标题 / 描述 / 评论和 few-shot 样本构建信号候选池，只保留形态像信号的 token（包含 `AVHSts` 这类 PascalCase）并按权重截断到最多 40 个；当前车型配置只用于同名候选标注和后续匹配目标，不会把配置全集单独扩入候选池。
+- `signals.json` 会保存 `matches`（精确命中）、`recovered`（fuzzy / self_check 补救）、`candidateSources`（候选来源）、`recovered[].recoveryReason`（补救原因）和 `unmatched`（最终未命中）；`pipeline-metrics.json.counts` 同步记录补救和未命中数量。
+- CANtrace 回放和 CAN 图表只消费 Step 2 提取并成功匹配到的信号，每个匹配只选择一个代表信号；候选池、标题、描述、评论、OCR、few-shot 或配置来源中的其他信号仅落盘到 `signals.json` 供审计，不得进入回放，也不得绘图。完整 `signals.json` / `signals_id.json` 仍保留全部匹配用于审计、证据包和日志摘录，不把所有匹配都画到图里。前端 Chart.js 交互图与“锁定当前视口为回填图”截图仅使用处理结果中的提取后 `traceData`，不得从候选池、`signals.json` 或 `signals_id.json` 重建 / 补充图表系列。
+
+**Step 5 一致性分析 Token 预算**：
+
+- Step 5 前会生成结构化 Evidence Packet，文件位于 `log/{ruleGroup}/{carModel}/{issueKey}/evidence-packet.json`，包含匹配 prop、Property ID、信号区间、日志命中、缺失证据和风险标记。
+- Step 5 优先读取 `<结构化证据包>`，再读取 CAN trace 摘要和日志文本。若证据包存在 `missingEvidence` 或 `riskFlags`，模型必须降低置信度并说明缺失证据；该机制不改变人工复核控制 Jira 回填的边界。
+- Step 5 以 `can_trace_extracted_result.txt` 中的 CAN trace 提取后结果作为主证据，原始 CAN trace 仅作为短片段参考。
+- 进入 Qwen 前会按模型上下文预留输出空间，并对合并后的 Step 5 prompt 做总 Token 预算控制。
+- 若输入超预算，系统优先裁剪原始 CAN trace 片段，其次裁剪可恢复查看的长摘要；完整 CAN 明细仍保存在 `log/{ruleGroup}/{carModel}/{issueKey}/can_trace_extracted_result.txt` 和 `can_signal_summary.txt`，不丢失本地审计证据。
+- 裁剪决策会写入 `pipeline.log` 的 `AI_STEP5` 阶段，便于定位输入规模问题。
+
+**Step 5 证据自批判**：
+
+- Step 5 生成最终结论并清理 think 内容后，系统会以 `evidence_packet`、`can_signal_summary`、`can_trace_extracted_result`、`signals_id`、`extract` 五类具名可信证据源计算证据接地率 EGR；在线自检与离线评测使用相同来源名称和判定 helper。
+- Grounding 索引会归一化时间、键值断言、标识符和 Property ID；缺失来源进入 `missingEvidenceSources` 审计，离线读取或解析错误进入 `evidenceReadErrors` / `evidenceSourceErrors`。无有效证据且无法判定的票标记为 `unknown_missing_evidence`，从平均 EGR 中排除。
+- 若存在未接地断言，系统会进行最多 3 轮迭代的低温自批判自愈循环，要求模型删除或弱化证据语料中找不到依据的断言；每一轮均会计算接地率。系统引入接地率回滚保护（Rollback Guard）机制，最终选取接地率最高的结论版本输出，避免重写过程中引入新幻觉。调用失败或无可改善版本时保留原结论。
+- 修订结果仅用于提升结论质量，仍不改变人工复核 PASS 才能 Jira 回填的业务边界；修订前后 EGR 及多轮历史会写入 `evidence-grounding.json` 和 `pipeline-metrics.json`。
+
+### 3.5 后置条件
+
+- `IssueProcessTask.status = 'SUCCESS'`。
+- `IssueProcessResult` 创建完毕，含 `replyText`、`rawSignals`、CAN 信号波形图。
+- 若处理结果包含 `traceData`，详情页优先渲染交互式 CAN 信号图：多个信号共享绝对时间横坐标，各信号使用独立纵坐标，缩放 / 平移时保持同一时间窗。
+- 新 `IssueProcessResult.reviewStatus = 'PENDING'`，`hasCommentedToJira = false`；不会继承历史复核或历史回填状态。
+- 若该票此前已有分析结果，旧结果已归档为 `IssueAnalysisHistory`，详情页可追溯历史分析和历史复核结果。
+- 数据持久化到 IndexedDB。
+- 服务端完成成功响应后，浏览器收到响应并独立写入 IndexedDB；`ENABLE_DOCUPEDIA=1` 时，服务端 Next.js `after` 也在响应完成后异步归档当前 run 的 `logRoot`，二者互不等待或作为门槛。`ENABLE_DOCUPEDIA=0` 时跳过自动上传。归档只读取当前票的 `log/{ruleGroupId}/{carModel}/{issueKey}/`，在配置的 Docupedia 父页面下创建 `jira_<随机数>` 根页面。同一目录内 `stepN_` 开头且数字相同的日志文件会先拼接成一个带同一随机前缀的 `jira_<随机数>_stepN` 子文章上传，例如 `step1_requirements_raw.md`、`step1_requirements.md` 和 `step1_thinking.md` 合并到 `jira_<随机数>_step1`；`input_comments.txt` 不上传。系统不会扫描历史 `log/`、补传旧日志或在进程重启后恢复未完成上传。`socket hang up`、超时、连接重置、429 和 5xx 等瞬时错误会在页面 find-or-create 层重试；单个日志文章最终失败会计入 `failed` 并继续上传后续文章，最终失败只写入 `pipeline.log`，不影响结果、复核或回填。
+- 服务端文件系统（附件 + 分析日志）：
+
+```
+jira-issues/{ruleGroupId}/{carModel}/{issueKey}/
+    trace.asc 或 trace.blf / logs.zip / extracted/   ← 附件永久保留
+    extracted/ 下会继续展开 Bosch-*.zip、aplog.*.gz、.tar.gz、.zst 等嵌套归档
+
+log/{ruleGroupId}/{carModel}/{issueKey}/
+    pipeline.log          ← 完整执行日志（每行含时间戳、阶段、消息）
+    input_comments.txt    ← 发送给 AI 的评论原文
+    step1_requirements.md ← Step 1 需求提取结果
+    step2_signals.md      ← Step 2 信号提取结果
+    signals.json          ← Step 2 token 在 config_车型.json 中命中的配置项（含 prop/getSignals/setSignals 命中方式、候选来源和补救原因）
+    signals_id.json       ← 命中 prop 通过 proto Property_ID 映射出的十进制 / 十六进制 id
+    evidence-packet.json  ← Step 5、结构化校验和离线评测共用的结构化证据包
+    can_trace_extracted_result.txt ← CAN trace 解码后的信号值持续区间摘要（ASC/BLF 同格式输出）
+    can_signal_summary.txt ← CAN 信号摘要（同提取结果，供前端展示）
+    extract.md            ← 解压日志中位于评论时间窗内且包含目标 prop id 的日志摘录
+    step3_upper_summary.md← Step 3 上层日志摘要
+    step4_android_qnx.md  ← Step 4 Android/QNX 分析
+    pipeline-metrics.json ← 阶段耗时、Prompt 长度、证据完整性和最终状态
+    final_reply.md        ← 最终 AI 结论
+    stages.json           ← 流水线阶段快照（含耗时 ms）
+```
+
+#### Phase 3 证据精召回与评测集覆盖
+
+Step 5 前，系统会基于 `evidence-packet.json` 对处理前召回的 few-shot 案例进行证据精召回 / 重排，使历史纠错案例优先匹配当前票的 prop、signal、Property ID、缺失证据和风险标记。该重排失败时回退原 few-shot 顺序，不影响处理流程。Evidence Packet 按真实时间窗 overlap 计算评论与 trace 是否重叠（而非仅检查字段是否存在）。离线评测额外输出 `eval-set-coverage.{json,md}`，报告人工真值数量和覆盖比例，实现二段式 RAG 评测集覆盖闭环。证据校准及审计只辅助解释和人工复核，保持 advisory / non-blocking，不改变 Jira 回填边界。
+
+#### 台架 / 实车场景
+
+处理前按标题判定场景（「台架」→台架问题，「实车」→实车问题）。few-shot 与历史错误模式只从同场景历史样本召回；Step 5 注入 `<问题场景>` 结论口径（台架：请测试确认是否模拟信号上报；实车：vehicle 通路正常，请按需求确认原因并转对应模块分析）；最终结论开头加 `【台架问题】` / `【实车问题】` 后再保存与回填。未标注场景的票流程不变。
+
+### 3.5.1 黄金样本基线
+
+黄金样本基线用于同时衡量分析票准确率和处理速度。每次处理完成或失败时，服务端都会写入 `pipeline-metrics.json`，记录 `durationMs`、各阶段耗时、`evidenceCompleteness`、`evidenceScore` 和最终状态。
+
+运行 `npm run baseline:golden` 会递归扫描 `log/**/pipeline-metrics.json`，输出：
+
+- `docs/golden-baseline/golden-baseline.json`：机器可读报告，供后续回归脚本比较；
+- `docs/golden-baseline/golden-baseline.md`：人工审阅报告，展示样本数、平均耗时、P50/P90、证据完整性和样本列表。
+
+该脚本不重新分析 Jira 票，不调用 Qwen，只基于已有处理日志生成基线。
+
+### 3.5.2 离线准确率评测
+
+`npm run eval:accuracy` 会回放 `log/` 下已有票据产物，读取与在线 U3 相同的五类具名证据源，复用 `computeGrounding()` 计算平均证据接地率 EGR，并生成 `docs/golden-baseline/eval-report.json` 与 `eval-report.md`。缺失、读取失败和解析错误会随票进入来源审计；`unknown_missing_evidence` 票单独计数，不纳入 EGR 均值。当 `docs/golden-baseline/eval-set.json` 中维护了人工稀疏真值时，报告会额外输出信号召回率与结论关键判断命中率。Phase 2 报告会额外输出 `errorCategories`、`riskFlags`、`topMissingEvidence` 和 `categoryCounts`，用于定位信号缺失、时间窗不匹配、日志证据缺失、未接地结论、RAG 不匹配和低置信度证据等错误类型。EGR 只表示结论断言的证据接地率，不等同于端到端解票准确率；模型、Prompt、信号映射或证据自批判逻辑改动后，应重跑该命令对比 delta。
+
+### 3.5.3 Step 2 配置归一化规则
+
+- `step2_signals.md` 中的 token 不直接用于 proto 映射，必须先在当前车型 `config_车型.json` 中查找。
+- 命中顺序为：`prop` 精确匹配、`getSignals` 精确匹配、`setSignals` 精确匹配。
+- 命中后统一收敛到配置项的 `prop`，后续十进制 / 十六进制 id 只从该 `prop` 去 `.proto` 的 `Property_ID` 枚举映射。
+- 未在配置中出现且无法通过受限补救确认的 token 只进入 `signals.json.unmatched`，避免把 AI 幻觉信号带入后续日志筛选链路。
+
+### 3.5.4 日志筛选时间窗规则
+
+- Step 4 的 Android/QNX 日志提取优先使用上层评论中的时间信息，而不是 CAN trace 录制时间。
+- 若评论中存在 `YYYY-MM-DD HH:MM:SS` 形式的完整时间戳，则取评论里的最早 / 最晚时间作为筛选时间窗。
+- 若评论中只有“问题发生时间 09:58”或“时间点13:52:22附近”这类时间点，则结合 trace 日期补全年月日，并默认向后扩展 5 分钟作为时间窗。
+- 只有在评论中完全提取不到时间时，才回退到 CAN trace 录制开始 / 结束时间。
+
+### 3.6 异常处理
+
+| 异常场景 | 处理方式 | UI 反馈 |
+|----------|----------|---------|
+| 已有活跃处理任务 | 返回 409 | Toast 提示用户等待 |
+| 附件下载失败 | status = FAILED，阶段停留在 DOWNLOADING | Card 显示错误 + 重试 Button |
+| ZIP/嵌套归档解压错误 | 状态停留在 UNPACKING | Toast 显示详细异常 |
+| CAN 解析失败 | 状态停留在 PARSING | 可能为不支持的协议格式 |
+| Qwen API 超时/限流 | 状态停留在 MODEL_INFERENCE | Toast 提示，支持重试 |
+| 波形图生成失败 | 结果仍保存，图片字段为 null | 不阻断流程，图片区域显示占位 |
+
+---
+
+## 4. AI 复核流程
+
+### 4.1 触发条件
+
+用户可在单票详情页的处理结果区域点击 **"AI 复核"** Button。
+
+### 4.2 前置条件
+
+- `IssueProcessResult` 已存在（处理任务已成功完成）。
+- `.env` 已配置 `VALIDATE_QWEN_MODEL` 和 `VALIDATE_API_KEY`。
+
+### 4.3 流程步骤
+
+```
+用户点击"AI 复核"Button
+      │
+      ▼
+[React] POST /api/issues/review
+      │     发送 replyText、Issue 摘要、ruleGroupId、ruleGroupName、
+      │     Jira 描述/评论/原始快照、CAN 信号摘要和 Few-shot 样本
+      ▼
+[Store] 从 IndexedDB 查询同规则组 IssueReviewSample，并通过 Embedding RAG 召回最相似的 3 条
+      │     召回文本优先使用标题 + 规则组 + 车型 + prop/signal/Property ID evidence fingerprint
+      │     台架/实车票只用同场景（标题含「台架」/「实车」）样本；未标注场景不限
+      │     Embedding 失败时回退标题 Token 重叠度
+      │
+      ▼
+[API Route] 读取服务端分析日志：
+       log/<规则组>/<车型>/<IssueKey>/step1_requirements.md
+       + step2_signals.md / signals.json / signals_id.json
+       + step3_upper_summary.md / step4_android_qnx*.md
+       + extract.md / final_reply.md / pipeline.log
+      │
+      ▼
+[API Route] 构建完整分析上下文 Prompt：
+       System Prompt（验证角色定义）
+       + 历史错例（≤3 条 Few-shot 样本）
+       + Jira 描述、评论、原始快照
+       + CAN 信号摘要
+       + 服务端分析日志
+       + 当前 AI 结论（replyText）
+      │
+      ▼
+[API Route] 使用 VALIDATE_QWEN_MODEL + VALIDATE_API_KEY 调用验证模型
+       返回 JSON：
+       {
+         "verdict": "PASS" | "FAIL",
+         "reason": "..."
+       }
+      │
+      ▼
+[Store] 根据返回值保存复核结果到 IndexedDB
+      │
+[Store] AI 复核只保存建议状态，不创建人工复核样本
+      │
+      ▼
+[Store] 更新最新 reviewStatus
+[React] Card 状态徽标更新（绿色 PASS / 红色 FAIL）
+```
+
+### 4.4 后置条件
+
+- `IssueProcessResult.reviewStatus` 更新为 `PASS` 或 `FAIL`。
+- AI 复核不创建 `IssueReviewSample`；样本只由后续人工通过或人工驳回生成。
+
+### 4.5 异常处理
+
+| 异常场景 | 处理方式 | UI 反馈 |
+|----------|----------|---------|
+| Qwen 返回非法 JSON | Zod 校验失败，reviewStatus 保持 PENDING | Toast 提示重试 |
+| Qwen API 不可用 | 返回 503 | Toast 提示服务不可用 |
+| 历史错例不足 3 条 | 正常运行，Few-shot 样本数量动态调整 | 无影响 |
+
+---
+
+## 5. 人工复核流程
+
+### 5.1 触发条件
+
+用户在处理结果 Card 中点击 **"人工通过"** 或 **"人工改判"** Button。
+
+"人工改判"会弹出 Dialog 表单，包含两个可编辑文本框：
+
+- 失败理由（必填）
+- 正确结论（必填）
+
+### 5.2 流程 A：人工复核通过（PASS）
+
+```
+用户在 Dialog 中选择 Select: "通过"，点击 Button "提交"
+      │
+      ▼
+[React] 调用来源 Store 的 approveResult
+      ▼
+[Store] 在同一 IndexedDB 事务中更新当前结果为 approved
+      │
+      ▼
+[Store] 按当前结果 reviewEvidence 构造 sampleKind=approved
+        保存 approvedConclusion，清空纠错字段与旧 Embedding
+        同一 ruleGroupId + issueKey 的旧样本被覆盖，重复记录被删除
+      │
+      ▼
+[Store] 清理该票旧纠错 LearningMemory 并更新页面状态
+[React] Dialog 关闭，Card 状态更新为"已通过"
+```
+
+### 5.3 流程 B：人工改判不通过（FAIL）
+
+```
+用户在 Dialog 中填写：
+  Textarea: errorReason（失败理由）
+  Textarea: correctResult（正确结论）
+点击 Button "提交"
+      │
+      ▼
+[React] 调用来源 Store 的 rejectResult(errorReason, correctResult)
+      ▼
+[Store] 在同一 IndexedDB 事务中更新 ProcessResult：
+       reviewStatus = 'FAIL'
+       manualErrorReason = errorReason
+       manualCorrectResult = correctResult
+       reviewedAt = new Date()
+      │
+      ▼
+[Store] 更新或创建 sampleKind=correction：
+        wrongConclusion + correctConclusion + errorReason
+        + 当前 run 的车型/prop/signal token/Property ID
+        清除旧 Embedding，并删除同票重复样本
+      │
+      ▼
+[后续 AI 分析] Embedding/标题召回后按车型和结构化证据混合排序；
+             当前 Evidence Packet 再次重排并过滤无证据关联的正样本
+             Step 5 分别注入历史纠错案例与历史正确案例
+      │
+      ▼
+[Store] 更新复核状态
+[React] Dialog 关闭，Card 状态更新为"已拒绝 + 已修正"
+```
+
+### 5.4 Dialog 表单组件结构
+
+```typescript
+// ManualReviewDialog.tsx
+<Dialog>
+  <DialogTrigger asChild>
+    <Button variant="outline">人工复核</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>人工复核</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      <Select onValueChange={setReviewStatus}>
+        <SelectTrigger><SelectValue placeholder="选择复核结果" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="PASS">通过</SelectItem>
+          <SelectItem value="FAIL">不通过</SelectItem>
+        </SelectContent>
+      </Select>
+      {reviewStatus === 'FAIL' && (
+        <>
+          <Textarea placeholder="错误原因" value={errorReason} onChange={...} />
+          <Textarea placeholder="正确结论" value={correctResult} onChange={...} />
+        </>
+      )}
+    </div>
+    <DialogFooter>
+      <Button variant="ghost" onClick={onClose}>取消</Button>
+      <Button onClick={handleSubmit}>提交</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+### 5.5 后置条件
+
+| 情形 | 后置状态 |
+|------|----------|
+| PASS | `reviewStatus = 'PASS'`，同票样本覆盖为 `approved`，旧纠错记忆清除 |
+| FAIL | `reviewStatus = 'FAIL'`，同票样本覆盖为 `correction`，`LearningMemory` 更新 |
+
+### 5.6 异常处理
+
+| 异常场景 | 处理方式 | UI 反馈 |
+|----------|----------|---------|
+| correctResult 为空而状态为 FAIL | Zod 校验拦截 | Dialog 内 Input 标红 + 错误提示 |
+| IndexedDB 写入失败 | 记录错误日志 | Toast 提示"保存失败，请重试" |
+
+---
+
+## 6. Jira 回填流程
+
+### 6.1 触发条件
+
+用户在处理结果 Card 中点击 **"回填 Jira"** Button。
+
+### 6.2 前置检查（决策门）
+
+```
+[API Route] 检查 hasCommentedToJira === true？
+      ├─ 是 ──► 返回 200（幂等，Button 已置灰，直接结束）
+      └─ 否
+            │
+            ▼
+      [API Route] 检查 reviewStatus === 'PENDING'？
+            ├─ 是 ──► 返回 409（尚未复核，拒绝回填）
+            └─ 否
+                  │
+                  ▼
+            [API Route] 检查 reviewStatus === 'FAIL' 且 manualCorrectResult 为空？
+                  ├─ 是 ──► 返回 409（FAIL 必须提供人工正确结论）
+                  └─ 否 ──► 继续执行回填
+```
+
+### 6.3 流程步骤
+
+```
+[React] 打开回填预览：
+       已通过状态默认从 replyText 提取结论正文，已拒绝状态默认使用人工填写的正确结论
+       用户可编辑 Jira 评论正文
+      │
+      ▼
+[Zustand] commentToJira()
+      │     POST /api/jira/comment
+      ▼
+[API Route] 接收 issueKey 和编辑后的评论正文
+      │
+      ▼
+[API Route] 若用户已在详情页锁定当前视口，/api/issues/save-screenshot 已将浏览器合成图覆盖到 chartImagePath 对应的 log/.../can_signals.png
+      │
+      ▼
+[API Route] fetch jiraClient.addComment(issueKey, content)
+       如存在 chartImagePath → 上传对应 log/.../can_signals.png 作为波形图附件
+      │
+      ▼
+[API Route] IndexedDB 标记 hasCommentedToJira = true, commentedAt = new Date()
+      │
+      ▼
+[Store] 更新回填状态
+[React] Button 切换为 disabled + "已回填"文案
+```
+
+### 6.4 后置条件
+
+- `IssueProcessResult.hasCommentedToJira = true`。
+- Jira 票中存在对应的分析评论（含波形图附件，如有）。若用户先锁定浏览器视口，则附件为锁定后的前端合成图，而不是处理阶段最初生成的静态图。
+
+### 6.5 异常处理
+
+| 异常场景 | 处理方式 | UI 反馈 |
+|----------|----------|---------|
+| Jira API 写入失败 | 返回 502，hasCommentedToJira 保持 false | Toast "回填失败"，Button 可重试 |
+| 评论内容为空 | 前端拦截，API 仍保留参数校验 | 前端提示"回填内容不能为空" |
+| 附件上传失败 | 评论正文仍写入，图片失败单独记录 | Toast 警告"图片上传失败" |
+
+---
+
+## 7. AI 校验流程
+
+### 7.1 触发条件
+
+用户在处理结果 Card 中点击 **"开始校验"** Button；处理结果保存后也会自动运行 advisory 结构化证据校验。
+
+### 7.2 前置条件
+
+- `IssueProcessResult` 已存在，且含 `replyText` 和可选 `signalSummary`。
+
+### 7.3 流程步骤
+
+```
+用户点击"开始校验"Button
+      │
+      ▼
+[React] POST /api/process-results/{id}/validation-runs
+      │     useMutation → onSuccess: router.push(...)
+      ▼
+[API Route] IndexedDB 创建 IssueValidationRun（status: 'PENDING'）
+      │
+      ▼
+[React] Router.push(`/validation-runs/${validationRunId}`)（跳转详情页）
+      │
+      ▼
+[异步 Promise] 执行校验逻辑：
+       ① 从 IssueProcessResult.replyText 抽取信号值、时间窗、复现判断等结构化断言
+       ② 与 signalSummary / CAN trace 摘要 / 上层日志证据逐项比对
+       ③ 保留旧时间戳一致性校验作为兜底
+       ④ 计算 systemVerdict：PASS / WARNING / FAIL / UNKNOWN
+       ⑤ 保存 IssueValidationRun + IssueValidationCheck 到 IndexedDB
+       ⑥ 每条 IssueValidationCheck 可包含 evidenceSource 和 confidence
+      │
+      ▼
+[React Query] refetchInterval: 2000ms 轮询
+      │     GET /api/validation-runs/{validationRunId}
+      ▼
+[React] status === 'DONE' → 停止轮询 → 渲染结果
+       使用 Card 展示 systemVerdict
+       使用 ScrollArea 展示比对明细表、证据来源和置信度
+       FAIL / WARNING 只提示人工复核注意，不禁用 Jira 回填入口
+```
+
+### 7.4 裁决规则
+
+| systemVerdict | 含义 | UI 表现 |
+|---------------|------|---------|
+| `PASS` | AI 结论中引用的所有关键时间戳与 CANtrace 数据吻合 | 绿色 Badge |
+| `WARNING` | 存在轻微偏差（如时钟漂移），整体结论仍可信 | 黄色 Badge |
+| `FAIL` | 关键时间戳严重不匹配，AI 结论存疑 | 红色 Badge |
+| `UNKNOWN` | 无法从 replyText 提取足够时间戳进行比对 | 灰色 Badge |
+
+### 7.5 异常处理
+
+| 异常场景 | 处理方式 | UI 反馈 |
+|----------|----------|---------|
+| rawSignals 为空 | systemVerdict = UNKNOWN | Card 显示"无可校验数据" |
+| replyText 无时间戳 | systemVerdict = UNKNOWN | 提示"AI 结论中未包含时间信息" |
+| 校验过程中抛出异常 | IssueValidationRun.status = FAILED | Toast 错误提示 |
+
+---
+
+## 8. 人工改判流程
+
+### 8.1 触发条件
+
+用户在校验详情页对 AI 校验结果有异议，点击 **"改判"** Button 弹出 **Dialog 表单**。
+
+### 8.2 流程步骤
+
+```
+用户点击"改判"Button → Dialog 弹出
+用户在 Dialog 中填写：
+  Select: manualVerdict = PASS | FAIL | WARNING | UNKNOWN
+  Textarea: manualReason = "改判原因"
+  Textarea: manualNote = "补充说明"（可选）
+点击 Button "确认改判"
+      │
+      ▼
+[React] PATCH /api/validation-runs/{id}/override
+      │     useMutation
+      ▼
+[API Route] Zod 校验请求体
+[API Route] 更新 IndexedDB IssueValidationRun：
+       manualVerdict    = 用户输入
+       manualReason     = 用户输入
+       manualNote       = 用户输入
+       manualOperator   = 当前用户名
+       manualSavedAt    = new Date()
+      │
+      ▼
+[React] Dialog 关闭
+[React] 详情页同时显示 systemVerdict 与 manualVerdict 对比 Card
+```
+
+### 8.3 Dialog 表单组件结构
+
+```typescript
+// OverrideVerdictDialog.tsx
+<Dialog>
+  <DialogTrigger asChild>
+    <Button variant="destructive">改判</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>人工改判</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      <Select onValueChange={setManualVerdict}>
+        <SelectTrigger><SelectValue placeholder="选择改判结果" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="PASS">PASS</SelectItem>
+          <SelectItem value="FAIL">FAIL</SelectItem>
+          <SelectItem value="WARNING">WARNING</SelectItem>
+          <SelectItem value="UNKNOWN">UNKNOWN</SelectItem>
+        </SelectContent>
+      </Select>
+      <Textarea placeholder="改判原因（必填）" value={manualReason} onChange={...} />
+      <Textarea placeholder="补充说明（选填）" value={manualNote} onChange={...} />
+    </div>
+    <DialogFooter>
+      <Button variant="ghost" onClick={onClose}>取消</Button>
+      <Button variant="destructive" onClick={handleSubmit}>确认改判</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+### 8.4 后置条件
+
+- `IssueValidationRun` 中同时保留 `systemVerdict`（AI 原判）和 `manualVerdict`（人工改判），便于追溯。
+
+### 8.5 异常处理
+
+| 异常场景 | 处理方式 | UI 反馈 |
+|----------|----------|---------|
+| manualVerdict 为空 | Zod 校验拦截 | Select 标红提示 |
+| manualReason 为空 | Zod 校验拦截 | Textarea 标红提示 |
+| 并发改判冲突 | Last-Write-Wins（单用户场景） | — |
+
+---
+
+## 9. 自动周期运行流程
+
+### 9.1 触发条件
+
+用户在首页规则组行点击 **"自动 ON/OFF"** 控件，并设置该规则组的周期间隔（分钟）。
+
+### 9.2 启动步骤
+
+```
+用户开启某个规则组 AutoCycle
+      │
+      ▼
+[Zustand] useAutoCycleStore.toggleAutoCycle(ruleGroupId, true)
+      │
+      ▼
+[IndexedDB] 写入 AutoCycleState：
+       isActive = true
+       nextRunAt = new Date()
+       intervalMinutes = N（最小 5 分钟）
+      │
+      ▼
+[React] KanbanBoard 本地 setInterval 调度器恢复运行
+[React] 规则组行显示"自动ON"和间隔
+```
+
+### 9.3 本地定时执行（每 30 秒检查一次 runDueAutoCycles）
+
+```
+KanbanBoard setInterval 触发 runDueAutoCycles()
+      │
+      ▼
+[步骤 A] 遍历已启用 AutoCycle 的规则组
+         跳过 nextRunAt 未到达或当前已有本地运行锁的规则组
+      │
+      ▼
+[步骤 B] runUnifiedFilter(group)
+         并发筛选 Jira 与飞书项目，保存各自本轮状态、快照或分配，并返回来源汇总
+      │
+      ▼
+[步骤 C] 仅依据当次来源汇总决定处理范围
+         Jira 使用当次最新成功快照；当次飞书筛选成功时，处理该规则组当前全部 pending / failed 分配（含人工分配）
+         Jira 成功、飞书失败时仅处理 Jira，不派发飞书处理，也不读取飞书历史成功结果
+      │
+      ▼
+[步骤 D] processRuleGroup(group, sourceSummary)
+         按来源处理 Jira 快照和飞书项目分配
+      │
+      ▼
+[步骤 E] markAutoCycleRun(ruleGroupId)
+         更新 lastRunAt 和 nextRunAt = Date.now() + N * 60000
+```
+
+### 9.4 停止流程
+
+```
+用户点击"自动ON"切换为关闭
+      │
+      ▼
+[Zustand] useAutoCycleStore.toggleAutoCycle(ruleGroupId, false)
+      │
+      ▼
+[IndexedDB] 更新 AutoCycleState.isActive = false
+[React] 规则组行显示"自动OFF"
+```
+
+### 9.5 飞书通知规则
+
+- 每张 Jira 或飞书项目工单处理完成后立即发送 1 条飞书通知。
+- Jira `runOne()` 与 Meegle `processAssignment()` 的成功分支发送成功通知；失败分支发送失败通知。
+- 通知内容包含来源、工单主题、描述、处理结果或失败原因，以及处理时间。
+- 若存在结果图片，当前版本在 webhook-only 模式下附带图片访问链接，不直接上传本地图片。
+
+### 9.6 异常处理
+
+| 异常场景 | 处理方式 | UI 反馈 |
+|----------|----------|---------|
+| 页面关闭后重新打开 | IndexedDB 中 isActive 保持 true，首页加载后恢复本地调度器 | 自动恢复 |
+| 飞书 Webhook 不可用 | 记录 console warning，不影响当前票处理完成/失败落库 | 无直接 UI 反馈 |
+| 批量创建筛票任务部分失败 | 失败的规则组记录错误，其余正常 | 页面展示错误详情 |
+
+---
+
+## 10. 一键筛选 / 一键处理流程
+
+### 10.1 一键筛选
+
+**触发**：用户点击首页 **"一键筛选"** Button。
+
+```
+[React] Promise.allSettled 为所有规则组并发调用筛票 API
+      │     使用 p-limit 控制并发数
+      ▼
+[API Routes] 对每个规则组执行筛票流程（参见第 2 节）
+       已有运行中任务的规则组 → 跳过（返回 409，前端静默忽略）
+       其余规则组            → 正常创建 FilterTask
+      │
+      ▼
+[React] 汇总展示各规则组筛票任务状态
+       使用 Toast 显示"N 个规则组已启动筛票，M 个跳过"
+```
+
+### 10.2 一键处理
+
+**触发**：用户点击首页 **"一键处理"** Button。
+
+```
+[React] 检查该规则组最新 FilterTask
+      │
+      ├─ 没有完成过筛票 ──► Button disabled
+      │
+      ├─ 最新筛票结果为 0 票 ──► Button disabled
+      │
+      └─ 最新筛票结果 > 0
+      │
+      ▼
+[React] 读取该规则组最新一次成功筛票生成的快照
+       逐张调用 runOne() / runAll()
+       为每张尚无活跃处理任务的票创建 IssueProcessTask
+      │
+      ▼
+[React] 通过 pLimit(CONCURRENCY_LIMIT) 有界并发处理（默认 5，可用 NEXT_PUBLIC_CONCURRENCY_LIMIT 调整），避免同时压垮分析链路
+[UI]   详情页 / 分析页逐票更新处理状态
+```
+
+---
+
+## 11. Jira 状态流转流程
+
+### 11.1 触发条件
+
+用户在处理结果 Card 或规则组详情页点击"状态流转"Button，弹出 Dialog。
+
+### 11.2 流程步骤
+
+```
+用户点击"状态流转"Button
+      │
+      ▼
+[React] GET 可用状态流转与相关人员候选
+      │     GET /api/rule-groups/{id}/processed-issues/{issueKey}/transition
+      ▼
+[API Route] fetch Jira transitions
+      │     GET /rest/api/2/issue/{issueKey}/transitions
+[API Route] fetch Jira issue detail/watchers
+      │     GET /rest/api/2/issue/{issueKey}?fields=*all
+      │     GET /rest/api/2/issue/{issueKey}/watchers
+      ▼
+[React] Dialog 展示 transition 列表和相关人员候选
+      │
+      ▼
+用户在 Dialog 中：
+  Select 选择目标状态（transitionId）
+  Select 选择指派人（targetUser，可选，默认不变更经办人）
+点击 Button "执行流转"
+      │
+      ▼
+[React] POST /api/rule-groups/{id}/processed-issues/{issueKey}/transition
+      │     Body: { transitionId, targetUser }
+      ▼
+[API Route] fetch jiraClient.transitionIssue(issueKey, transitionId)
+[API Route] 若 targetUser 非空，fetch jiraClient.assignIssue(issueKey, targetUser)
+      │
+      ▼
+[React] Dialog 关闭，Toast "状态流转成功"
+[React] 使用 Jira transition 的目标状态刷新当前票据状态显示
+```
+
+### 11.3 注意事项
+
+- `transitionId` 必须与目标 Jira 项目的工作流定义一致，否则 Jira API 返回 400。
+- 前端不硬编码 transition；每次打开弹窗时读取当前票据的可用状态流转。
+- 前端不手写 Jira 用户名；指派人从当前 Jira 票的经办人、报告人、创建人、评论作者、关注人和用户型字段中去重生成。
+- `targetUser` 为空时不调用 Jira 指派接口。
+- 状态流转与系统内部状态（`reviewStatus` 等）相互独立，不联动。
+
+---
+
+## 12. 拖拽排序流程
+
+### 12.1 触发条件
+
+用户在首页长按 RuleGroupCard 进行拖拽排序。
+
+### 12.2 流程步骤
+
+```
+用户拖拽 RuleGroupCard（dnd kit PointerSensor）
+      │
+      ▼
+[dnd kit] closestCenter 碰撞检测 → 计算目标位置
+      │
+      ▼
+[onDragEnd] 触发回调
+      │
+      ▼
+[React] arrayMove(groups, oldIndex, newIndex)
+[Zustand] 乐观更新 Store → RuleGroupList 重渲染
+      │
+      ▼
+[IndexedDB] 批量更新 RuleGroup.sortOrder
+      │
+      ▼
+[API Route] PUT /api/rule-groups/reorder { ids: [...] }
+      │
+      ├─ 成功 ──► 流程结束
+      │
+      └─ 失败 ──► Zustand 回滚排序 → Toast "排序保存失败"
+```
+
+### 12.3 关键点
+
+- **乐观更新**：拖拽结束后立即更新 UI，不等待 API 响应。
+- **双重持久化**：IndexedDB + API Route 同步。
+- **无障碍**：dnd kit KeyboardSensor 支持键盘操作。
+
+---
+
+## 13. 业务决策点说明
+
+| 决策点 | 位置 | 判断依据 | 结果 |
+|--------|------|----------|------|
+| 是否允许重复筛票 | 筛票流程 | 同规则组 10 分钟内是否有运行中任务 | 是→409，否→创建任务 |
+| 是否允许重复处理 | 单票处理 | 是否存在 PENDING/RUNNING 的处理任务 | 是→409，否→创建任务 |
+| 回填内容选择 | Jira 回填 | `reviewStatus` 是否为 FAIL | FAIL→`manualCorrectResult`，否→`replyText` |
+| 是否允许回填 | Jira 回填 | `reviewStatus` 是否为 PENDING，或 FAIL 且无人工结论 | 不满足→409 |
+| 幂等回填保护 | Jira 回填 | `hasCommentedToJira` | true→直接返回 200，Button disabled |
+| AI 复核 Few-shot 来源 | AI 复核 | 同规则组 IndexedDB `IssueReviewSample`，优先 Embedding 语义检索，失败回退标题 Token 重叠度 | 动态注入 prompt |
+| 人工复核 PASS 后清理 | 人工复核 | `reviewStatus = 'PASS'` | 删除错例 + 学习记忆 |
+| 校验裁决 | AI 校验 | 时间戳匹配率 | PASS / WARNING / FAIL / UNKNOWN |
+| 排序持久化 | 拖拽排序 | API 响应状态 | 成功→保持，失败→回滚 |
+
+---
+
+## 14. 远程终端连接流程
+
+用户进入 `/terminal`，选择白名单服务器，确认风险等级和命令限制模式后建立 WebSocket。Gateway 用服务端配置的 SSH key 连接目标服务器。关闭标签或页面时 Gateway 断开对应 SSH。
+
+本地开发应使用 `npm run dev:with-terminal` 同时启动 Next.js 和 Terminal Gateway。Gateway 会加载 `.env` 中的 `REMOTE_SHELL_TARGETS_JSON`；远程浏览器默认连接当前页面 hostname 的 `39222` 端口，如需代理或改端口，可设置 `NEXT_PUBLIC_REMOTE_SHELL_GATEWAY_URL`。
+
+若终端显示 `SSH 认证失败` 或 `All configured authentication methods failed`，说明 Gateway 已到达 SSH 服务，但目标服务器拒绝了当前认证材料。需要在 `REMOTE_SHELL_TARGETS_JSON` 中更换为目标服务器已授权的 `privateKeyPath`，或配置 `password`、`privateKeyPassphrase`、`agentSocket`。这些字段只在服务端使用，不会通过 `/api/terminal/targets` 返回浏览器。
+
+远程终端页面会额外读取 `/api/terminal/projects`，其来源是 `docs/project.json`。用户先选择服务器，再选择项目和分支；选中分支后，右侧显示该分支配置的各个 repo 的 git status。用户在终端中提交任意命令后，Gateway 会在短延迟后按当前项目上下文刷新每个 repo 的 `git status --short --branch`；点击“刷新”会立即刷新。
+
+选择项目时，前端向当前远程 shell 发送 `cd mainPath`，例如选择 `chery-8255` 会进入 `~/workspace`。选择分支时，前端按分支配置对每个 repo 发送 `git checkout branchName`，用于把 `vs`、`api-public`、`automotive-custom` 等仓库切到对应分支；若 checkout 失败，则执行 `git stash push -u` 保存本地改动后重新 checkout。点击“配信号”时，前端向当前远程 shell 发送 `cd mainPath/scriptPath`，便于后续直接运行脚本目录下的信号配置命令。
+
+右侧 repo 状态分栏可拖拽调整宽度。状态内容保持 `git status --short --branch` 的原始行结构，并按分支行、未跟踪、新增、修改、删除、冲突等状态显示不同颜色，便于快速扫描。
+针对 Repo 状态分栏中的文件，没有使用 `git add` 提交过的文件（未暂存或未跟踪文件）以及已经使用 `git add` 提交过的文件（已暂存文件）在行首都会展示复选框供勾选。
+- **git add 操作流程**：用户勾选文件，点击 repo 区域底部的 `git add` 按钮。前端生成包含所选文件列表的 `gitAdd` WebSocket 消息。Gateway 拦截并执行 `cd repo && git add files` 的 SSH 命令，完成后自动清理勾选并刷新该 repo 的状态。
+- **checkout 操作流程**：用户勾选文件，点击 `checkout` 按钮，弹出浏览器确认窗口提示风险。确认后前端生成 `gitCheckout` WebSocket 消息。Gateway 拦截并执行 `cd repo && git checkout -- files` 撤销对应文件修改，完成后自动清理勾选并刷新该 repo 的状态。
+- **git reset 操作流程**：用户勾选已暂存文件，点击 repo 区域底部的 `git reset` 按钮。前端生成包含所选文件列表的 `gitReset` WebSocket 消息。Gateway 拦截并执行 `cd repo && git reset HEAD files` 的 SSH 命令撤销暂存，完成后自动清理勾选并刷新该 repo 的状态。
+
+连接成功并选择项目/分支后，前端会通过 `signalConfigFiles` WebSocket 消息请求 Gateway 扫描每个 repo 的 `repoPath/tools/json/config_*.json`。右侧“配置文件”区域按 `config_*.json` 中的 `*` 展示复选框，并显示该 repo 对应的 `branchName`。配置复选框状态以 `repoPath + branchName` 隔离；`repoPath` 或 `branchName` 任意一个变化时，前端都会清空当前旧配置列表并重新请求 Gateway 扫描。复选框默认全部勾选表示保留。用户取消勾选不需要保留的配置文件后点击“配置”，前端发送 `checkoutSignalConfigFiles` 消息；Gateway 会校验路径必须匹配 `tools/json/config_*.json`，然后在对应 repo 下执行 `git checkout -- files`，完成后刷新 git 状态和配置文件列表。
+
+
+项目操作按钮：
+
+- 上传 xls：选择本地 `.xls/.xlsx` 后上传到远端 `mainPath/scriptPath/`。
+- 上传 dbc：选择本地 `.dbc` 后上传到远端当前分支主 repo 的 `mainPath/repoPath/tools/sdb/`。
+- 上传 mcu.h：选择本地 `.h` 后上传到远端当前分支主 repo 的 `mainPath/repoPath/tools/inc/`。
+- 一键 checkout：对当前项目分支配置下所有 repo 顺序执行 `git checkout .`。
+- 一键 pull：对当前项目分支配置下所有 repo 顺序执行 `git pull`。
+- 配信号：远程 shell 切换到 `mainPath/scriptPath`。
+- 配置：对未勾选的 `repoPath/tools/json/config_*.json` 执行受限 `git checkout --`。
+- 打包：在远端 `mainPath/scriptPath` 下打包 `types.hal`、`VHAL_SIGNAL_CHECKLIST_s.xls`、`com.bosch.cm.platform.vehicle.proto`、`CHERY_8255_VHAL_SIGNAL_V*.xls` 为 zip，并通过浏览器下载到本地。
+- 检验checklist：仅在远端 `mainPath/scriptPath` 下直接将 `VHAL_SIGNAL_CHECKLIST_s.xls` 文件通过 base64 形式传输，并通过浏览器下载到本地。
+
+---
+
+## 15. 自动化与手动操作边界
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                       操作边界示意图                              │
+│                                                                  │
+│  【人工触发 + 自动执行】           【纯手动操作】                  │
+│  ┌─────────────────────┐          ┌─────────────────────┐        │
+│  │ • 筛票（Button 触发，│          │ • 人工复核（Dialog   │        │
+│  │   Promise 异步执行）  │          │   表单 PASS/FAIL）   │        │
+│  │ • 单票处理（Button   │          │ • 人工改判（Dialog   │        │
+│  │   触发，Qwen 自动）   │          │   覆盖 verdict）     │        │
+│  │ • AI 复核（Button    │          │ • Jira 回填（确认    │        │
+│  │   触发，Qwen 自动）   │          │   后 Button 触发）   │        │
+│  │ • AI 校验（Button    │          │ • Jira 状态流转      │        │
+│  │   触发，自动比对）    │          │   （Dialog 表单）     │        │
+│  │ • 拖拽排序（dnd kit  │          └─────────────────────┘        │
+│  │   交互，自动持久化）  │                                         │
+│  └─────────────────────┘                                         │
+│                                                                  │
+│  【全自动（无需人工介入）】                                        │
+│  ┌─────────────────────────────────────────────────────┐         │
+│  │ • 自动周期运行（setInterval 筛票+处理+飞书通知）      │         │
+│  │ • 一键筛选/处理后的异步任务执行                       │         │
+│  │ • IssueReviewSample 自动归档（AI 复核 FAIL 时）       │         │
+│  │ • LearningMemory 自动写入（人工复核 FAIL 时）          │         │
+│  └─────────────────────────────────────────────────────┘         │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 自动化操作清单
+
+| 操作 | 触发方式 | 是否需要人工确认 | 技术实现 |
+|------|----------|-----------------|---------|
+| JQL 查询 + 建快照 | Button "筛票" / setInterval | 否 | API Route + Promise |
+| Qwen 多轮推理分析 | Button "处理" / setInterval | 否 | API Route + Qwen API |
+| AI 复核 + Few-shot 归档 | Button "AI 复核" | 否 | API Route + Qwen API |
+| 飞书通知发送 | 处理任务完成后自动触发 | 否 | fetch Webhook |
+| 学习记忆写入 | 人工复核标记 FAIL 后触发 | 否 | IndexedDB 写入 |
+| Jira 评论写入 | Button "回填 Jira" | 是 | API Route + Jira REST |
+| Jira 状态流转 | Dialog 表单确认 | 是 | API Route + Jira REST |
+| 人工改判覆盖 | Dialog 表单确认 | 是 | API Route + IndexedDB |
+| 拖拽排序持久化 | dnd kit onDragEnd | 否 | IndexedDB + API Route |
+| 规则组后端管理 | `/api/rule-groups` / `/api/rule-groups/:id` / `/api/rule-groups/reorder` | 是 | 管理员权限 + `data/rule-groups.json` |
+| API 文档查看 | 浏览器访问 `/api/docs` 或拉取 `/api/openapi` | 否 | Swagger UI + OpenAPI JSON |
+| Geely2 专项结果查看 | 浏览器访问 `/geely2` 或 `/geely2/results/:id` | 否 | Client Component + IndexedDB |
+| 用户登录 | `/login` 表单提交用户名/密码 | 是 | `/api/auth/login` + `docs/login.json` + httpOnly Cookie |
+
+---
+
+## 16. 登录与鉴权流程
+
+```
+用户访问受保护页面
+      │
+      ▼
+[proxy.ts] 读取 jira_analyzer_session Cookie
+      │
+      ├─ 无有效 Token ──► 页面重定向 `/login?next=...`
+      │                    业务 API 返回 401
+      │
+      └─ 有效 Token
+            │
+            ▼
+      [proxy.ts] 按角色校验路径 / API 操作权限
+            │
+            ├─ 角色不足 ──► 页面 403 / API 403
+            │
+            └─ 允许访问
+```
+
+登录页 `/login` 调用 `/api/auth/login`，服务端从 `docs/login.json` 匹配用户名和密码并签发 Session Token。Token 写入 `jira_analyzer_session` httpOnly Cookie，前端仅把 Token 摘要写入 `localStorage` 作为客户端状态提示。`/api/auth/*`、`/api/openapi` 和 `/api/docs` 保持公开。
+
+## 17. 规则组管理权限与后端 API
+
+```
+管理员登录
+   │
+   ├─ POST /api/rule-groups ───────► 创建规则组
+   ├─ PUT /api/rule-groups/:id ────► 更新规则组
+   ├─ DELETE /api/rule-groups/:id ─► 删除规则组
+   └─ PUT /api/rule-groups/reorder ─► 更新排序
+          │
+          ▼
+   lib/server/rule-groups.ts
+          │
+          ▼
+   data/rule-groups.json
+```
+
+普通分析员可通过 `GET /api/rule-groups` 查看服务端规则组列表，但规则组创建、更新、删除、排序等写操作仅系统管理员可执行。首页本地工作态继续由 IndexedDB 管理；前端会根据 `/api/auth/session` 返回角色禁用非管理员的规则组新建、导入、编辑、删除、拖拽排序和 AutoCycle 配置入口。
+
+*文档结束 | 技术栈：Next.js + React + TypeScript + shadcn/ui + IndexedDB + dnd kit + Qwen API*
+
+## 18. Jira / 飞书项目共享 CAN 图表流程（v3.43）
+
+1. `/api/issues/process` 解码 CAN trace，返回 `traceData`、`ticks`、`chartImage` 和 `signalSummary`。
+2. Jira 结果写入 `issueProcessResults`，飞书结果写入 `meegleProcessResults`，两者都持久化完整图表数据。
+3. 两类详情页把结果传给 `CanSignalChart`，有 `traceData` 时显示交互式 Chart.js 散点图，无数据时显示静态 PNG。
+4. 用户缩放任一信号时，其余信号同步 X 轴；点击“重置缩放”恢复完整时间窗。
+5. 点击“锁定当前视口为回填图”后，共享组件合并所有 Canvas，并通过 `/api/issues/save-screenshot` 覆盖对应 `can_signals.png`。

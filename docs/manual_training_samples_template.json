@@ -1,0 +1,55 @@
+{
+  "description": "Jira 智能票据分析系统案例标记模板。本模板包含两种结构：1) 纠错案例 Few-shot RAG 样本（训练案例）；2) 离线评测真值样本（评测/测试案例）。请根据需要向各自的数组中添加真实标记数据。",
+  "learning_memory_samples": [
+    {
+      "ruleGroupId": "rule_group_geely2",
+      "issueKey": "GEELY-98213",
+      "issueSummary": "[GEELY-FY11] ESC_ESPActiveStatus 状态信号丢失",
+      "carModel": "GEELY-FY11",
+      "wrongConclusion": "AI 分析报告：未检测到 ESPActiveStatus 异常，判定无故障。",
+      "correctConclusion": "人工复核报告：在 15:35:02 发生 ESC_ESPActiveStatus 信号丢失（持续200帧），底盘控制器检测到心跳丢失，判定为ESC节点短暂休眠所致。",
+      "errorReason": "AI 在分析时因过滤规则裁剪了 15:35:00 附近的日志，导致漏报核心信号异常。",
+      "props": ["ESC_ESPActiveStatus_102h"],
+      "signalTokens": ["ESC_ESPActiveStatus"],
+      "propertyIds": ["258"]
+    }
+  ],
+  "evaluation_truth_set": [
+    {
+      "ruleGroupDir": "该规则组在 log 文件夹下对应的规则组文件夹目录名（例如: T1L_FL1_8255）",
+      "carModelDir": "该车型在规则组目录下的车型文件夹目录名（例如: T1L_FL1）",
+      "issueKey": "待评测的缺陷工单票号（例如: CHER-158341）",
+      "expectedSignals": [
+        "底层 CAN trace 日志中预期必须提取并召回成功的信号名称列表"
+      ],
+      "expectedKeywords": [
+        "最终的 AI 结论（final_reply.md）中预期必须包含的核心关键词，常用于语义断言校验（例如: 转对应模块）"
+      ],
+      "notes": "对此测试案例的备注说明，记录该票的预期故障根因或复核说明"
+    },
+    {
+      "ruleGroupDir": "chery T1J_FL3-8255",
+      "carModelDir": "T1J_FL3_8255",
+      "issueKey": "FL3-2953",
+      "expectedSignals": [
+        "ADS_5_EgoLeLineID"
+      ],
+      "expectedKeywords": [
+        "复测并提取问题发生时的Android log, QNX log"
+      ],
+      "notes": "人工复核占位示例：主驾安全带信号未上报，结论建议转对应模块分析"
+    },
+    {
+      "ruleGroupDir": "chery T1J_FL3-8255",
+      "carModelDir": "T1J_FL3_8255",
+      "issueKey": "FL3-3937",
+      "expectedSignals": [
+        "IPB_System_Status"
+      ],
+      "expectedKeywords": [
+        "无cantrace，复测并提取问题发生时的Android log, QNX log， cantrace"
+      ],
+      "notes": "人工复核占位示例：主驾安全带信号未上报，结论建议转对应模块分析"
+    }
+  ]
+}

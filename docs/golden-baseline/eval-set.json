@@ -1,0 +1,509 @@
+[
+  {
+    "ruleGroupDir": "T1L_FL1_8255",
+    "carModelDir": "T1L_FL1",
+    "issueKey": "CHER-158341",
+    "expectedSignals": [
+      "HW_DRIVER_SEATBELT",
+      "IoHwAb_DioRead_SEATBELT_ON"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ],
+    "notes": "人工复核占位示例：主驾安全带信号未上报，结论建议转对应模块分析"
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "D01-47343",
+    "expectedSignals": [
+      "ICC_MUSICLAMPSHOWSW_550",
+      "DIYMUSICSHOWMOD_395"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ],
+    "notes": "人工通过：信号ICC_MUSICLAMPSHOWSW_550已正常下设2，信号DIYMUSICSHOWMOD_395已正常下设3，vehicle已经透传，请按需求确认原因并转对应模块分析，谢谢"
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "D01HW-7218",
+    "expectedSignals": [
+      "ICC_CWCWorkingStsSet"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ],
+    "notes": "人工通过：信号ICC_CWCWorkingStsSet在上层提供的时间处下设了1到总线，vehicle已经透传，请按需求确认原因并转对应模块分析，谢谢。"
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01P国际",
+    "issueKey": "DPINT-2988",
+    "expectedSignals": [
+      "OBC_InnerDischgReq"
+    ],
+    "expectedKeywords": [
+      "缺少对应时间的trace"
+    ],
+    "notes": "从cantrace来看,缺少时间10:17:41左右的trace，请复测并提取问题发生时的Android log, QNX log, CAN trace，依次从应用->Framework再转给VHAL分析，谢谢"
+  },
+  {
+    "ruleGroupDir": "chery T1J_FL3-8255",
+    "carModelDir": "T1J_FL3_8255",
+    "issueKey": "FL3-490",
+    "expectedSignals": [
+      "CouplingFaultStatus_253h"
+    ],
+    "expectedKeywords": [
+      "mcu/autosar"
+    ],
+    "notes": "从cantrace 来看，信号CouplingFaultStatus_253h有变化，但是从qnx日志来看，信号CouplingFaultStatus_253h只在开机的时候上报了一次，后续没有看到上报日志，请mcu同事看一下，谢谢 报文 0x253 0x252 qnx日志：行 10743: 2024-01-01 00:02:33.181    VehicleService.532563      VehicleServer   05200 04 N -28800883102817 VehicleService.cpp:statistics:234 [0640]0X2140A067(0)2|[0:00:01:738]lost|[0:02:11:504]0X2"
+  },
+  {
+    "ruleGroupDir": "T1J_FL3_8255",
+    "carModelDir": "T1J_FL3_8255",
+    "issueKey": "FL3-1485",
+    "expectedSignals": [
+      "HCU_DriveMode_JT"
+    ],
+    "expectedKeywords": [
+      "缺少cantrace"
+    ],
+    "notes": "车控车设问题分析需要CAN trace，请复测并提取问题发生时的Android log, QNX log, CAN trace，依次从应用->Framework再转给VHAL分析，谢谢"
+  },
+  {
+    "ruleGroupDir": "T1J_FL3_8255",
+    "carModelDir": "T1J_FL3_8255",
+    "issueKey": "FL3-2548",
+    "expectedSignals": [
+      "ICC_EnergySavingModeReq_4D7h",
+      "ENERGYSAVINGMODESTS_522H_522"
+    ],
+    "expectedKeywords": [
+      "缺少cantrace"
+    ],
+    "notes": "qnx日志： 行  1714: 1970-01-01 00:00:02.793    VehicleService.598054      VehicleServer   02659 11 V +0 VehicleService.cpp:onPropSetError:2221 prop:557892201/0x2140C269 has lost before.    从qnx日志来看，信号存在丢失，如需详细分析，请提供对应时间的cantrace文件，谢谢"
+  },
+  {
+    "ruleGroupDir": "T1J_FL3_8255",
+    "carModelDir": "T1J_FL3_8255",
+    "issueKey": "FL3-5425",
+    "expectedSignals": [
+      "TBOX_CHGSOCPRIORITYSTS_4CFH_4CF "
+    ],
+    "expectedKeywords": [
+      "缺少cantrace"
+    ],
+    "notes": "车控车设问题分析需要CAN trace，请复测并提取问题发生时的Android log, QNX log, CAN trace，依次从应用->Framework再转给VHAL分析，谢谢"
+  },
+  {
+    "ruleGroupDir": "T1J_FL3_8255",
+    "carModelDir": "T1J-FL3",
+    "issueKey": "FL3-2144",
+    "expectedSignals": [
+      "EMS_1_G_ENGINESTS_4B2",
+      "EMS_1_G_EngineSts"
+    ],
+    "expectedKeywords": [
+      "cantrace中缺少报文"
+    ],
+    "notes": "从CAN trace来看：EMS_1_G_ENGINESTS_4B2信号反馈值出现255（无效值），但信号EMS_1_G_EngineSts所在的周期报文EMS_1_G（0x4B2）在CAN trace中未找到，建议确认对手件是否正常搭载。若已搭载，请转对手件分析，谢谢。"
+  },
+  {
+    "ruleGroupDir": "T1J_FL3_8255",
+    "carModelDir": "T1J-FL3",
+    "issueKey": "FL3-4467",
+    "expectedSignals": [
+      "PassSeatMsgStr_LvlCmd_458h",
+      "PassSeatMsgStr_LvlSts"
+    ],
+    "expectedKeywords": [
+      "cantrace中缺少报文"
+    ],
+    "notes": "通过查看CAN Trace日志，信号PassSeatMsgStr_LvlCmd_458h已正常下设（值4→0），但反馈信号PassSeatMsgStr_LvlSts所在的周期性报文FLZCU_20在CAN Trace中未检测到，请测试确认该报文是否正常搭载，如已搭载请转对手件分析，谢谢"
+  },
+  {
+    "ruleGroupDir": "T1J_FL3_8255",
+    "carModelDir": "T1J-FL3-8255",
+    "issueKey": "FL3-4531",
+    "expectedSignals": [
+      "ICC_ELKSETTINGST_556",
+      "ADS_5_ELKSETTINGST_335"
+    ],
+    "expectedKeywords": [
+      "cantrace中缺少报文"
+    ],
+    "notes": "通过查看cantrace日志，信号ICC_ELKSETTINGST_556已经正常下设（值1→0→1→0），但反馈信号ADS_5_ELKSETTINGST_335其所在周期报文ADS_5（0x335）在CAN Trace中未检测到，请确认对手件是否正常搭载，如果已经正常搭载，请转对手件分析，谢谢"
+  },
+  {
+    "ruleGroupDir": "chery T1J-FL2-8255",
+    "carModelDir": "T1J-FL2",
+    "issueKey": "FL2-18216",
+    "expectedSignals": [
+      "OBC_WORKINGMODE_49E",
+      "BMS_DCCHGMODE_102"
+    ],
+    "expectedKeywords": [
+      "cantrace中缺少报文"
+    ],
+    "notes": "从CAN Trace来看，OBC_WORKINGMODE_49E信号（报文CDU_OBC_3）未在CAN总线中找到对应信号 BMS_DCCHGMODE_102信号（报文BMS_1）在CAN Trace中未找到对应信号，请确认对手件是否正常搭载，如搭载请转对手件分析，谢谢"
+  },
+  {
+    "ruleGroupDir": "chery-8155-others",
+    "carModelDir": "T1L_FL1_8155",
+    "issueKey": "CHER-157823",
+    "expectedSignals": [
+      "FCM_10_TJAICATextinfo"
+    ],
+    "expectedKeywords": [
+      "日志不足"
+    ],
+    "notes": "从cantrace来看，总线上信号的值始终是0，qnx日志 unsync，缺少qnx日志，请复现并提取问题发生时的Android log, QNX log, CAN trace，及水印视频，谢谢"
+  },
+  {
+    "ruleGroupDir": "chery-8155-others",
+    "carModelDir": "T1L国际右舵",
+    "issueKey": "CHER-158769",
+    "expectedSignals": [
+      "RAD1_LHFRadarSensorDistance",
+      "RAD1_RHFRadarSensorDistance",
+      "RAD1_RHMFRadarSensorDistance",
+      "RAD1_LHMFRadarSensorDistance"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ],
+    "notes": "从android日志和cantrace来看，信号已经上报，vehicle已经透传，请按需求确认原因并转对应模块分析，谢谢  Android日志：行 149076: 2026-06-29 14:45:32.953 433 593 D VehicleClient: PROPERTY_CHANGE_CALLBACK is received protoVal.prop(): 557843301 行 149077: 2026-06-29 14:45:32.953 433 593 D BoschVehicleHal: onPropChanged prop: 557843301 / 0X21400365, type:INT32, value:60 , car_type:7 行 153940: 2026-06-29 14:45:38.858 433 593 D VehicleClient: PROPERTY_CHANGE_CALLBACK is received protoVal.prop(): 557843301 行 153941: 2026-06-29 14:45:38.858 433 593 D BoschVehicleHal: onPropChanged prop: 557843301 / 0X21400365, type:INT32, value:175 , car_type:7 行 154623: 2026-06-29 14:45:39.758 433 593 D VehicleClient: PROPERTY_CHANGE_CALLBACK is received protoVal.prop(): 557843301 行 154624: 2026-06-29 14:45:39.758 433 593 D BoschVehicleHal: onPropChanged prop: 557843301 / 0X21400365, type:INT32, value:60 , car_type:7"
+  },
+  {
+    "ruleGroupDir": "T1L_FL1_8255",
+    "carModelDir": "T1L_FL1",
+    "issueKey": "CHER-158341",
+    "expectedSignals": [
+      ""
+    ],
+    "expectedKeywords": [
+      "非vehicle信号"
+    ],
+    "notes": "json中不存在这个信号，MCU看下，这个不走vehicleservice"
+  },
+  {
+    "ruleGroupDir": "T1L_FL1_8255",
+    "carModelDir": "T1L_FL1_8255",
+    "issueKey": "CHER-157393",
+    "expectedSignals": [
+      "IHU_13_GROUP_T1L_FL1",
+      "RBCM_MFS_HeatSts"
+    ],
+    "expectedKeywords": [
+      "缺少日志"
+    ],
+    "notes": "从cantrace和qnx日志来看，信号IHU_13_GROUP_T1L_FL1连续两次下设1，信号RBCM_MFS_HeatSts已经反馈1，且后续始终保持为1，android BoschVehicleHal在时间09:14:25左右没有日志，请上层看一下下设是否正确,谢谢"
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01P国际",
+    "issueKey": "meegle-7058453085",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：：低。关键证据缺失：CAN Trace 抓包时间窗（2026-10-09）与上层评论操作时间窗（2026-07-27）完全无重叠，无法进行上下行时间对齐与因果配对；且 `missingEvidence` 明确标记 Android/QNX 日志缺失。当前结论仅基于时间窗错位及现有片段数据推断，需补充完整对齐日志方可定责。",
+    "expectedSignals": [
+      "onSRF_SUNSHADE_POSITIONSTS"
+    ],
+    "expectedKeywords": [
+      "再转给VHAL分析"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7109625485",
+    "source": "mysql-review-sample",
+    "notes": "人工改判：471601790 VehicleService.cpp:statistics:222 [0716]0X21602040(0)3|[0:00:01:988]lost|[0:01:28:205]48.000000|[0:01:44:306]lost 与总线保持一致，在 14:53:11.626上报丢失，请上层看一下，谢谢",
+    "expectedSignals": [
+      "EngineCoolantTemperature"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7128979749",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：通路数据完整。无指令跳变及值1现象的具体原因证据不足，待人工复核。请结合需求定义转FRZCU模块进一步分析。 【置信度】：中高。CAN Trace数据完整，上下行信号存在响应关系，VHAL透传链路无数据丢失。但上下层时间戳存在差异，透传延迟及底层状态机映射逻辑需结合系统时钟与需求文档进一步确认，证据不足部分待人工复核。",
+    "expectedSignals": [
+      "ICC_FRSITPOSNLOCATION_4BA",
+      "FRZCU_FRSITPOSNSTS_313",
+      "FRZCU_FRRECOVERFB_4D2"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7132079937",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：INGMODE_4E2已经正常下设3/1/3/2，信号FLZCU_STEERINGMODE_406反馈1/3/2，vehicle已经透传，请按需求确认原因并转对应模块分析。 【置信度】：高。CAN Trace数据完整，上下行信号时序与值变化匹配清晰，VHAL透传链路无异常，问题定位明确指向底层ECU业务逻辑/需求定义。",
+    "expectedSignals": [
+      "ICC_STEERINGMODE_4E2",
+      "FLZCU_STEERINGMODE_406",
+      "FLZCU_STEERINGMODE"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7117749333",
+    "source": "mysql-review-sample",
+    "notes": "人工改判： 03 D -28799423517460 VehicleService.cpp:PrintPropValue:2447 [B28E] prop:ICC_EXHIBITIONMODESWITCH_48F(557899857/0X2140E051:0), data[1]=0, (0/0)set::down, car:34",
+    "expectedSignals": [
+      "ICC_EXHIBITIONMODESWITCH_48F"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7105128814",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：信号链路无异常。请上层（UI/Framework）确认 `FRZCU_FRRecoverFb` 状态机逻辑及按钮回弹触发条件，谢谢。 5. 【置信度】：高。CAN Trace 完整记录了信号跳变周期与报文映射关系，证据链闭环；缺失 Android/QNX 日志仅影响 UI 层根因定位，不影响 CAN 信号正常性的判断。",
+    "expectedSignals": [
+      "FLZCU_FLSitPosnSts",
+      "FRZCU_FRSitPosnSts",
+      "FLZCU_9_PowerMode"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01国际",
+    "issueKey": "meegle-7108312397",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：重新同步车机与抓包设备时间，在操作前启动CAN抓包并持续至信号变化完成，复测提取完整日志后再次分析。 5. 【置信度】：低。关键证据缺失：CAN Trace未覆盖上层信号发生变化的时间窗口，`signalIntervals`仅包含恒定值数据，无法支撑趋势一致性结论。需补充正确时间窗口的CAN Trace及对应上层日志。",
+    "expectedSignals": [
+      "BMS_CHRGDCCNCTRDETD_102",
+      "BMS_CHRGDCCNCTRDETD"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7121925168",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：e 日志，信号 `HCU_DraggingModeRemind` 已按底层报文正常反馈（值在 0/1/2 间跳变），vehicle 已经透传。因上层日志缺失无法交叉验证，请按需求确认原因并转 HCU 模块分析。 【置信度】：中。CAN Trace 数据完整且信号跳变特征明确，但上层日志缺失无法交叉验证，证据链部分完整。",
+    "expectedSignals": [
+      "HCU_DRAGGINGMODEREMIND_522",
+      "HCU_DRAGGINGMODEREMIND",
+      "FLZCU_9_PowerMode",
+      "Working"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7117772893",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：QNX日志与底层ECU报文配置日志，以便核查周期设置、信号映射关系及透传链路，请转对应模块分析，谢谢。 【置信度】：低。关键证据缺失：目标时间段的上层日志数据、目标信号解析数据、时间窗口对齐依据；结构化证据包 `signalIntervals` 仅含无关信号且 `riskFlags` 提示匹配异常，无法支撑一致性结论。",
+    "expectedSignals": [
+      "BMS_DCCHGMODE",
+      "BMS_DCCHGMODE_102",
+      "FLZCU_9_PowerMode"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery-8155-others",
+    "carModelDir": "T1L_FL1_8155",
+    "issueKey": "meegle-7134693618",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：齐匹配，进而无法验证信号值的触发条件及趋势一致性。 【结论】：时间戳错位导致上下行数据无法对齐，当前证据不足以支撑故障定位。需重新同步车机时间，复测时确保各系统日志与 CAN trace 时间基准一致，并完整覆盖操作周期后重新提取分析。证据不足，待人工复核。 【置信度】：高（时间戳不匹配证据确凿，无需进一步趋势分析）。",
+    "expectedSignals": [
+      "TRM_1_MotorHomeConnectSts"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7132453568",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：车控车设问题分析需要CAN trace，请复测并提取问题发生时的Android log, QNX log, CAN trace，依次从应用->Framework再转给VHAL分析，谢谢",
+    "expectedKeywords": [
+      "再转给VHAL分析"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7131893090",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：仪表显示逻辑导致视觉上的“不规则闪烁”，并转Cluster/UI模块或Bosch模块进一步对齐显示时序需求，谢谢。 5. 【置信度】：高。CAN Trace数据完整，信号跳变序列与QNX日志高度一致，明确排除了总线丢帧/卡滞问题。但UI渲染逻辑及具体需求时序定义需结合上层代码/需求文档确认，故结论明确但需上层配合验证。",
+    "expectedSignals": [
+      "EPB_1_ParkLamp",
+      "OnEPBParkFromBosch",
+      "epbPark",
+      "Cluster"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7125209266",
+    "source": "mysql-review-sample",
+    "notes": "人工改判：通过查看CAN Trace日志，信号ICC_WindowCmd已正常下设13，信号RLWinPosn和信号FLWinPosn反馈进度稍不同步。vehicle通路正常，请按需求确认原因并转对应模块分析，谢谢",
+    "expectedSignals": [
+      "ICC_WindowCmd"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7117523715",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：车控车设问题分析需要CAN trace，请复测并提取问题发生时的Android log, QNX log, CAN trace，依次从应用->Framework再转给VHAL分析，谢谢",
+    "expectedKeywords": [
+      "再转给VHAL分析"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7128241853",
+    "source": "mysql-review-sample",
+    "notes": "人工改判：从CAN Trace来看：反馈信号ADS_4_ACCTextMessage所在的周期报文ADS_4（0x333） ADS_3_ACCSts 所在的周期报文 0x31a在CAN 报文中不存在，请确认对手件是否正常搭载，如果已经正常搭载，请转对手件分析，谢谢",
+    "expectedSignals": [
+      "ADS_4_ACCTextMessage",
+      "ADS_4",
+      "ADS_3_ACCSts"
+    ],
+    "expectedKeywords": [
+      "转对手件"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7117836467",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：缺失：CAN Trace 中未捕获到目标反馈信号（0x102/BMS_DCChgMode）的数据，`signalIntervals` 为空且 `riskFlags` 提示匹配异常，无法支撑一致性结论。需重新抓取包含 0x102 报文的完整 CAN Trace，并补充对应时间段的上层操作日志与底层 ECU 报文配置日志。",
+    "expectedSignals": [
+      "BMS_DCCHGMODE_102",
+      "BMS_DCChgMode",
+      "FLZCU_9_PowerMode"
+    ],
+    "expectedKeywords": [
+      "转对手件"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7125647144",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：icle 通路已透传。悬架未实际执行升降动作，请按需求确认ASU模块充电互锁逻辑及失效反馈原因，并转对应模块（ASU/悬架控制）分析，谢谢。 5. 【置信度】：高。CAN Trace 数据完整，上下行信号时序、值映射关系清晰，失效反馈与状态反馈逻辑一致；缺失 Android/QNX 日志不影响 CAN 层信号交互结论。",
+    "expectedSignals": [
+      "ICC_SUSPENSIONHEIGHT",
+      "ASU_1_SUSPTARLVL",
+      "FLZCU_SUSPENSIONHEIGHT",
+      "ASU_1_HMIFAILFB",
+      "ASU_1_ECASSYSSTS",
+      "FLZCU_9_PowerMode"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7117562806",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：车控车设问题分析需要CAN trace，请复测并提取问题发生时的Android log, QNX log, CAN trace，依次从应用->Framework再转给VHAL分析，谢谢",
+    "expectedKeywords": [
+      "再转给VHAL分析"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7115609833",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：ICC_PETMODEFB_471值变化之后，信号FLZCU_CARMODE_3FE持续保持0无变化，Vehicle层已完成信号透传。请按需求确认原因并转对应模块分析。 5. 【置信度】：高。CAN Trace完整记录了下设信号跳变与反馈信号保持不变的时序关系，上层日志与CAN Trace时间窗口对齐明确，证据链闭环。",
+    "expectedSignals": [
+      "FLZCU_CarMode",
+      "FLZCU_CARMODE_3FE",
+      "FLZCU_CARMOD",
+      "CarMode",
+      "ICC_PetmodeFb",
+      "ICC_PETMODEFB_471"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7121683964",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：g的时间戳与上层操作时间严格同步（建议开启车机系统时间同步或视频带时间水印）。复测后若仍反馈HV未上高压，请转TBOX/VCU/电源管理模块进行业务逻辑分析，谢谢。 【置信度】：高。结构化证据包明确标记时间窗无重叠（overlap: false），信号配置确认为READ属性，CAN Trace提取结果完整，证据链闭环。",
+    "expectedSignals": [
+      "TBOX_PetmodeSwitch",
+      "TBOX_PETMODESWITCH_427",
+      "VCU_2_G_HVREADY_4B9",
+      "VCU_2_G_HVREADY",
+      "FLZCU_9_PowerMode"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01P国际",
+    "issueKey": "meegle-7133339463",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：对应模块分析，谢谢。 5. 【置信度】：中。关键证据缺失：CAN Trace 抓包时间与上层操作时间完全错位（2024 vs 2026），无法进行严格的时间对齐与因果配对；但基于信号值趋势与透传逻辑分析，下设指令已上总线且反馈信号未变化，结论具备较高参考价值。建议补充时间同步后的完整日志以进一步验证 ECU 响应逻辑。",
+    "expectedSignals": [
+      "CTP_PowerModeSet",
+      "CTP_POWERMODESET_496",
+      "CTP_PowerModeSe",
+      "HCU_POWERMODEFED",
+      "HCU_POWERMODEFED_40A",
+      "FLZCU_9_PowerMode"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01",
+    "issueKey": "meegle-7135184872",
+    "source": "mysql-review-sample",
+    "notes": "人工改判：通过查看cantrace日志，信号ICC_DriveModeExitSet已经正常下设2，信号HCU_25_DCM_Warn的值没有变化，vehicle通路正常并已经透传，请按需求确认原因并转对应模块分析，谢谢。",
+    "expectedSignals": [
+      "ICC_DriveModeExitSet",
+      "HCU_25_DCM_Warn"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ]
+  },
+  {
+    "ruleGroupDir": "chery D01-8255",
+    "carModelDir": "D01P国际",
+    "issueKey": "meegle-7047579460",
+    "source": "mysql-review-sample",
+    "notes": "人工确认通过：ODESET_48F` 的实际下发记录（需求称未下设，但需确认是否被上层逻辑拦截或过滤）；CAN Trace 抓包起始时间（16:37:37）晚于上层首次反馈跳变时间（16:36:53），导致上下行完整因果链存在时间窗错位。当前结论基于现有片段推断底层按键逻辑未屏蔽，建议补充时间同步后的完整日志及按键触发日志进行复核。",
+    "expectedSignals": [
+      "ICC_DRIVEMODESET_48F",
+      "HCU_DRIVEMODE_JT_522",
+      "FLZCU_9_PowerMode"
+    ],
+    "expectedKeywords": [
+      "转对应模块"
+    ]
+  }
+]

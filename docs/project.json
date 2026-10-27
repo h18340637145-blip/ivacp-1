@@ -1,0 +1,201 @@
+[
+  {
+    "projectName": "chery-8255",
+    "mainPath": "~/workspace",
+    "scriptPath": "qnx/vendor/bosch/chery/idcpro/vs/tools/scripts",
+    "branches": [
+      {
+        "name": "maindev",
+        "repos": [
+          {
+            "repoName": "vs",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_vehicle_main_dev"
+          },
+          {
+            "repoName": "api-public",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_hqx4560-es11_main_dev"
+          },
+          {
+            "repoName": "automotive-custom",
+            "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
+            "origin": "caf",
+            "branchName": "rb-chery-idcpro_vehicle_main_dev"
+          }
+        ]
+      },
+      {
+        "name": "IP9",
+        "repos": [
+          {
+            "repoName": "vs",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_vehicle_es11-ip9_release"
+          },
+          {
+            "repoName": "api-public",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_hqx4560-es11_ip9_release"
+          },
+          {
+            "repoName": "automotive-custom",
+            "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
+            "origin": "caf",
+            "branchName": "rb-chery-idcpro_vehicle_es11-ip9_release"
+          }
+        ]
+      },
+      {
+        "name": "main_release1",
+        "repos": [
+          {
+            "repoName": "vs",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_vehicle_es11-main_release1"
+          },
+          {
+            "repoName": "api-public",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_hqx4560-es11_main_release1"
+          },
+          {
+            "repoName": "automotive-custom",
+            "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
+            "origin": "caf",
+            "branchName": "rb-chery-idcpro_vehicle_es11-main_release1"
+          }
+        ]
+      },
+      {
+        "name": "t1x-sop",
+        "repos": [
+          {
+            "repoName": "vs",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_vehicle_es11-t1x-sop_release"
+          },
+          {
+            "repoName": "api-public",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_hqx4560-es11_t1x-sop_release"
+          },
+          {
+            "repoName": "automotive-custom",
+            "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
+            "origin": "caf",
+            "branchName": "rb-chery-idcpro_vehicle_es11-t1x-sop_release"
+          }
+        ]
+      },
+      {
+        "name": "d01p-int-sop",
+        "repos": [
+          {
+            "repoName": "vs",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_vehicle_es11_d01p-int-sop_release"
+          },
+          {
+            "repoName": "api-public",
+            "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idcpro_hqx4560-es11_t1x-sop_release"
+          },
+          {
+            "repoName": "automotive-custom",
+            "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
+            "origin": "caf",
+            "branchName": "rb-chery-idcpro_vehicle_es11_d01p-int-sop_release"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "projectName": "chery-8155",
+    "mainPath": "~/8155",
+    "scriptPath": "/qnx/vendor/chery/idc/vs/tools/scripts",
+    "branches": [
+      {
+        "name": "maindev",
+        "repos": [
+          {
+            "repoName": "vs",
+            "repoPath": "/qnx/vendor/chery/idc/vs",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev"
+          },
+          {
+            "repoName": "api-public",
+            "repoPath": "qnx/vendor/chery/idc/api/protobuf",
+            "origin": "taiji_qnx",
+            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev"
+          },
+          {
+            "repoName": "automotive",
+            "repoPath": "LINUX/android/vendor/bosch/hal/automotive/vehicle",
+            "origin": "caf",
+            "branchName": "rb-chery-idc-common_hqx121c1_main_dev"
+          },
+          {
+            "repoName": "hardware-interfaces",
+            "repoPath": "LINUX/android/hardware/interfaces/automotive/vehicle/2.0",
+            "origin": "caf",
+            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "projectName": "geely3.0",
+    "mainPath": "~/geely3.0",
+    "scriptPath": "LINUX/android/vendor/geely/hardware/interfaces/automotive/vehicle/scripts",
+    "branches": [
+      {
+        "name": "a6-main",
+        "repos": [
+          {
+            "repoName": "vehicle",
+            "repoPath": "LINUX/android/vendor/geely/hardware/interfaces/automotive",
+            "origin": "geelyidc30_android",
+            "branchName": "rb-geely-idc30_a6-main_vehicle_dev"
+          },
+          {
+            "repoName": "system",
+            "repoPath": "LINUX/android/vendor/geely/system/vehicle",
+            "origin": "geelyidc30_android",
+            "branchName": "rb-geely-idc30_a6-main_vehicle_dev"
+          }
+        ]
+      },
+      {
+        "name": "koi2_main",
+        "repos": [
+          {
+            "repoName": "vehicle",
+            "repoPath": "LINUX/android/vendor/geely/hardware/interfaces/automotive",
+            "origin": "geelyidc30_android",
+            "branchName": "rb-geely-idc30_koi2_main_vehicle_dev"
+          },
+          {
+            "repoName": "system",
+            "repoPath": "LINUX/android/vendor/geely/system/vehicle",
+            "origin": "geelyidc30_android",
+            "branchName": "rb-geely-idc30_koi2_main_vehicle_dev"
+          }
+        ]
+      }
+    ]
+  }
+]
