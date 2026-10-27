@@ -39,3 +39,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local tool state
+.codegraph/
+.codex/
+.gemini/
+
+# Jira attachment and analysis log storage (keep dirs, ignore content)
+/jira-issues/**
+!/jira-issues/.gitkeep
+/log/**
+!/log/.gitkeep
+/tmp/
+
+# 评测报告为本地派生产物
+docs/golden-baseline/eval-report.json
+docs/golden-baseline/eval-report.md
+
+# 服务端规则组 JSON（/api/rule-groups）
+/data/

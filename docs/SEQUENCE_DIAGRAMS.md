@@ -1,5 +1,34 @@
 # 时序图文档
 
+## IVACP 规则组管理实现（2026-10-27）
+
+```mermaid
+sequenceDiagram
+  participant UI as KanbanBoard / Dialog
+  participant Domain as domain/rule-groups
+  participant Store as RuleGroupStore
+  participant DB as IvacpDB.ruleGroups
+  UI->>Store: load()
+  Store->>DB: orderBy(sortOrder).toArray()
+  DB-->>UI: 卡片配置 / 加载错误
+  UI->>Domain: 校验表单或完整导入文件
+  alt 校验失败
+    Domain-->>UI: 显示错误，保留输入与原数据
+  else 校验成功且用户确认
+    UI->>Store: add / update / importFile
+    Store->>DB: 写入（导入采用事务）
+    DB-->>Store: 提交成功
+    Store-->>UI: 重新加载并显示卡片
+  end
+  UI->>Store: reorder(activeId, overId)
+  Store->>DB: 事务写入 sortOrder
+  DB-->>Store: 提交成功
+  Store-->>UI: 更新卡片顺序
+  Note over UI,DB: 刷新重新读取数据库；配置删除不删除分析结果与历史
+```
+
+以下旧版流程图用于完整迁移对照；未接通模块不能因标记「已实现」就视为新仓库已验收。
+
 ## 本年度统计
 
 ```text
@@ -493,7 +522,7 @@ Next.js -> Swagger UI: OpenAPI 3.0 JSON
 Swagger UI -> 浏览器: 渲染已实现 API Routes 文档
 ```
 
-## 9. Geely2 专项页面时序（已实现）
+## 9. Geely2 专项页面（IVACP 已移除，以下为旧系统记录）
 
 ```
 浏览器 -> Next.js: GET /geely2

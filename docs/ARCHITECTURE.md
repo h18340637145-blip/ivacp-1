@@ -1,6 +1,24 @@
 # ARCHITECTURE.md
 # 系统架构文档（Next.js 版）
 
+## IVACP 新仓库实现边界（2026-10-27）
+
+新仓库使用以下分层，旧版 `lib/`、`stores/`、`components/` 路径示例仅用于迁移对照：
+
+| 层 | 职责 |
+| --- | --- |
+| `src/domain` | 统一实体、纯业务规则与迁移转换，不依赖 React 或服务端 |
+| `src/shared` | UI、客户端工具、`IvacpDB` 与镜像同步 |
+| `src/features` | 按业务组织的客户端组件、store、接口服务 |
+| `src/server` | Node 服务、外部系统适配、MySQL 和流水线阶段 |
+| `src/app` | 页面组装与 API 路由 |
+
+`src/domain/entities.ts` 是统一数据结构来源。Jira / 飞书的筛票、快照、处理、结果、历史和校验合并到带来源字段的表，IndexedDB 名称为 `IvacpDB`；MySQL 使用新镜像表 `sync_records`、`sync_clients`。旧系统转换逻辑在 `domain/migration/legacy.ts`，服务端入口在 `server/migration/legacy-mysql.ts`，迁移界面尚未接通。不得将服务函数存在视为完整迁移验收。
+
+规则组管理已接通：`app/(app)/page.tsx` 只组装 `features/rule-groups/components/kanban-board.tsx`。看板、卡片、配置表单和导入确认按职责拆分；`features/rule-groups/store.ts` 负责 IndexedDB 写入和缓存。`domain/rule-groups/import.ts` 在覆盖事务之前校验全部输入、恢复日期并规范化旧车型配置。合并与覆盖均使用单次读写事务；拖拽排序写入成功才发布新的缓存。数据库版本仍为 v1，没有为 UI 新增表或索引。
+
+当前业务页面为 `/`、`/statistics`、`/templates`、`/login`。其他目标页面、共享处理路由及完整生命周期仍按交接清单续接；下文旧系统架构不是新仓库完整实现的证明。
+
 ## 本年度统计读取边界
 
 `KanbanBoard` 工具栏的 `AnnualStatisticsDialog` 在打开或重新统计时调用 `loadAnnualStatistics`，在一个 Dexie 只读事务中读取双来源结果、历史以及飞书快照/分配身份；纯函数 `calculateAnnualStatistics` 负责年度过滤、结果 ID 去重、年度最新票据去重及复核聚合。统计不写入数据库、不上传票据、不新增 API 或 schema 版本。`loadAnnualStatistics` / `calculateAnnualStatistics` 支持可选 `MonthRange`（年份 + 起止月，含首尾月，上限为统计时刻），默认仍为当年 1 月至统计时刻。年度按浏览器本地时区划分，数据范围和复核状态限制见产品文档。

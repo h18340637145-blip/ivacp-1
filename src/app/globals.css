@@ -1,26 +1,190 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@source not "../../.codegraph/**";
+@source not "../../log/**";
+@source not "../../jira-issues/**";
+
+/*
+ * IVACP 设计系统（design-system/ivacp/MASTER.md）
+ * 风格：Data-Dense Dashboard；色板：Slate + 运行绿；字体：Fira Sans / Fira Code（本地回退中文字体）
+ * 组件中只使用语义 token（bg-surface / text-muted-foreground / border-border …），禁止硬编码 hex。
+ */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --foreground: #0f172a;
+  --muted-foreground: #475569;
+  --subtle-foreground: #64748b;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --input: #cbd5e1;
+  --ring: #16a34a;
+
+  --primary: #15803d;
+  --primary-hover: #166534;
+  --primary-foreground: #ffffff;
+  --primary-soft: #dcfce7;
+
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fee2e2;
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+  --info: #1d4ed8;
+  --info-soft: #dbeafe;
+  --accent-purple: #6d28d9;
+  --accent-purple-soft: #ede9fe;
+
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(15 23 42 / 0.14);
+  --scrim: rgb(2 6 23 / 0.5);
+
+  --font-sans-stack: "Fira Sans", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono-stack: "Fira Code", "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, "Noto Sans Mono CJK SC", monospace;
+
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: light;
+}
+
+.dark {
+  --background: #0b1220;
+  --surface: #111a2e;
+  --surface-2: #17223a;
+  --surface-3: #1e293b;
+  --foreground: #f1f5f9;
+  --muted-foreground: #a3b1c6;
+  --subtle-foreground: #8391a7;
+  --border: #233047;
+  --border-strong: #334155;
+  --input: #334155;
+  --ring: #22c55e;
+
+  --primary: #22c55e;
+  --primary-hover: #4ade80;
+  --primary-foreground: #052e16;
+  --primary-soft: rgb(34 197 94 / 0.14);
+
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+
+  --destructive: #f87171;
+  --destructive-foreground: #450a0a;
+  --destructive-soft: rgb(248 113 113 / 0.14);
+  --success: #4ade80;
+  --success-soft: rgb(74 222 128 / 0.14);
+  --warning: #fbbf24;
+  --warning-soft: rgb(251 191 36 / 0.14);
+  --info: #60a5fa;
+  --info-soft: rgb(96 165 250 / 0.14);
+  --accent-purple: #a78bfa;
+  --accent-purple-soft: rgb(167 139 250 / 0.14);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.5);
+  --scrim: rgb(0 0 0 / 0.6);
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-purple: var(--accent-purple);
+  --color-purple-soft: var(--accent-purple-soft);
+  --color-scrim: var(--scrim);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  *, *::before, *::after { border-color: var(--border); }
+  html { height: 100%; -webkit-text-size-adjust: 100%; }
+  body {
+    min-height: 100dvh;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans-stack);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "tnum" 0;
+  }
+  h1, h2, h3, h4 { line-height: 1.25; font-weight: 600; }
+  button, [role="button"], a, summary, label[for], select { cursor: pointer; }
+  button:disabled, [aria-disabled="true"] { cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+  ::selection { background: var(--primary-soft); }
+  code, kbd, pre, samp { font-family: var(--font-mono-stack); }
+  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+}
+
+@layer utilities {
+  .tabular { font-variant-numeric: tabular-nums; }
+  .skip-link {
+    position: absolute; left: 12px; top: -48px; z-index: 100;
+    padding: 8px 12px; border-radius: 6px;
+    background: var(--primary); color: var(--primary-foreground); font-weight: 600;
+    transition: top var(--duration-fast) var(--ease-out);
+  }
+  .skip-link:focus { top: 12px; }
+  .animate-in { animation: ivacp-fade-in var(--duration-base) var(--ease-out) both; }
+  .animate-pulse-soft { animation: ivacp-pulse 2s ease-in-out infinite; }
+}
+
+@keyframes ivacp-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes ivacp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* xterm 终端始终使用深色画布 */
+.xterm { padding: 8px; }
