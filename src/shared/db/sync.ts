@@ -111,16 +111,18 @@ export async function writeTables(
   options: { overwrite: boolean },
   onProgress?: ProgressHandler,
 ): Promise<{ written: number; total: number }> {
-  let written = 0;
-  let total = 0;
-  for (const name of ENTITY_TABLES) {
-    const rows = (tables[name] ?? []) as unknown as AnyRow[];
-    if (rows.length === 0) continue;
-    onProgress?.(`正在写入 ${name}（${rows.length} 条）...`);
-    total += rows.length;
-    written += await mergeRows(name, rows, options.overwrite);
-  }
-  return { written, total };
+  return db.transaction("rw", db.tables, async () => {
+    let written = 0;
+    let total = 0;
+    for (const name of ENTITY_TABLES) {
+      const rows = (tables[name] ?? []) as unknown as AnyRow[];
+      if (rows.length === 0) continue;
+      onProgress?.(`正在写入 ${name}（${rows.length} 条）...`);
+      total += rows.length;
+      written += await mergeRows(name, rows, options.overwrite);
+    }
+    return { written, total };
+  });
 }
 
 async function mergeRows(name: EntityTableName, rows: AnyRow[], overwrite: boolean): Promise<number> {
@@ -144,14 +146,17 @@ export async function countLocalRecords(): Promise<number> {
 // ─── 文件导出 / 导入 ─────────────────────────────────────────────────────────
 
 export async function exportBackupFile(onProgress?: ProgressHandler): Promise<{ fileName: string; total: number }> {
-  const tables: BackupTables = {};
-  let total = 0;
-  for (const name of ENTITY_TABLES) {
-    onProgress?.(`正在读取 ${name}...`);
-    const rows = await table(name).toArray();
-    (tables as Record<string, unknown[]>)[name] = rows;
-    total += rows.length;
-  }
+  const { tables, total } = await db.transaction("r", db.tables, async () => {
+    const tables: BackupTables = {};
+    let total = 0;
+    for (const name of ENTITY_TABLES) {
+      onProgress?.(`正在读取 ${name}...`);
+      const rows = await table(name).toArray();
+      (tables as Record<string, unknown[]>)[name] = rows;
+      total += rows.length;
+    }
+    return { tables, total };
+  });
   const file: BackupFile = {
     format: BACKUP_FILE_FORMAT,
     version: BACKUP_FILE_VERSION,
@@ -217,29 +222,29 @@ export async function restoreFromServer(
   onProgress?: ProgressHandler,
 ): Promise<{ written: number; total: number }> {
   await flushAutoSync();
-  let written = 0;
+  // 先完整下载再开启本地事务，网络中断不会留下部分恢复数据。
+  const tables: BackupTables = {};
   let total = 0;
-  suppressDepth += 1;
-  try {
-    for (const name of ENTITY_TABLES) {
-      let after: string | null = "";
-      while (after !== null) {
-        const query = new URLSearchParams({ table: name, limit: String(PULL_PAGE_SIZE) });
-        if (after) query.set("after", after);
-        const page: { records: Array<{ id: string; data: string }>; nextAfterId: string | null } = await apiFetch(
-          `/api/backup/pull?${query.toString()}`,
-        );
-        const rows = page.records.map((record) => deserializeRecord<AnyRow>(record.data));
-        total += rows.length;
-        written += await mergeRows(name, rows, options.overwrite);
-        if (rows.length > 0) onProgress?.(`正在恢复 ${name}（累计 ${total} 条）...`);
-        after = page.nextAfterId;
-      }
+  for (const name of ENTITY_TABLES) {
+    let after: string | null = "";
+    const rows: AnyRow[] = [];
+    const cursors = new Set<string>();
+    while (after !== null) {
+      if (cursors.has(after)) throw new Error("恢复分页游标重复，请重试");
+      cursors.add(after);
+      const query = new URLSearchParams({ table: name, limit: String(PULL_PAGE_SIZE) });
+      if (after) query.set("after", after);
+      const page: { records: Array<{ id: string; data: string }>; nextAfterId: string | null } = await apiFetch(
+        `/api/backup/pull?${query.toString()}`,
+      );
+      rows.push(...page.records.map((record) => deserializeRecord<AnyRow>(record.data)));
+      total += page.records.length;
+      onProgress?.(`正在下载 ${name}（累计 ${total} 条）...`);
+      after = page.nextAfterId;
     }
-  } finally {
-    suppressDepth -= 1;
+    (tables as Record<string, AnyRow[]>)[name] = rows;
   }
-  return { written, total };
+  return withoutAutoSync(() => writeTables(tables, options, onProgress));
 }
 
 // ─── 自动增量同步 ────────────────────────────────────────────────────────────
@@ -387,8 +392,8 @@ export async function withoutAutoSync<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
- * 服务端配置了 MySQL 时启用自动增量同步。首次在本浏览器启用时，后台执行一次完整备份，
- * 把已有的本地数据补齐到服务器。
+ * 服务端配置了 MySQL 时启用自动增量同步。首次仅补齐本地已有记录；
+ * 完整快照的删除标记只能由用户明确确认的 pushFullBackup 执行。
  */
 export async function installAutoSync(): Promise<boolean> {
   if (installed || typeof window === "undefined") return state.enabled;
@@ -400,15 +405,15 @@ export async function installAutoSync(): Promise<boolean> {
   installed = true;
   for (const name of ENTITY_TABLES) {
     const target = table(name);
-    target.hook("creating", function onCreating(primKey, obj) {
+    target.hook("creating", function onCreating(primKey, obj, transaction) {
       const id = (primKey as unknown) ?? recordPrimaryKey(name, obj);
-      this.onsuccess = () => markDirty(name, id);
+      this.onsuccess = () => transaction.on("complete", () => markDirty(name, id));
     });
-    target.hook("updating", function onUpdating(_mods, primKey) {
-      this.onsuccess = () => markDirty(name, primKey);
+    target.hook("updating", function onUpdating(_mods, primKey, _obj, transaction) {
+      this.onsuccess = () => transaction.on("complete", () => markDirty(name, primKey));
     });
-    target.hook("deleting", function onDeleting(primKey) {
-      this.onsuccess = () => markDirty(name, primKey);
+    target.hook("deleting", function onDeleting(primKey, _obj, transaction) {
+      this.onsuccess = () => transaction.on("complete", () => markDirty(name, primKey));
     });
   }
   const storage = safeStorage();
@@ -422,9 +427,15 @@ export async function installAutoSync(): Promise<boolean> {
     if (document.visibilityState === "hidden") void flushAutoSync();
   });
   if (!storage?.getItem(FULL_BACKUP_AT_KEY)) {
-    void pushFullBackup().catch((error) => {
-      updateState({ lastError: `首次完整备份失败：${error instanceof Error ? error.message : "未知错误"}` });
-    });
+    try {
+      for (const name of ENTITY_TABLES) {
+        const ids = await table(name).toCollection().primaryKeys();
+        for (const id of ids) markDirty(name, id);
+      }
+      void flushAutoSync();
+    } catch (error) {
+      updateState({ lastError: `首次增量备份失败：${error instanceof Error ? error.message : "未知错误"}` });
+    }
   }
   return true;
 }

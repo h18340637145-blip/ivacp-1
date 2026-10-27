@@ -1,7 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { JiraAttachment } from "@/server/jira/types";
-import { stageMeegleCommentAttachments } from "@/server/meegle/comment-attachments";
+import { buildMeegleCommentAttachmentDownloadArgs, stageMeegleCommentAttachments, type MeegleCommentAttachmentDownloader } from "@/server/meegle/comment-attachments";
+import { runCommandCapture } from "@/server/pipeline/download";
+import { throwIfPipelineCancelled } from "./runtime";
 import { MAX_COMMENTS_CHARS } from "@/server/pipeline/constants";
 import { buildCommentsText, fetchJiraIssueWithComments } from "@/server/pipeline/jira-attachments";
 import { estimatePromptTokens } from "@/server/pipeline/step5";
@@ -115,7 +117,13 @@ export async function stageCommentAttachments(
 ): Promise<{ attachments: JiraAttachment[]; stagedPaths: Map<string, string> }> {
   const { meegleIdentity, logger } = ctx;
   if (meegleIdentity && liveAttachments.some((attachment) => attachment.source === "meegle-comment")) {
-    const staged = await stageMeegleCommentAttachments(liveAttachments, meegleIdentity, commentStagingRoot(ctx));
+    const download: MeegleCommentAttachmentDownloader = async (attachment, destination, identity) => {
+      throwIfPipelineCancelled();
+      const output = await runCommandCapture("meegle", [...buildMeegleCommentAttachmentDownloadArgs(attachment, identity, destination), "--format", "json"]);
+      return JSON.parse(output) as Awaited<ReturnType<MeegleCommentAttachmentDownloader>>;
+    };
+    const staged = await stageMeegleCommentAttachments(liveAttachments, meegleIdentity, commentStagingRoot(ctx), download);
+    throwIfPipelineCancelled();
     logger.log("PREPARING", `评论附件元数据补齐完成：${staged.stagedPaths.size} 个`);
     return { attachments: staged.attachments, stagedPaths: staged.stagedPaths };
   }

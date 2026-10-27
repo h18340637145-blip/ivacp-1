@@ -1,3 +1,4 @@
+import { trackPipelineChild, throwIfPipelineCancelled } from "./process/runtime";
 import { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -7,9 +8,11 @@ import { PipelineLogger, sanitizeName } from "@/server/pipeline/paths-logging";
 
 export async function extractArchive(archivePath: string, destDir: string): Promise<void> {
   // Use spawn instead of exec to avoid shell interpolation issues with special chars in paths
+  throwIfPipelineCancelled();
   const args = ["e", "-y", `-o${destDir}`, archivePath];
   await new Promise<void>((resolve, reject) => {
-    const child = spawn("7za", args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn("7za", args, { detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+    trackPipelineChild(child);
     let stderr = "";
     child.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
     child.on("close", (code) => {
@@ -34,6 +37,7 @@ export async function expandNestedArchives(rootDir: string, logger: PipelineLogg
   const seen = new Set<string>();
 
   while (queue.length > 0) {
+    throwIfPipelineCancelled();
     const archivePath = queue.shift()!;
     const normalized = archivePath.toLowerCase();
     if (seen.has(normalized)) continue;

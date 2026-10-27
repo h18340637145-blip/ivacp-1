@@ -1,3 +1,4 @@
+import { currentQwenTokenUsage } from "@/server/ai/qwen";
 import { saveStepLog } from "@/server/pipeline/paths-logging";
 import { estimatePromptTokens } from "@/server/pipeline/step5";
 import { AttachmentMode, EvidenceCompleteness, PipelineMetrics } from "@/server/pipeline/types";
@@ -83,6 +84,8 @@ export function finalizePipelineMetrics(
   metrics.completedAt = completedAt.toISOString();
   metrics.durationMs = completedAt.getTime() - new Date(metrics.startedAt).getTime();
   metrics.status = status;
+  metrics.model = process.env.QWEN_MODEL ?? "";
+  metrics.tokenUsage = currentQwenTokenUsage();
   if (mode) metrics.mode = mode;
 
   const evidenceValues = Object.values(metrics.evidenceCompleteness);

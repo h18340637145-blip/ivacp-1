@@ -153,7 +153,7 @@ export async function rejectResult(target: ReviewTarget, input: RejectInput): Pr
   });
 }
 
-/** AI 复核：结合最近 3 条同场景纠错样本判断结论是否可信；FAIL → 驳回，否则通过 */
+/** AI 复核：飞书只保存建议，保留人工复核门禁；Jira 沿用原 AI 复核状态。 */
 export async function aiReviewResult(target: ReviewTarget): Promise<ProcessResult> {
   const { result } = target;
   const samples = await db.reviewSamples.where("ruleGroupId").equals(result.ruleGroupId).toArray();
@@ -179,9 +179,10 @@ export async function aiReviewResult(target: ReviewTarget): Promise<ProcessResul
       samples: fewShot,
     },
   });
-  const failed = data?.verdict === "FAIL";
+  if (data?.verdict !== "PASS" && data?.verdict !== "FAIL") throw new Error("AI 复核响应未给出有效判定");
+  const failed = data.verdict === "FAIL";
   const patch: Partial<ProcessResult> = {
-    reviewStatus: failed ? "rejected" : "approved",
+    ...(result.source === "jira" ? { reviewStatus: failed ? "rejected" as const : "approved" as const } : {}),
     aiReviewVerdict: failed ? "fail" : "pass",
     aiReviewReason: data?.reason,
     aiReviewedAt: new Date(),

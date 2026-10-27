@@ -1,3 +1,4 @@
+import { trackPipelineChild, throwIfPipelineCancelled } from "./process/runtime";
 import { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -53,6 +54,7 @@ export async function plotCanSignals(
   signalNames: string[],
   outputPng: string,
 ): Promise<PlotResult> {
+  throwIfPipelineCancelled();
   const validDbcs = dbcPaths.filter((p) => p);
   if (!validDbcs.length || !signalNames.length || !tracePath) {
     return { image: "", summary: "", error: "Missing DBC/signals/CAN trace" };
@@ -68,10 +70,12 @@ export async function plotCanSignals(
 
   return new Promise((resolve) => {
     const proc = spawn(PLOT_BIN, args, {
+      detached: process.platform !== "win32",
       timeout: 120_000,
       stdio: ["ignore", "pipe", "pipe"],
     });
 
+    trackPipelineChild(proc);
     let stdout = "";
     let stderr = "";
     proc.stdout!.on("data", (d: Buffer) => { stdout += d.toString(); });

@@ -59,7 +59,7 @@ export async function finishWithoutAttachments(ctx: ProcessContext, commentsText
   replyText = applyIssueSceneReplyTag(stripped.cleaned, issueScene);
 
   ctx.stages.GENERATING_REPLY = "AI 分析完成";
-  await finishEarly(ctx, { replyText, status: "success", mode: "no_attachments" });
+  const response = await finishEarly(ctx, { replyText, status: "success", mode: "no_attachments" });
   scheduleSuccessArchiveToDocupedia({
     issueKey: ctx.issueKey,
     summary: ctx.summary,
@@ -68,5 +68,5 @@ export async function finishWithoutAttachments(ctx: ProcessContext, commentsText
     logRoot,
     logger,
   });
-  return buildEarlyResponse(ctx, { replyText, model: process.env.QWEN_MODEL ?? "", mode: "no_attachments" });
+  return response;
 }

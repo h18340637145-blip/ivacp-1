@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { BarChart3, ClipboardCopy, Coins, Gauge, RefreshCw, Timer } from "lucide-react";
 import type { AnnualStatistics, MonthRange } from "@/domain/analysis/annual-statistics";
 import type { TeamMemberStatistics } from "@/domain/analysis/team-statistics";
@@ -61,19 +61,16 @@ export function StatisticsView() {
   const [startMonth, setStartMonth] = useState(1);
   const [endMonth, setEndMonth] = useState(12);
   const [applied, setApplied] = useState<MonthRange>({ year: thisYear, startMonth: 1, endMonth: 12 });
-  const [nonce, setNonce] = useState(0);
   const rangeInvalid = startMonth > endMonth;
 
   const { data, error, loading, reload } = useAsync(
-    () => loadStatistics(scope, applied),
-    [scope, applied.year, applied.startMonth, applied.endMonth, nonce],
+    useCallback(() => loadStatistics(scope, applied), [scope, applied]),
   );
   const report = data?.total;
 
   function query() {
     if (rangeInvalid) return;
     setApplied({ year, startMonth, endMonth });
-    setNonce((n) => n + 1);
   }
 
   async function copyReport() {

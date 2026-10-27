@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import path from "node:path";
+import { resolveChartImageFile, resolveExistingChartFile } from "@/server/charts/files";
 import type { JiraConnection } from "@/server/jira/connection";
 import { isOk, jiraHttpRequest } from "@/server/jira/http";
 
@@ -67,15 +67,7 @@ export async function uploadJiraAttachment(
 }
 
 /** 把 "/api/charts/log/.../can_signals.png" 解析为 log/ 目录下的真实文件路径；不安全路径返回 null */
-export function resolveChartImageFile(chartImagePath: string): string | null {
-  const prefix = "/api/charts/";
-  if (!chartImagePath.startsWith(prefix)) return null;
-  const relativePath = chartImagePath.slice(prefix.length);
-  if (relativePath.includes("..") || !relativePath.endsWith(".png")) return null;
-  const fullPath = path.join(process.cwd(), relativePath);
-  if (!fullPath.startsWith(path.join(process.cwd(), "log"))) return null;
-  return fullPath;
-}
+export { resolveChartImageFile };
 
 /** 回填评论：如有 CAN 信号图先上传为附件（失败仅回填文字），再追加 !文件名! 引用 */
 export async function postJiraCommentWithChart(input: {
@@ -90,10 +82,10 @@ export async function postJiraCommentWithChart(input: {
     const filePath = resolveChartImageFile(chartImagePath);
     if (filePath) {
       try {
-        await fs.access(filePath);
+        const existingFile = await resolveExistingChartFile(chartImagePath);
         const filename = `can_signals_${issueKey.replace(/[^a-zA-Z0-9-]/g, "_")}.png`;
         console.log(`[Jira Comment] 正在上传 CAN 信号图到 ${issueKey}...`);
-        attachedFilename = await uploadJiraAttachment(connection, issueKey, filePath, filename);
+        attachedFilename = await uploadJiraAttachment(connection, issueKey, existingFile, filename);
         console.log(`[Jira Comment] 图片上传成功: ${attachedFilename}`);
       } catch (imgErr) {
         console.warn(`[Jira Comment] 图片上传失败（将仅回填文字）: ${String(imgErr).slice(0, 100)}`);

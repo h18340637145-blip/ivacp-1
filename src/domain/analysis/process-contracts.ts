@@ -52,6 +52,8 @@ export interface ProcessRequest {
 }
 
 export interface ProcessResponse {
+  /** 经办人接手时间（统计用，ISO 时间） */
+  handoverAt?: string;
   replyText: string;
   model: string;
   issueKey: string;

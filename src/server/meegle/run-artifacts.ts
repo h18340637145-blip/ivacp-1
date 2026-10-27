@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { assertSafeRunId } from "@/server/artifacts/analysis-artifacts";
+import { readSavedProcessResponse } from "./saved-response";
 
 export interface MeegleRunLookup {
   runId: string;
@@ -11,6 +12,7 @@ export interface MeegleRunLookup {
 interface PipelineMetrics {
   status?: string;
   issueKey?: string;
+  responseArtifactVersion?: number;
 }
 
 export interface MeegleCancellation {
@@ -87,7 +89,16 @@ export async function hasCompleteMeegleSuccess(runDirectory: string, issueKey: s
       fs.readFile(path.join(runDirectory, "pipeline-metrics.json"), "utf8").then((text) => JSON.parse(text) as PipelineMetrics),
       fs.readFile(path.join(runDirectory, "final_reply.md"), "utf8"),
     ]);
-    return metrics.status === "success" && metrics.issueKey === issueKey && Boolean(replyText.trim());
+    if (metrics.status !== "success" || metrics.issueKey !== issueKey || !replyText.trim()) return false;
+    if (metrics.responseArtifactVersion === 1) {
+      const [response, stages] = await Promise.all([
+        readSavedProcessResponse(runDirectory, issueKey, replyText),
+        fs.readFile(path.join(runDirectory, "stages.json"), "utf8").then((text) => JSON.parse(text) as { issueKey?: string; stages?: unknown }),
+      ]);
+      return Boolean(response && stages.stages && typeof stages.stages === "object" && (!stages.issueKey || stages.issueKey === issueKey));
+    }
+    // 旧系统已成功的运行不能因为没有新版响应文件而被允许取消。
+    return metrics.responseArtifactVersion === undefined;
   } catch {
     return false;
   }

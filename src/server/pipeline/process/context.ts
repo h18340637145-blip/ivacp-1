@@ -1,3 +1,5 @@
+import path from "node:path";
+import { HttpError } from "@/server/http/route";
 import fs from "node:fs/promises";
 import { ISSUE_SCENE_INFO, buildIssueScenePromptBlock, detectIssueScene, filterBySameScene } from "@/domain/analysis/issue-scene";
 import type { ModelFileConfig } from "@/domain/entities";
@@ -68,7 +70,8 @@ export async function createProcessContext(request: ProcessRequest): Promise<Pro
   const carModel = (basePaths && modelToFiles) ? detectCarModel(summary, modelToFiles) : "";
   const groupDirName = ruleGroupName || ruleGroupId;
 
-  const attachRoot = issueAttachDir(groupDirName, carModel, issueKey);
+  const issueAttachments = issueAttachDir(groupDirName, carModel, issueKey);
+  const attachRoot = source === "meegle" && runId ? path.join(issueAttachments, assertSafeRunId(runId)) : issueAttachments;
   const logRoot    = issueLogDir(groupDirName, carModel, issueKey, source === "meegle" ? runId : undefined);
   const artifactRef = source === "meegle" && runId
     ? createArtifactRef({
@@ -81,10 +84,15 @@ export async function createProcessContext(request: ProcessRequest): Promise<Pro
   const analysisReceipt = artifactRef && typeof rawData.projectKey === "string" && typeof rawData.workItemId === "string"
     ? createMeegleAnalysisReceipt({ projectKey: rawData.projectKey, workItemTypeKey: "issue", workItemId: rawData.workItemId, artifactRef })
     : undefined;
-  await Promise.all([
-    fs.mkdir(attachRoot, { recursive: true }),
-    fs.mkdir(logRoot,    { recursive: true }),
-  ]);
+  if (source === "meegle" && runId) {
+    await fs.mkdir(path.dirname(logRoot), { recursive: true });
+    try { await fs.mkdir(logRoot); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new HttpError(409, "该分析运行已存在，请恢复结果或使用新的 runId");
+      throw error;
+    }
+  } else await fs.mkdir(logRoot, { recursive: true });
+  await fs.mkdir(attachRoot, { recursive: true });
 
   const logger = createPipelineLogger(issueKey);
   const metrics = createPipelineMetrics({
@@ -97,7 +105,7 @@ export async function createProcessContext(request: ProcessRequest): Promise<Pro
     logRoot,
   });
   const jiraServer = getJiraConnection(jiraProvider).server;
-  const isMeegle = issueKey.startsWith("meegle-");
+  const isMeegle = source === "meegle" || issueKey.startsWith("meegle-");
   const issueLink = isMeegle ? `飞书项目工单 ${issueKey}` : `${jiraServer}/browse/${issueKey}`;
   logger.log("INIT", `处理问题：${issueKey}  链接：${issueLink}  主题：${summary}`);
   logger.log("INIT", `ruleGroup=${groupDirName}  carModel=${carModel || "unknown"}  场景=${issueScene ? ISSUE_SCENE_INFO[issueScene].label : "未标注（不限场景召回）"}`);

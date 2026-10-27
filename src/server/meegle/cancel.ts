@@ -1,5 +1,6 @@
 import {
-  requestAnalysisRunStop,
+  AnalysisRunCompletedError,
+  requestAnalysisRunStopAfterCommit,
   type AnalysisRunIdentity,
   type StopAnalysisRunResult,
 } from "@/server/artifacts/analysis-run-registry";
@@ -31,16 +32,16 @@ export interface MeegleCancelResult {
   stoppedAt: string;
 }
 
-type StopOperation = (identity: AnalysisRunIdentity) => StopAnalysisRunResult;
+type StopOperation = (identity: AnalysisRunIdentity) => StopAnalysisRunResult | Promise<StopAnalysisRunResult>;
 
 export interface MeegleCancelOptions {
   logBase?: string;
   requestStop?: StopOperation;
 }
 
-function stopKnownRun(identity: AnalysisRunIdentity): StopAnalysisRunResult {
+async function stopKnownRun(identity: AnalysisRunIdentity): Promise<StopAnalysisRunResult> {
   try {
-    return requestAnalysisRunStop(identity);
+    return await requestAnalysisRunStopAfterCommit(identity);
   } catch (error) {
     // 服务重启后注册表中已无该运行：视为已停止
     if (error instanceof Error && error.message === `未找到分析运行: ${identity.runId}`) {
@@ -82,7 +83,7 @@ export async function cancelMeegleRun(
   }
 
   try {
-    const stopped = requestStop({ runId: body.runId, source: "meegle", issueKey: body.issueKey });
+    const stopped = await requestStop({ runId: body.runId, source: "meegle", issueKey: body.issueKey });
     const requested = {
       runId: body.runId,
       issueKey: body.issueKey,
@@ -93,6 +94,7 @@ export async function cancelMeegleRun(
     const cancellation = await readMeegleCancellation(runDirectory) ?? requested;
     return { status: "stopped", runId: body.runId, active: stopped.active, stoppedAt: cancellation.stoppedAt };
   } catch (error) {
+    if (error instanceof AnalysisRunCompletedError) throw new HttpError(409, error.message, { status: "completed" });
     throw badRequest(error instanceof Error ? error.message : String(error));
   }
 }

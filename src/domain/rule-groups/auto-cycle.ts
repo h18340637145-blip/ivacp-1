@@ -22,6 +22,7 @@ export function toggleAutoCycleState(
   now = new Date(),
 ): AutoCycleState {
   return {
+    ...existing,
     ruleGroupId,
     intervalMinutes: clampAutoCycleInterval(existing?.intervalMinutes ?? AUTO_CYCLE_DEFAULT_INTERVAL_MINUTES),
     isActive,
@@ -39,6 +40,7 @@ export function updateAutoCycleInterval(
 ): AutoCycleState {
   const intervalMinutes = clampAutoCycleInterval(rawIntervalMinutes);
   return {
+    ...existing,
     ruleGroupId,
     intervalMinutes,
     isActive: existing?.isActive ?? false,

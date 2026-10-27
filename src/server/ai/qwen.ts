@@ -24,11 +24,16 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 1.5);
 }
 
-const tokenUsageStorage = new AsyncLocalStorage<{ totalTokens: number }>();
+const tokenUsageStorage = new AsyncLocalStorage<{ totalTokens: number; signal?: AbortSignal }>();
 
 /** 为当前异步调用链开始累计 Qwen token 用量（每个请求调用一次） */
 export function startQwenTokenUsage(): void {
   tokenUsageStorage.enterWith({ totalTokens: 0 });
+}
+
+/** 独立请求上下文，避免并发分析混用 token 计数和取消状态。 */
+export function runQwenRequest<T>(callback: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  return tokenUsageStorage.run({ totalTokens: 0, signal }, callback);
 }
 
 /** 当前调用链已累计的 token 数；未开始累计或为 0 时返回 undefined */
@@ -165,6 +170,11 @@ function httpPost(
         );
       }
     );
+    const signal = tokenUsageStorage.getStore()?.signal;
+    const abort = () => req.destroy(new DOMException("分析已取消", "AbortError"));
+    if (signal?.aborted) abort();
+    else signal?.addEventListener("abort", abort, { once: true });
+    req.once("close", () => signal?.removeEventListener("abort", abort));
     req.on("error", reject);
     // 5 minutes timeout — large prompts with thinking can take 2-3 min
     req.setTimeout(300_000, () => req.destroy(new Error("Qwen API 超时（300s）")));
@@ -187,6 +197,7 @@ export async function callQwen(
   messages: QwenMessage[],
   options?: { maxTokens?: number; temperature?: number; model?: string; apiKey?: string }
 ): Promise<string> {
+  tokenUsageStorage.getStore()?.signal?.throwIfAborted();
   const model = options?.model ?? MODEL;
   const apiKey = options?.apiKey ?? API_KEY;
   if (!BASE_URL || !apiKey) throw new Error("Qwen 环境变量未配置（BASE_URL / QWEN_API_KEY）");
@@ -245,6 +256,7 @@ export async function callQwen(
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
+      tokenUsageStorage.getStore()?.signal?.throwIfAborted();
       const ip = await resolveQwenHost(parsed.hostname);
       const { statusCode, text } = await httpPost(ip, port, "/llm/model/v1/chat/completions", reqHeaders, bodyBuf);
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { json, parseJson, requireSession, route } from "@/server/http/route";
-import { listMigrationRuns, migrateLegacyMysql } from "@/server/migration/legacy-mysql";
+import { listMigrationRuns, migrateLegacyMysql, previewLegacyMysql } from "@/server/migration/legacy-mysql";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -8,6 +8,7 @@ export const maxDuration = 300;
 /** 最近的服务端迁移记录 */
 export const GET = route(async (request) => {
   requireSession(request, "admin");
+  if (new URL(request.url).searchParams.get("preview") === "1") return json(await previewLegacyMysql());
   return json({ runs: await listMigrationRuns() });
 }, "读取迁移记录失败");
 

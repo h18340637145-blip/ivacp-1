@@ -89,7 +89,7 @@ export const POST = route(async (request, { params }) => {
 
 ## 客户端约定
 - 调接口：`apiFetch<T>(url, { method, json })`（自动 JSON、非 2xx 抛 `ApiError(message)`，message 取服务端 `{error}`）。流式接口自行 `fetch`。
-- 加载数据：`const { data, error, loading, reload } = useAsync(() => loader(), [deps])`。
+- 加载外部数据：`useAsync(useCallback(() => loader(), [deps]))`，调用方提供依赖明确的稳定函数；IndexedDB 业务视图优先 `useLiveData(useCallback(() => dbQuery(), [deps]))` 订阅真实写入。
 - 用户操作：`const save = useAction(async (...) => {...}, { success: "已保存", error: "保存失败" }); save.pending`。
 - 并发：`createLimiter(CLIENT_CONCURRENCY)`。
 - 场景徽标：`<IssueSceneBadge title={summary} />`（`@/features/tickets/components/issue-scene-badge`）。

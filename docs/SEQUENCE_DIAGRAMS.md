@@ -27,6 +27,36 @@ sequenceDiagram
   Note over UI,DB: 刷新重新读取数据库；配置删除不删除分析结果与历史
 ```
 
+## IVACP 处理、恢复与回填实现
+
+```mermaid
+sequenceDiagram
+  participant UI as 浏览器
+  participant DB as IvacpDB
+  participant API as 共享处理 API
+  participant Art as 当前 run 产物
+  UI->>DB: 事务创建快照/task，归档旧结果
+  UI->>API: process(source, runId, rawData, config)
+  API->>Art: reply + stages + 完整响应
+  API->>Art: 最后发布 success 指标
+  API-->>UI: 完整结果与签名凭据
+  UI->>DB: 最新运行门禁后原子保存 task/result/assignment
+  opt 浏览器刷新或响应丢失
+    UI->>API: recover(原 run 与身份)
+    API->>Art: 验证完整成功产物
+    API-->>UI: 曲线/ticks/Token/结论与重签凭据
+    UI->>DB: 原子恢复，不创建重复结果
+  end
+  UI->>DB: 保存人工复核，事务领取回填
+  UI->>API: 回填正文与目标绑定授权
+  API-->>UI: 评论成功
+  UI->>DB: 保存评论成功
+  opt 可选飞书状态流转
+    UI->>API: 独立状态流转
+    UI->>DB: 保存流转成功或失败，不回滚评论
+  end
+```
+
 以下旧版流程图用于完整迁移对照；未接通模块不能因标记「已实现」就视为新仓库已验收。
 
 ## 本年度统计
@@ -611,4 +641,37 @@ lib/db/backup -> /api/backup/push: upsert 或 deleted=true
 新电脑浏览器 -> 数据备份弹窗: 从服务器恢复
 数据备份弹窗 -> /api/backup/pull: 按表分页拉取
 数据备份弹窗 -> IndexedDB: 补齐缺失记录（抑制钩子，不回推）
+```
+
+### 自动周期调度
+
+```mermaid
+sequenceDiagram
+    participant UI as 应用外壳
+    participant DB as IndexedDB
+    participant API as 筛票与分析
+    UI->>DB: 事务检查到期、忙碌状态、租约
+    DB-->>UI: 领取 token
+    UI->>API: 双来源筛票
+    API-->>UI: 来源分别完成或失败
+    UI->>DB: 检查开关与 token
+    loop 成功来源工单在队列出队时
+        UI->>DB: 再检查开关与 token
+        UI->>API: 仍启用则开始分析
+    end
+    UI->>DB: 同 token 释放租约、按当前间隔计时
+```
+
+### 原子恢复
+
+```mermaid
+sequenceDiagram
+    participant UI as 数据管理
+    participant Server as 账号镜像
+    participant DB as IvacpDB
+    UI->>Server: 用户确认后逐表读取
+    Server-->>UI: 所有表完整响应
+    UI->>DB: 单一跨表事务写入
+    DB-->>UI: 全部提交或全部回滚
+    Note over UI,DB: 网络读取失败不开始写库
 ```

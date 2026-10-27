@@ -1,0 +1,5 @@
+# CAN_PYTHON_BIN 可指定已安装以下依赖的 Python 3 解释器。
+cantools>=39,<42
+python-can>=4,<5
+matplotlib>=3.7,<4
+numpy>=1.24,<3

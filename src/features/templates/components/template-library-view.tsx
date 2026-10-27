@@ -54,7 +54,7 @@ export function TemplateLibraryView() {
   const { username, can } = useSession();
   const canManage = can("admin");
   const { ruleGroups, add } = useRuleGroups();
-  const library = useAsync(fetchTemplates, []);
+  const library = useAsync(fetchTemplates);
 
   const [groupId, setGroupId] = useState("");
   const [name, setName] = useState("");

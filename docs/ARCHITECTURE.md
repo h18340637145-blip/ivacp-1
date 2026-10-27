@@ -17,7 +17,13 @@
 
 规则组管理已接通：`app/(app)/page.tsx` 只组装 `features/rule-groups/components/kanban-board.tsx`。看板、卡片、配置表单和导入确认按职责拆分；`features/rule-groups/store.ts` 负责 IndexedDB 写入和缓存。`domain/rule-groups/import.ts` 在覆盖事务之前校验全部输入、恢复日期并规范化旧车型配置。合并与覆盖均使用单次读写事务；拖拽排序写入成功才发布新的缓存。数据库版本仍为 v1，没有为 UI 新增表或索引。
 
-当前业务页面为 `/`、`/statistics`、`/templates`、`/login`。其他目标页面、共享处理路由及完整生命周期仍按交接清单续接；下文旧系统架构不是新仓库完整实现的证明。
+筛票编排位于 `features/workflow`：repository 管理启动、超时恢复、事务提交与迟到响应门禁；service 调用双来源接口并独立落库。`shared/hooks/use-live-data.ts` 订阅 Dexie 查询读过的表，让运行状态、当前归属、处理结果与其他标签页变化自动刷新。过程快照不再挂到筛票运行，避免同一票在列表重复出现。
+
+处理生命周期位于 `features/tickets/services/process-repository.ts` 与 `process.ts`：事务创建 snapshot/task、归档旧 result，成功时原子写 task/result/assignment；Jira 和飞书都检查最新运行，旧归属任务不能改写新组分配。回填另用事务领取状态，网络调用在事务外执行；评论和状态流转分别提交。快照新增可选 Jira 站点字段、结果新增回填开始时间，均为非索引属性，未新增数据库版本。
+
+共享服务端处理路由只组装 `server/pipeline/process/orchestrator.ts`，复用准备、附件、需求、信号映射、日志、证据、最终结论等阶段。所有新成功路径先严格保存最终回复、stages 与 `process-response.json`，最后发布带 `responseArtifactVersion: 1` 的成功指标。恢复时校验同一工单与回复，保留曲线、ticks、模型与 Token，重新签发运行引用及回填凭据；旧版本运行保留兼容判断。
+
+当前已增加 `/rule-groups/[id]`、`/tickets/[source]/[key]` 及结果兼容页、校验详情页。`/meegle` 保留首页兼容入口。AutoCycle、数据管理、标注、终端工作台和 API 文档仍按 `docs/REFACTOR_STATUS.md` 续接；下文旧系统架构不是新仓库完整实现的证明。
 
 ## 本年度统计读取边界
 
@@ -1383,3 +1389,9 @@ QWEN_MODEL 用于指定调用模型。
 - **原生用例**：新增测试一律写成 `test/*.test.ts`（如 `eval-truth.test.ts`、`backup-format.test.ts`；后者的 MySQL 集成用例在未配置 `MYSQL_URL` 时自动跳过）。
 - **遗留脚本桥接**：`test/legacy-scripts.test.ts` 并发执行 `package.json` 中全部 `test:*` 脚本，以及没有 npm 入口的 `scripts/check-*.mjs`，每个脚本是一个独立用例。`test:perf:security` 依赖本地真实 `log/` 数据，已排除。
 - **约定**：测试只断言代码行为和 docs 中的产品约定，不断言 `session-handoff.md` 的文字（它是每轮会被改写的日记）。
+
+### 自动周期与数据管理续接实现
+
+`features/workflow/auto-cycle-service.ts` 使用 IndexedDB 事务领取每组的运行租约，网络筛票与处理在事务外进行；同组存在运行任务时跳过启动。跨标签页通过 token 协调，过期租约在两小时后可重新领取。处理队列实际出队时再次读取周期开关和 token，避免关闭后启动排队工单；周期结束按当前间隔安排下一轮，不重置用户关闭状态。AppShell 中的 WorkflowRuntime 统一轮询任务恢复和自动周期。
+
+`features/data-management` 组装备份和迁移界面。writeTables 在一个跨表事务中写入；镜像恢复先拉取全部表，再原子写入，拉取中断不改变本地。Dexie hooks 仅在事务提交后安排镜像同步，回滚不能生成删除队列。首次自动同步只增量补齐本地 ID；完整备份 finalize 必须由明确操作触发。管理员 `GET /api/migration/legacy?preview=1` 仅执行只读预检；实际服务端迁移按批次合并，可在失败后重复续迁，当前不保证整库事务原子性。

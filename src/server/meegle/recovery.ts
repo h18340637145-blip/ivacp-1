@@ -16,6 +16,7 @@ import {
 } from "@/server/meegle/run-artifacts";
 import { meeglePipelineIssueKey } from "@/server/meegle/types";
 import { createMeegleAnalysisReceipt } from "@/server/meegle/write-authorization";
+import { readSavedProcessResponse } from "./saved-response";
 
 interface PipelineMetrics {
   status?: string;
@@ -23,6 +24,8 @@ interface PipelineMetrics {
   model?: string;
   mode?: string;
   durationMs?: number;
+  tokenUsage?: number;
+  responseArtifactVersion?: number;
 }
 
 interface StagesArtifact {
@@ -76,6 +79,8 @@ export async function recoverMeegleRun(
       readJson<EvidencePacket>(path.join(runDirectory, "evidence-packet.json")).catch(() => undefined),
     ]);
     if (metrics.status !== "success" || metrics.issueKey !== issueKey || !replyText.trim()) return { recoverable: false };
+    const saved = await readSavedProcessResponse(runDirectory, issueKey, replyText);
+    if (metrics.responseArtifactVersion === 1 && !saved) return { recoverable: false };
 
     const carModel = path.basename(path.dirname(path.dirname(runDirectory)));
     const artifactRef = createArtifactRef({ groupDir, carModel, issueKey: issueDir, runId: safeRunId });
@@ -89,16 +94,19 @@ export async function recoverMeegleRun(
     return {
       handoverAt: handoverAt?.toISOString(),
       replyText: replyText.trim(),
-      model: metrics.model ?? "",
+      model: saved?.model ?? metrics.model ?? "",
       workItemId,
-      stages,
-      mode: metrics.mode ?? "",
-      elapsedMs: metrics.durationMs ?? 0,
+      stages: saved?.stages ?? stages,
+      mode: saved?.mode ?? metrics.mode ?? "",
+      elapsedMs: saved?.elapsedMs ?? metrics.durationMs ?? 0,
+      tokenUsage: saved?.tokenUsage ?? metrics.tokenUsage,
+      traceData: saved?.traceData,
+      ticks: saved?.ticks,
       chartImage,
-      signalSummary,
-      reviewEvidence: evidencePacket
+      signalSummary: saved?.signalSummary ?? signalSummary,
+      reviewEvidence: saved?.reviewEvidence ?? (evidencePacket
         ? reviewEvidenceFromEvidencePacket(evidencePacket)
-        : { carModel, props: [], signalTokens: [], propertyIds: [] },
+        : { carModel, props: [], signalTokens: [], propertyIds: [] }),
       artifactRef,
       analysisReceipt,
     };

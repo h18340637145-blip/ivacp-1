@@ -1,3 +1,4 @@
+import { pipelineSignal, trackPipelineChild, throwIfPipelineCancelled } from "./process/runtime";
 import fs from "node:fs/promises";
 import { createWriteStream } from "node:fs";
 import path from "node:path";
@@ -6,12 +7,11 @@ import https from "node:https";
 import type { JiraAttachment } from "@/server/jira/types";
 import { getJiraConnection, getJiraConnectionForUrl } from "@/server/jira/connection";
 import { getProxyUrl, makeAgent } from "@/server/jira/http";
-import { runMeegle } from "@/server/meegle/cli";
 import { buildMeegleCommentAttachmentDownloadArgs } from "@/server/meegle/comment-attachments";
 
 export function buildBasicAuth(url?: string): string {
-  const connection = url ? getJiraConnectionForUrl(url) : null;
-  return (connection ?? getJiraConnection("default")).basicAuth;
+  if (!url) return getJiraConnection("default").basicAuth;
+  return getJiraConnectionForUrl(url)?.basicAuth ?? "";
 }
 
 export { getProxyUrl, makeAgent };
@@ -31,6 +31,7 @@ export function downloadFollow(
   originalHost: string,
   depth: number
 ): Promise<void> {
+  throwIfPipelineCancelled();
   if (depth > 5) return Promise.reject(new Error("重定向次数超过限制（>5）"));
 
   return new Promise((resolve, reject) => {
@@ -44,7 +45,7 @@ export function downloadFollow(
       headers.Authorization = `Basic ${auth}`;
     }
 
-    const req = https.get(url, { agent, headers, rejectUnauthorized: false }, (res) => {
+    const req = https.get(url, { agent, headers, rejectUnauthorized: false, signal: pipelineSignal() }, (res) => {
       const statusCode = res.statusCode ?? 0;
       const location = res.headers.location;
 
@@ -113,8 +114,10 @@ export async function detectRuntimeEnv(): Promise<RuntimeEnv> {
 
 /** Run a command and return stdout */
 export function runCommandCapture(command: string, args: string[]): Promise<string> {
+  throwIfPipelineCancelled();
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, args, { timeout: 600_000, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+    trackPipelineChild(child);
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (c: Buffer) => { stdout += c.toString(); });
@@ -129,8 +132,10 @@ export function runCommandCapture(command: string, args: string[]): Promise<stri
 
 /** Run a command and wait for it to finish */
 export function runCommand(command: string, args: string[]): Promise<void> {
+  throwIfPipelineCancelled();
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "inherit", "pipe"] });
+    const child = spawn(command, args, { timeout: 600_000, detached: process.platform !== "win32", stdio: ["ignore", "inherit", "pipe"] });
+    trackPipelineChild(child);
     let stderr = "";
     child.stderr.on("data", (c: Buffer) => { stderr += c.toString(); });
     child.on("error", reject);
@@ -202,7 +207,7 @@ export async function downloadWithPowerShell(url: string, destPath: string): Pro
 $wc = New-Object System.Net.WebClient
 $wc.Proxy = [System.Net.WebRequest]::DefaultWebProxy
 $wc.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
-$wc.Headers.Add('Authorization', 'Basic ${auth}')
+${auth ? `$wc.Headers.Add('Authorization', 'Basic ${auth}')` : ""}
 $wc.Headers.Add('Accept', 'application/octet-stream, */*')
 $wc.DownloadFile('${psUrl}', '${winTmpPath.replace(/'/g, "''")}')
 Move-Item -LiteralPath '${winTmpPath.replace(/'/g, "''")}' -Destination '${winFinalPath.replace(/'/g, "''")}' -Force
@@ -236,7 +241,7 @@ export async function downloadWithWinCurl(url: string, destPath: string): Promis
     `output = "${escapeCurlConfig(stagingPath)}"`,
     `user-agent = "jira-attachment-downloader/1.0"`,
     `header = "Accept: application/octet-stream, */*"`,
-    `header = "Authorization: Basic ${escapeCurlConfig(auth)}"`,
+    ...(auth ? [`header = "Authorization: Basic ${escapeCurlConfig(auth)}"`] : []),
   ];
   const proxy = proxyForCurl(true);
   if (proxy) lines.push(`proxy = "${escapeCurlConfig(proxy)}"`);
@@ -274,7 +279,7 @@ export async function downloadWithNativeCurl(url: string, destPath: string): Pro
     `output = "${escapeCurlConfig(tmpPath)}"`,
     `user-agent = "jira-attachment-downloader/1.0"`,
     `header = "Accept: application/octet-stream, */*"`,
-    `header = "Authorization: Basic ${escapeCurlConfig(auth)}"`,
+    ...(auth ? [`header = "Authorization: Basic ${escapeCurlConfig(auth)}"`] : []),
   ];
   const proxy = proxyForCurl(false);
   if (proxy) lines.push(`proxy = "${escapeCurlConfig(proxy)}"`);
@@ -362,6 +367,7 @@ export async function downloadAttachment(
   meegleIdentity?: { projectKey: string; workItemId: string },
   stagedCommentAttachmentPaths?: Map<string, string>,
 ): Promise<void> {
+  throwIfPipelineCancelled();
   if (attachment.source === "meegle-comment") {
     const stagedPath = stagedCommentAttachmentPaths?.get(attachment.contentUrl);
     if (stagedPath) {
@@ -369,7 +375,7 @@ export async function downloadAttachment(
       return;
     }
     if (!meegleIdentity) throw new Error("飞书评论附件缺少工作项身份");
-    await runMeegle(buildMeegleCommentAttachmentDownloadArgs(attachment, meegleIdentity, destPath));
+    await runCommandCapture("meegle", buildMeegleCommentAttachmentDownloadArgs(attachment, meegleIdentity, destPath));
     return;
   }
   await downloadToFile(attachment.contentUrl, destPath, attachment.size);

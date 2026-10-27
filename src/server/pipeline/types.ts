@@ -25,6 +25,10 @@ export interface EvidenceCompleteness {
 
 export interface PipelineMetrics {
   version: 1;
+  /** 新运行恢复产物的严格完成门禁版本。 */
+  responseArtifactVersion?: 1;
+  model?: string;
+  tokenUsage?: number;
   issueKey: string;
   summary: string;
   ruleGroupId: string;

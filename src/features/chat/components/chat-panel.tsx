@@ -34,10 +34,9 @@ export function ChatPanel({ userId, onMemoryChanged }: ChatPanelProps) {
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
     try {
       setMessages(await listChatMessages(userId));
+      setLoadError(null);
     } catch (error) {
       setLoadError(errorMessage(error));
     } finally {
@@ -47,7 +46,9 @@ export function ChatPanel({ userId, onMemoryChanged }: ChatPanelProps) {
 
   // 关闭抽屉不打断进行中的回复：请求继续完成并写入 IndexedDB，下次打开可见
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void load(); });
+    return () => { cancelled = true; };
   }, [load]);
 
   useEffect(() => {

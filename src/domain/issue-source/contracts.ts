@@ -24,11 +24,11 @@ export interface RuleGroupSourceSummary {
 }
 
 export function getConfiguredSources(
-  group: Pick<RuleGroup, "jql" | "meegleMql">
+  group: Pick<RuleGroup, "jql" | "meegleMql"> & Partial<Pick<RuleGroup, "jiraProvider">>
 ): IssueSource[] {
   const sources: IssueSource[] = [];
   if (group.jql?.trim()) sources.push("jira");
-  if (group.meegleMql?.trim()) sources.push("meegle");
+  if (group.jiraProvider !== "bosch" && group.meegleMql?.trim()) sources.push("meegle");
   return sources;
 }
 

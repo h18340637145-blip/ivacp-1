@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bot, LogOut, Menu, ScanSearch, UserRound } from "lucide-react";
 import { ROLE_LABEL } from "@/domain/auth/permissions";
 import { useSession, useSessionStore } from "@/features/auth/session-store";
+import { WorkflowRuntime } from "@/features/workflow/components/workflow-runtime";
 import { ChatDrawer } from "@/features/chat/components/chat-drawer";
 import { ThemeToggle } from "@/shared/layout/theme";
 import { cn } from "@/shared/lib/cn";
@@ -131,6 +132,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
+      <WorkflowRuntime />
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col gap-6 border-r border-border bg-surface px-3 py-4 lg:flex">
         <Brand />
         <div className="min-h-0 flex-1 overflow-y-auto">

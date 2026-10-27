@@ -36,9 +36,9 @@ export function KnowledgePanel({ userId, onCountChange }: KnowledgePanelProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    setLoadError(null);
     try {
       const list = await listKnowledgeDocs(userId);
+      setLoadError(null);
       setDocs(list);
       onCountChange(list.length);
     } catch (error) {
@@ -49,7 +49,9 @@ export function KnowledgePanel({ userId, onCountChange }: KnowledgePanelProps) {
   }, [userId, onCountChange]);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void load(); });
+    return () => { cancelled = true; };
   }, [load]);
 
   const visible = useMemo(() => searchDocs(docs, query), [docs, query]);

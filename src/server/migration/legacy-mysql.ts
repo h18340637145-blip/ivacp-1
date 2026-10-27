@@ -56,7 +56,7 @@ async function legacyOwners(filter?: string[]): Promise<string[]> {
   return filter?.length ? owners.filter((owner) => filter.includes(owner)) : owners;
 }
 
-async function readLegacyTables(owner: string): Promise<LegacyTables> {
+async function readLegacyTables(owner: string, warnings: string[] = [], sourceCounts: Record<string, number> = {}): Promise<LegacyTables> {
   const pool = await getLegacyPool();
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT table_name, data FROM idb_records WHERE owner = ? AND deleted = 0 AND data IS NOT NULL",
@@ -64,10 +64,12 @@ async function readLegacyTables(owner: string): Promise<LegacyTables> {
   );
   const tables: Record<string, unknown[]> = {};
   for (const row of rows) {
+    const tableName = String(row.table_name);
+    sourceCounts[tableName] = (sourceCounts[tableName] ?? 0) + 1;
     try {
       (tables[String(row.table_name)] ??= []).push(deserializeRecord(String(row.data)));
     } catch {
-      // 损坏的 JSON 行跳过，由报告中的 read 计数体现差异
+      warnings.push(`[${owner}] ${String(row.table_name)}：JSON 损坏，已跳过 1 条`);
     }
   }
   return tables;
@@ -86,8 +88,12 @@ async function migrateOwner(
   owner: string,
   options: LegacyMysqlMigrationOptions,
 ): Promise<{ report: OwnerMigrationReport; renamedResultIds: Record<string, string> }> {
-  const legacy = await readLegacyTables(owner);
+  const warnings: string[] = [];
+  const sourceCounts: Record<string, number> = {};
+  const legacy = await readLegacyTables(owner, warnings, sourceCounts);
   const { tables, report, renamedResultIds } = migrateLegacyTables(legacy);
+  report.warnings.push(...warnings);
+  Object.assign(report.read, sourceCounts);
   let skippedExisting = 0;
   const written: OwnerMigrationReport["written"] = {};
 
@@ -218,4 +224,33 @@ export async function listMigrationRuns(limit = 10): Promise<LegacyMysqlMigratio
     [limit],
   );
   return rows.map((row) => (typeof row.report === "string" ? JSON.parse(row.report) : row.report));
+}
+
+/** 只读预检：查询源镜像并转换，不调用迁移写入或记录 migration_runs。 */
+export async function previewLegacyMysql() {
+  const owners: Array<{ owner: string; report: MigrationReport; conflicts: number; conflictsByTable: Partial<Record<EntityTableName, number>> }> = [];
+  for (const owner of await legacyOwners()) {
+    const warnings: string[] = [];
+    const sourceCounts: Record<string, number> = {};
+    const { tables, report } = migrateLegacyTables(await readLegacyTables(owner, warnings, sourceCounts));
+    Object.assign(report.read, sourceCounts);
+    report.warnings.push(...warnings);
+    let conflicts = 0;
+    const conflictsByTable: Partial<Record<EntityTableName, number>> = {};
+    for (const table of ENTITY_TABLES) {
+      const rows = (tables[table] ?? []) as unknown as Record<string, unknown>[];
+      if (!rows.length) continue;
+      const existing = await existingIds(owner, table);
+      const count = rows.filter(row => existing.has(recordPrimaryKey(table, row))).length;
+      if (count) conflictsByTable[table] = count;
+      conflicts += count;
+    }
+    owners.push({ owner, report, conflicts, conflictsByTable });
+  }
+  const count = async (table: string) => {
+    if (!(await tableExists(table))) return { read: 0 };
+    const [rows] = await (await getLegacyPool()).query<RowDataPacket[]>(`SELECT COUNT(*) AS total FROM ${table}`);
+    return { read: Number(rows[0]?.total ?? 0) };
+  };
+  return { owners, templates: await count('team_templates'), annotations: await count('labeling_annotations'), checkedAt: new Date().toISOString() };
 }

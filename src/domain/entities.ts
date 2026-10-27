@@ -103,6 +103,9 @@ export interface AutoCycleState {
   intervalMinutes: number;
   lastRunAt?: Date;
   nextRunAt?: Date;
+  runToken?: string;
+  runningSince?: Date;
+  lastError?: string;
 }
 
 // ─── 筛票 ────────────────────────────────────────────────────────────────────
@@ -133,6 +136,8 @@ export interface FilterRun {
 export interface TicketSnapshot {
   id: string;
   source: TicketSource;
+  /** 分析时的 Jira 站点，显式 default 可与旧记录的未知来源区分。 */
+  jiraProvider?: "default" | "bosch";
   ticketKey: string;
   ruleGroupId: string;
   origin: "filter" | "process";
@@ -271,6 +276,7 @@ export interface ProcessResult {
   commentId?: string;
   commentedAt?: Date;
   commentError?: string;
+  commentStartedAt?: Date;
 
   // 状态流转
   transitionStatus: TransitionStatus;

@@ -43,9 +43,9 @@ export function MemoryPanel({ userId, version }: MemoryPanelProps) {
   const [pendingDelete, setPendingDelete] = useState<MemoryRecord | null>(null);
 
   const load = useCallback(async () => {
-    setLoadError(null);
     try {
       setItems(sortMemories(await listMemories(userId)));
+      setLoadError(null);
     } catch (error) {
       setLoadError(errorMessage(error));
     } finally {
@@ -54,7 +54,9 @@ export function MemoryPanel({ userId, version }: MemoryPanelProps) {
   }, [userId]);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void load(); });
+    return () => { cancelled = true; };
   }, [load, version]);
 
   const add = async () => {

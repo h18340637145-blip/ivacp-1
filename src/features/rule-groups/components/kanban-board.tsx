@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Download, LayoutGrid, Plus, Search, Upload } from "lucide-react";
+import { Download, Filter, LayoutGrid, Play, Plus, Search, Upload } from "lucide-react";
+import { useProcessAction } from "@/features/tickets/use-process-action";
+import { createRuleGroupSourceSummary, getConfiguredSources } from "@/domain/issue-source/contracts";
+import { loadRuleGroupFilters } from "@/features/workflow/filter-service";
+import { useFilterAction } from "@/features/workflow/use-filter-action";
+import { useLiveData } from "@/shared/hooks/use-live-data";
 import type { RuleGroup } from "@/domain/entities";
 import { useSession } from "@/features/auth/session-store";
 import { errorMessage } from "@/shared/lib/errors";
@@ -27,6 +32,9 @@ export function KanbanBoard() {
   const [sorting, setSorting] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const groups = state.ruleGroups;
+  const filter = useFilterAction(groups);
+  const process = useProcessAction();
+  const summaries = useLiveData(useCallback(async () => Object.fromEntries(await Promise.all(groups.map(async (group) => [group.id, (await loadRuleGroupFilters(group)).summary] as const))), [groups]));
   const needle = query.trim().toLowerCase();
   const visible = groups.filter((group) => (
     !needle || [group.name, group.jql, group.meegleMql ?? "", ...Object.keys(group.model_to_files ?? {})].some((value) => value.toLowerCase().includes(needle))
@@ -50,6 +58,8 @@ export function KanbanBoard() {
     <Page width="full" className="space-y-5">
       <PageHeader title="规则组看板" description="管理不同项目的工单查询、车型文件与分析提示词。" meta={<Badge tone="success">本地保存</Badge>}
         actions={<>
+          <Button variant="outline" disabled={!groups.some((group) => getConfiguredSources(group).length)} loading={filter.running} onClick={() => void filter.run(groups.filter((group) => getConfiguredSources(group).length))}><Filter aria-hidden />一键筛选</Button>
+          <Button variant="outline" disabled={!groups.length} loading={process.running} onClick={() => void process.run(groups)}><Play aria-hidden />一键处理</Button>
           <Button variant="outline" disabled={!state.loaded || !!state.error || !groups.length} onClick={state.exportFile}><Download aria-hidden />导出规则组</Button>
           {canManage ? <><Button variant="outline" onClick={() => setImportOpen(true)}><Upload aria-hidden />导入</Button><Button variant="outline" onClick={() => setEditor({ bosch: true })}>新建 Bosch Jira 规则组</Button><Button variant="primary" onClick={() => setEditor({})}><Plus aria-hidden />新建规则组</Button></> : null}
         </>} />
@@ -69,7 +79,7 @@ export function KanbanBoard() {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => void reorder(event)} accessibility={{ screenReaderInstructions: { draggable: "按空格拿起卡片，使用方向键移动，再按空格放下；按 Escape 取消。" } }}>
           <SortableContext items={visible.map((group) => group.id)} strategy={rectSortingStrategy}>
             <div className="grid items-stretch gap-4 md:grid-cols-2 2xl:grid-cols-3">
-              {visible.map((group) => <RuleGroupCard key={group.id} group={group} canManage={canManage} sortingDisabled={sortingDisabled} onEdit={() => setEditor({ group })} onRemove={() => setRemoving(group)} />)}
+              {visible.map((group) => <RuleGroupCard key={group.id} group={group} canManage={canManage} sortingDisabled={sortingDisabled} onEdit={() => setEditor({ group })} onRemove={() => setRemoving(group)} onFilter={() => void filter.run([group])} summary={summaries.data?.[group.id] ?? createRuleGroupSourceSummary(group)} />)}
             </div>
           </SortableContext>
         </DndContext>

@@ -1,9 +1,13 @@
 "use client";
 
 import { useSortable } from "@dnd-kit/sortable";
+import Link from "next/link";
 import { CSS } from "@dnd-kit/utilities";
 import { FileCode2, GripVertical, Pencil, Settings2, Trash2 } from "lucide-react";
 import type { RuleGroup } from "@/domain/entities";
+import type { RuleGroupSourceSummary } from "@/domain/issue-source/contracts";
+import { AutoCycleControl } from "@/features/workflow/components/auto-cycle-control";
+import { SourceStatus } from "@/features/workflow/components/source-status";
 import { filledPromptCount } from "@/domain/rule-groups/form";
 import { formatDateTime } from "@/shared/lib/format";
 import { Badge, Button } from "@/shared/ui";
@@ -14,9 +18,11 @@ interface Props {
   sortingDisabled: boolean;
   onEdit: () => void;
   onRemove: () => void;
+  onFilter: () => void;
+  summary: RuleGroupSourceSummary;
 }
 
-export function RuleGroupCard({ group, canManage, sortingDisabled, onEdit, onRemove }: Props) {
+export function RuleGroupCard({ group, canManage, sortingDisabled, onEdit, onRemove, onFilter, summary }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: group.id, disabled: sortingDisabled });
   const models = Object.keys(group.model_to_files ?? {});
   return (
@@ -41,6 +47,9 @@ export function RuleGroupCard({ group, canManage, sortingDisabled, onEdit, onRem
           {group.jql.trim() ? <div><dt className="mb-1 font-medium text-muted-foreground">JQL</dt><dd className="line-clamp-3 break-all rounded-md bg-surface-2 p-2 font-mono leading-relaxed">{group.jql}</dd></div> : null}
           {group.meegleMql?.trim() && group.jiraProvider !== "bosch" ? <div><dt className="mb-1 font-medium text-muted-foreground">MQL</dt><dd className="line-clamp-3 break-all rounded-md bg-surface-2 p-2 font-mono leading-relaxed">{group.meegleMql}</dd></div> : null}
         </dl>
+        <SourceStatus summary={summary} />
+        <AutoCycleControl groupId={group.id} canManage={canManage} />
+        <div className="mt-auto flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={Object.values(summary).some((value) => value.status === "running") || !Object.values(summary).some((value) => value.configured)} onClick={onFilter}>筛选工单</Button><Button variant="outline" size="sm" asChild><Link href={`/rule-groups/${encodeURIComponent(group.id)}`}>查看工单</Link></Button></div>
       </div>
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3">
         <span className="tabular text-[11px] text-subtle-foreground">更新于 {formatDateTime(group.updatedAt)}</span>

@@ -90,16 +90,16 @@ export function ChatDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
         </TabsList>
         {/* 对话与知识库常驻挂载：切换标签不中断流式回复/导入，知识库计数始终可见 */}
         <TabsContent value="chat" forceMount className={panelClass}>
-          <ChatPanel userId={uid} onMemoryChanged={bumpMemory} />
+          <ChatPanel key={uid} userId={uid} onMemoryChanged={bumpMemory} />
         </TabsContent>
         <TabsContent value="knowledge" forceMount className={panelClass}>
-          <KnowledgePanel userId={uid} onCountChange={setDocCount} />
+          <KnowledgePanel key={uid} userId={uid} onCountChange={setDocCount} />
         </TabsContent>
         <TabsContent value="memory" className={panelClass}>
-          <MemoryPanel userId={uid} version={memoryVersion} />
+          <MemoryPanel key={uid} userId={uid} version={memoryVersion} />
         </TabsContent>
         <TabsContent value="notes" className={panelClass}>
-          <NotesPanel userId={uid} />
+          <NotesPanel key={uid} userId={uid} />
         </TabsContent>
         <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
           当前用户：{user?.displayName ?? uid}（{uid}）· 数据按用户隔离，仅保存在本浏览器

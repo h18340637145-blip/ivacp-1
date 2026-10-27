@@ -257,10 +257,12 @@ export function migrateLegacyTables(legacy: LegacyTables): LegacyMigrationResult
   // 快照
   const snapshots: TicketSnapshot[] = [];
   const jiraSnapshotByLegacyId = new Map<string, TicketSnapshot>();
+  const groupById = new Map(ruleGroups.map((group) => [group.id, group]));
   for (const row of rows(legacy, "filteredIssueSnapshots")) {
     const snapshot = compact<TicketSnapshot>({
       id: snapshotIds.allocate("jira", str(row.id)),
       source: "jira",
+      jiraProvider: groupById.has(str(row.ruleGroupId)) ? groupById.get(str(row.ruleGroupId))?.jiraProvider ?? "default" : undefined,
       ticketKey: str(row.issueKey),
       ruleGroupId: str(row.ruleGroupId),
       origin: "filter",

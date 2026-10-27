@@ -27,9 +27,9 @@ export function NotesPanel({ userId }: { userId: string }) {
   const [pendingDelete, setPendingDelete] = useState<NoteRecord | null>(null);
 
   const load = useCallback(async () => {
-    setLoadError(null);
     try {
       setNotes(await listNotes(userId));
+      setLoadError(null);
     } catch (error) {
       setLoadError(errorMessage(error));
     } finally {
@@ -38,7 +38,9 @@ export function NotesPanel({ userId }: { userId: string }) {
   }, [userId]);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void load(); });
+    return () => { cancelled = true; };
   }, [load]);
 
   const allTags = useMemo(() => [...new Set(notes.flatMap((n) => n.tags))], [notes]);

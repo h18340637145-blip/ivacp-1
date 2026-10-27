@@ -10,7 +10,8 @@ export const LOG_BASE    = path.join(process.cwd(), "log");
 
 /** Strip characters that are unsafe in directory/file names */
 export function sanitizeName(s: string): string {
-  return s.replace(/[/\\:*?"<>|]/g, "_").slice(0, 80);
+  const safe = s.replace(/[/\\:*?"<>|]/g, "_").slice(0, 80);
+  return !safe || safe === "." || safe === ".." ? "_" : safe;
 }
 
 export function issueAttachDir(ruleGroupId: string, carModel: string, issueKey: string): string {

@@ -32,7 +32,7 @@ export function isPublicPath(pathname: string): boolean {
   return (
     PUBLIC_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) ||
     pathname === "/favicon.ico" ||
-    /\.[a-zA-Z0-9]+$/.test(pathname)
+    (!pathname.startsWith("/api/") && /\.[a-zA-Z0-9]+$/.test(pathname))
   );
 }
 

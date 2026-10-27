@@ -1,78 +1,60 @@
 # IVACP 会话交接
 
-更新时间：2026-10-27。续接来源：仓库根目录 `session.md` 中的 Copilot 重构日志。
+更新时间：2026-10-27。本轮从 `session.md` 和上一轮看板继续。完整重构尚未完成。
 
-## 已确认的范围
+## 范围与工作区
 
-- 在 `/home/huo2wx/project/nextjs/ivacp/ivacp` 重构，参考 `/home/huo2wx/project/nextjs/app`，不修改参考项目。
-- 保留原系统 Jira / 飞书项目等功能，移除 Geely2 专项页面。
-- 新设计系统、统一领域模型、新建 IndexedDB / MySQL 数据库，并提供旧数据迁移；测试使用 Vitest。
-- 工作区保留大量 Copilot 未提交、部分已暂存的迁移代码；不要 reset、清理或整体提交这些改动。
+- 目标仓库 `/home/huo2wx/project/nextjs/ivacp/ivacp`，参考 `/home/huo2wx/project/nextjs/app` 保持只读。除 Geely2 外保留原功能，统一存储、提供迁移、刷新 UI，测试使用 Vitest。
+- 本轮开始基线 `05070a3`。改动尚未提交，勿 reset、清理或整体提交。具体功能对照见 `docs/REFACTOR_STATUS.md`，续接计划见 `docs/superpowers/plans/2026-10-27-workflow-continuation.md`。
 
-## Copilot 中断位置
+## 本轮实现
 
-日志末尾因月度额度耗尽，五个后台任务中四个失败、Meegle 服务端任务报告完成。已留下领域实体、统一数据库、登录、外壳、镜像/迁移服务、多个服务端模块和统计/模板页面。任务报告不能替代运行验收。
+- 双来源筛票：独立成功/失败状态、事务提交、最新运行门禁、飞书优先级与唯一归属、成功空结果清理关联且保留历史。
+- 规则组工单列表、统一工单详情、单票与批量处理、重跑历史、任务状态；原子保存 task/result/snapshot，迟到响应不能覆盖新运行或新归属。
+- 服务端共享 process/review/screenshot/chart/embeddings/飞书通知路由；完整阶段、附件、离线 ASC/BLF/CAN FD 解析绘图、证据和最终结论。Meegle 显式取消注册表与最终成功提交互斥；HTTP 断开不停止后台分析。
+- 每次飞书运行独立目录；完整 process-response.json 先落盘，再提交 version=1 成功指标；刷新恢复保留 CAN 曲线、枚举、Token、模型，并重签凭据。旧运行不重放、不自动回填。
+- AI/人工复核、结构化驳回、few-shot、一致性校验与人工改判；飞书 AI 复核只提供建议。
+- Jira/飞书回填门禁、跨标签页领取、评论和流转分别记账、经办人指派。Jira 快照保存不可变站点，旧快照无法判定来源则阻止外部写入。
+- 共享交互 CAN 图：缩放、平移、重置、合并截图；枚举不覆盖实际值时采用数值轴。详情保留旧链接参数、上下文和过程产物入口。
+- 自动周期看板配置与 AppShell 调度，跨标签页租约、运行任务忙碌门禁、失败重试；出队前再次核对开关/token，关闭后不启动排队任务。最小 5 分钟，周期结束后计时，仅登录并保持浏览器打开时执行。
+- `/settings/data`：逐表统计、JSON导出与预览导入、同源旧库只读探测与迁移、镜像备份恢复、管理员 MySQL 只读预检/确认迁移/报告。恢复先下载所有表再原子写入；首次自动同步仅增量补齐，不能自动finalize删除镜像；Dexie提交后再排同步队列。
+- 修复聊天面板与 useAsync 既有 ESLint 问题，加载函数保持稳定引用，不关闭全局规则。
+- 阶段和客户端经历规格/质量审查，已修复鉴权、取消提交竞态、恢复完整性、来源隔离、回填领取和周期队列问题。
 
-续接开始时首页 `src/app/(app)/page.tsx` 仍然返回 `null`。旧交接文档中的 `lib/`、`stores/` 路径及“已实现”描述来自参考系统，不能视为新仓库现状。
+## 最近验证与边界
 
-## 本轮已接通：规则组看板
+- 最近全量 Vitest：53 文件通过、3 文件跳过；230 测试通过、6 跳过（6项浏览器场景单独启用）。日志 `/tmp/ivacp-continuation-tests.log`。真实离线 CAN 测试使用 `CAN_PYTHON_BIN=/home/huo2wx/anaconda3/bin/python3`。
+- 最近 AutoCycle + process lifecycle 定向：2文件11项通过，包含真实限流队列关闭测试。
+- 数据管理定向：4文件21项通过，包含并发写入期间一致性导出回归；新增数据管理/周期开关开发浏览器场景1项通过。最新生产浏览器3文件6场景全部通过，包括新增数据管理与周期开关。
+- 之前生产浏览器验收2文件5场景通过，涵盖看板CRUD/排序/刷新/导入/权限、双来源处理/复核/截图/回填/重跑/失败隔离、跨标签页仅一次Jira评论。全部外部写接口与镜像使用mock；未实际回填或迁移真实旧库。
+- 本轮最新生产构建成功，包含自动周期和数据管理，保留1项动态路径NFT tracing warning。最新全量ESLint与typecheck通过。
+- MySQL 迁移仍按批次提交，可重复合并续迁，不保证整库事务原子性。浏览器导入/恢复为跨表事务。
+- 无头宿主缺中文字体，布局截图与中文DOM断言分别验证。
 
-- 首页组装 `src/features/rule-groups/components/kanban-board.tsx`，展示规则组卡片、来源、车型、提示词数量、查询摘要和更新时间。
-- 支持关键词与来源筛选；管理员新建、编辑、删除、导入、拖拽排序，普通分析员只读配置与导出。
-- 配置表单支持普通 / Bosch Jira、JQL / MQL、expand、JSON / DBC / Proto 根目录、车型文件、全部 6 项提示词。
-- IndexedDB `IvacpDB.ruleGroups` 保存配置与排序；刷新重新读取。加载失败显示错误和重试入口。
-- JSON 导入支持合并及确认覆盖；`src/domain/rule-groups/import.ts` 在写库前完整校验、还原 Date、兼容旧车型字段，拒绝重复 ID、错误日期和错误结构。
-- 合并更新保留已有排序与创建时间，新组追加；导入事务保证不发生半写入。排序在数据库事务成功后更新缓存。
-- 删除与覆盖只操作规则组配置，保留分析结果与历史。确认弹窗异步失败时保留弹窗并显示错误。
-- 修复 `terminal-gateway/server.ts` 将必填 operator 覆盖为 undefined 导致的类型检查失败。
-- 已同步四份 Harness 文档与 `docs/CONVENTIONS.md`，标记新仓库实际状态，并修正文档里的 Button API 与 Node 环境约定。
+## 重要：真实用户工单中断与预览恢复
 
-## 验证
+停止3017预览前未检查活跃任务，发送过一次Ctrl-C后才发现真实飞书分析。已向用户说明并致歉，没有再次停止或重复提交工单。
 
-- Vitest 全量（含本地 MySQL 集成）：140 个测试通过；浏览器验收默认显式跳过，需指定本地服务地址。
-- `npm run typecheck`、本轮改动定向 ESLint、`npm run build` 通过。构建保留 2 个既有动态日志路径 tracing warning，没有阻断产物生成。
-- 生产服务器 + Chromium 浏览器验收：2 个场景通过，覆盖新建完整配置、编辑保留 ID、键盘排序、刷新持久化、导出、合并导入、无效文件拒绝、覆盖导入保留分析结果、筛选禁用排序、删除与分析员只读权限。375 / 768 / 1024 / 1440px 均无横向溢出。
-- 键盘测试需在按空格激活后等待两个动画帧：dnd-kit KeyboardSensor 延迟注册监听器、拖拽区域延迟测量；移动后等待 live-region 目标更新再放置，避免测试事件过快。
-- 浏览器使用隔离 context，拦截 `/api/backup/**`，不把测试记录镜像到真实账号。
-- 初次全量 ESLint 有 6 个既有错误，位于 `src/features/chat/components/{chat-panel,knowledge-panel,memory-panel,notes-panel}.tsx` 和 `src/shared/hooks/use-async.ts`，涉及 `react-hooks/set-state-in-effect` / `react-hooks/use-memo`。本轮没有全局关闭规则或更改这些模块。
-- 无头浏览器系统缺少中文字体，截图用于布局核验；中文内容与交互通过 DOM 定位和断言核验。
-- 未调用真实 Jira / 飞书工单写接口，未执行旧库全量迁移，未完成全系统端到端验收。
+- 原exec session **40371** 已退出（exit 130），原next-server PID **586858** 已消失。
+- issue `meegle-7142715073`；run **MqsRZnmxIWvOaadcs2Vhs**；组 `chery T1YA-8255`；车型 `T1YA_8255`。
+- 产物 `log/chery T1YA-8255/T1YA_8255/meegle-7142715073/MqsRZnmxIWvOaadcs2Vhs` 保留。
+- 已完成需求、信号、CAN图、上层摘要、证据包和 Android/QNX 分析，中断在 AI_STEP5 最终一致性分析。无 process-response.json、无最终成功指标，**不能恢复为成功**。不得自行重复提交、回填或更改用户任务记录。
+- 最新生产构建已重新启动3017，exec session **42430**，浏览器验收使用隔离context和mock接口。之后停止任何预览前先检查活跃分析；不要因curl失败认定分析退出。
+- 临时开发验收服务3021，exec session **93019**；仅用于mock浏览器。与本轮无关的早期next-server PID5218勿触碰。
 
-## 本地运行
-
-必须加载 shell 环境，并显式使用 Node 20，避免系统旧 Node 与 npm 混用：
+## 本地环境
 
 ```bash
 source ~/.bashrc >/dev/null 2>&1
 export PATH=/home/huo2wx/.nvm/versions/node/v20.20.0/bin:$PATH
-npm run dev
 ```
 
-检查命令：`npm test`、`npm run typecheck`、`npm run lint`、`npm run build`。本机 MySQL 测试和浏览器运行可能需要沙箱外本地网络权限。
+本机默认Python缺CAN包，Anaconda解释器依赖齐全。已创建被git忽略的 `.env.local`，仅包含 CAN_PYTHON_BIN 与 IVACP_BROWSER_EXECUTABLE 两项本机路径，未更改 `.env` 或新增凭据。
 
-浏览器验收使用已有 Playwright（Vitest 编排，不新增另一套测试框架）：
+## 后续完整目标
 
-```bash
-# 先构建并启动本地生产服务器，或使用已运行的本地服务
-npm run build
-npm run start -- --hostname 127.0.0.1 --port 3017
-# 另一终端，同样先加载环境与 Node 20
-IVACP_BROWSER_BASE_URL=http://127.0.0.1:3017 \
-IVACP_BROWSER_EXECUTABLE=/home/huo2wx/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell \
-npx vitest run test/kanban-browser.test.ts
-```
-
-若已安装当前 Playwright 对应浏览器，可省略 `IVACP_BROWSER_EXECUTABLE`。
-
-## 下一步：双来源筛票闭环
-
-本轮遵守一次一个明确目标，仅接通规则组配置入口。完整重构尚未完成，建议接续顺序：
-
-1. 在统一模型上接通双来源筛票编排及 `/rule-groups/[id]` 分来源列表。Jira 筛票服务已有初版；飞书客户端筛票落库和对账还需连接。必须保留来源失败隔离、成功空 MQL、唯一归属和历史数据保留边界。
-2. 接通共享 `/api/issues/process` 入口（目前缺失），复用 `src/server/pipeline/process/*` 已迁移阶段，补齐需要的路由与阶段；连接 Jira / 飞书客户端 task/result/history 持久化、停止与恢复。当前 Meegle 服务端仍依赖该缺失入口。
-3. 统一工单详情、CAN 图、AI 复核、人工复核、校验与回填门禁，再接自动周期。保持不可变 runId 恢复和真实人工复核授权边界。
-4. 连接数据管理 `/settings/data`（备份 / 恢复 / 旧库迁移 UI）、标注 `/labeling`、终端 `/terminal`、OpenAPI `/api/docs` 和 `/api/openapi`，补齐聊天所需 `/api/embeddings` 等缺失接口。
-5. 检查侧栏与旧路由重定向的目标页面是否存在；当前很多目标尚未创建，导航不代表可用功能。
-6. 处理上述 6 个既有 ESLint 错误，完成原系统功能点对照及真实环境验收。
-
-具体本轮计划：`docs/superpowers/plans/2026-10-27-refactor-continuation.md`。
+1. 自动周期和数据管理的最新生产浏览器3文件6场景通过；一致性导出回归、全量测试、lint、typecheck、build均通过。
+2. 接通 `/labeling`（标注编辑/JSONL导出）、`/terminal`（项目、文件、权限、审计）与 `/api/docs`、`/api/openapi`。
+3. 对照直接工单key分析/车型规则组匹配入口，补齐原功能；复查统计、模板、聊天、知识库、笔记和记忆完整交互。
+4. 检查真实运行最终产物与恢复；不得自行重复处理、回填、群通知或迁移用户数据。
+5. 全部功能对照与真实业务验收完成前，不将当前绿色测试描述为全项目重构完成。
