@@ -208,7 +208,7 @@ Docupedia 后台归档的月度统计独立于浏览器结果持久化：
 ```text
 归档服务 -> Docupedia: find-or-create 实际文本文章
 Docupedia -> 归档服务: created / existing
-归档服务 -> 月度记录器: 正文 text.length > 700 时记录
+归档服务 -> 月度记录器: 正文 text.length > 500 时记录
 月度记录器 -> 本地 JSONL: 同进程串行读取、同月按标题去重、追加明细和 monthlyTotal
 月度记录器 -> 服务终端: 更新后累计数；写入失败仅告警
 归档服务 -> pipeline.log: 原有逐篇进度（统计失败不改变上传状态）
@@ -674,4 +674,188 @@ sequenceDiagram
     UI->>DB: 单一跨表事务写入
     DB-->>UI: 全部提交或全部回滚
     Note over UI,DB: 网络读取失败不开始写库
+```
+
+### 标注工作台：读取、建议、独立保存与导出
+
+```mermaid
+sequenceDiagram
+    participant UI as 标注工作台
+    participant API as 标注 API
+    participant DB as MySQL
+    UI->>API: GET items（当前账号与筛选）
+    API->>DB: 读取 sync_records 与账号标注
+    API-->>UI: 摘要列表
+    UI->>API: GET detail（来源与结果 ID）
+    API-->>UI: 原分析、建议、既有标注
+    Note over UI: 主动应用建议，编辑并校验草稿
+    UI->>API: PUT annotations
+    API->>DB: 复核员校验，独立保存并递增 revision
+    API-->>UI: 已保存标注与版本
+    UI->>API: GET export
+    API->>DB: 读取当前账号有效标注
+    API-->>UI: JSONL 文本附件
+```
+
+### 本地 API 文档读取
+
+```mermaid
+sequenceDiagram
+    participant Browser as 浏览器
+    participant Docs as API文档路由
+    participant Package as 本机swagger-ui-dist
+    Browser->>Docs: GET /api/docs
+    Docs-->>Browser: 中文HTML和同源资源链接
+    Browser->>Docs: GET /api/docs/assets/固定文件名
+    Docs->>Package: 白名单读取CSS/JS
+    Docs-->>Browser: 本地资源
+    Browser->>Docs: GET /api/openapi
+    Docs-->>Browser: 当前接口、Cookie鉴权、角色及载荷
+    Note over Browser,Docs: 加载不执行任何业务写请求
+```
+
+### 终端关联与清理
+
+```mermaid
+sequenceDiagram
+    participant UI as 终端标签
+    participant Gateway as Gateway SessionManager
+    participant SSH as 白名单SSH
+    UI->>Gateway: connect（管理员Cookie）
+    Gateway->>SSH: 建立PTY
+    Gateway-->>UI: connected(sessionId)
+    UI->>Gateway: signalConfigFiles(requestId, projectContext)
+    Gateway->>SSH: 独立exec扫描配置
+    Gateway-->>UI: configs(requestId, contextKey)
+    Note over UI: 仅接受本标签和当前上下文响应
+    UI->>Gateway: input（普通多行逐行校验/审计）
+    Gateway->>SSH: 按到达顺序写入PTY
+    SSH-->>UI: output（不落盘）
+    UI->>Gateway: disconnect / socket关闭
+    Gateway->>SSH: 关闭当前及晚到连接
+```
+
+### 指定票号直接分析
+
+```mermaid
+sequenceDiagram
+    participant UI as 首页单票入口
+    participant Jira as 所选Jira站点
+    participant DB as IvacpDB
+    participant Process as 统一分析生命周期
+    UI->>UI: 规范化/校验票号
+    UI->>Jira: 查询准确票号
+    Jira-->>UI: 工单上下文
+    UI->>DB: 读取同站点规则组
+    UI->>UI: 标题车型匹配全部组
+    loop 每个匹配组
+        UI->>DB: 出队前核对分析配置签名
+        UI->>Process: 原快照与规则配置，显式重跑
+        Process->>DB: 独立snapshot/task，归档旧结果
+        Process-->>UI: 实际任务完成/失败/仍运行
+    end
+    Note over UI,DB: 不创建或覆盖批量filterRun
+    UI->>DB: 刷新后读取最近direct标记任务
+    DB-->>UI: 按站点/组/票去重的详情链接
+```
+
+### Jira运行证据复核
+
+```mermaid
+sequenceDiagram
+    participant Process as 共享分析
+    participant Log as 日志与附件
+    participant DB as 本地结果
+    participant Review as AI复核
+    Process->>Log: 独立run日志、站点隔离附件缓存
+    Process->>DB: 返回并保存analysisRunId
+    DB->>Review: 当前结果与已确认runId
+    Review->>Log: 只读对应票/run
+    Log-->>Review: 当前运行证据或不存在
+    Note over Review,Log: 明确run不存在时不回退旧父目录
+```
+
+## 当前统计身份关联（2026-10-28）
+
+```text
+用户 -> /statistics: 查询本地年份与月份
+页面 -> Dexie只读事务: 结果 + 历史 + 快照 + 分配
+事务 -> 统计提取: 结果snapshotId / 历史sourceSnapshotId
+统计提取 -> 飞书身份: 原快照优先，缺失时分配，再回退分配ID
+统计提取 -> 年度聚合: 按完整身份取范围内最后一次成功运行
+用户 -> 团队统计API: 相同已查询范围
+API -> sync_records: 结果/历史投影 + 不限创建时间的身份投影
+API -> 年度聚合: 按owner分别关联身份后合计
+API -> 页面: 仅聚合数字 / 错误
+页面 -> 复制按钮: 请求失败禁用，重试成功后启用
+```
+
+## 团队模板校验与删除失败处理（2026-10-28）
+
+```text
+用户 -> 模板库: 从文件应用
+模板库 -> parseTemplate: JSON 及模板元信息
+parseTemplate -> parseModelFiles: 共享车型字段校验 / 旧格式规范化
+parseModelFiles -> 模板库: 配置或中文错误
+模板库 -> IndexedDB: 仅校验成功后添加新规则组
+用户 -> 删除确认框: 确认删除团队模板全部版本
+确认框 -> 模板服务: DELETE /api/templates/[key]
+模板服务 -> 确认框: 失败保留错误与重试 / 成功刷新并关闭
+```
+
+## 智能助手关闭重开与笔记并发（2026-10-28）
+
+```text
+用户 -> ChatPanel: 发送
+ChatPanel -> 账号运行服务: 同账号单次运行门禁
+运行服务 -> IndexedDB: 保存用户消息并递增version
+运行服务 -> 检索服务: 文档 + 未归档笔记 + 记忆
+用户 -> 抽屉: 关闭 / 重开
+ChatPanel -> 账号运行服务: 重新订阅同一运行 / 停止
+运行服务 -> chat API: 流式回复
+chat API -> 运行服务: delta / done / error
+运行服务 -> IndexedDB: 仅完整且未取消时保存助手回复
+运行服务 -> 记忆服务: 后台抽取，并通知面板刷新
+笔记编辑器 -> 向量服务: 事务外生成分片向量
+笔记服务 -> Dexie短事务: 核对打开时和保存前的原记录
+Dexie短事务 -> 编辑器: 基线变化则拒绝并保留草稿 / 一致则保存
+```
+
+## 运维与评测（2026-10-28）
+
+```text
+运维CLI -> 本地工作目录: 日志 / 指标 / 评测集
+目录收集器 -> 候选运行: 旧父目录 + 新run目录
+目录收集器 -> 成功提交标记: 排除失败、取消、缺失完整响应
+目录收集器 -> 评测服务: 每票最新完整运行
+评测服务 -> 共享领域校验: 接地率 / 错误归因 / 时钟
+评测服务 -> docs/golden-baseline: JSON + Markdown报告
+真值CLI -> sync_records: 按owner只读reviewSamples与ruleGroups
+真值服务 -> 本地目录: 匹配规范化组名/车型/票
+真值服务 -> eval-set.json: dry-run不写；执行时保留手写条目后合并
+独立CAN回放 -> 流水线Python模块: 共用解码/周期/图形实现
+```
+
+## 归档统计失败隔离（2026-10-28）
+
+```text
+归档器 -> HTTPS适配: find-or-create合并后的Step文章
+HTTPS适配 -> 重试器: 瞬时错误退避 / 永久错误立即失败
+归档器 -> 月度记录器: 仅成功文章，原始正文长度>500
+月度记录器 -> 月份文件队列: 同月按标题去重并追加累计值
+月度记录器 -> 归档器: 统计失败仅告警，不改变已成功文章
+归档器 -> 后续文章: 保留节流；单篇失败仍继续
+```
+
+## 模板并发门禁（2026-10-28）
+
+```text
+成员/进程 -> 模板发布: 解析并校验配置
+发布/删除/迁移 -> 模板门禁: 取得专用连接，读取数据库排序权重
+模板门禁 -> MySQL: GET_LOCK(标识权重哈希,10秒)
+MySQL -> 模板门禁: 获得锁 / 超时503
+模板门禁 -> 同一连接: 作者核对、版本分配、写入及回读
+模板门禁 -> MySQL: RELEASE_LOCK
+模板门禁 -> 连接池: 正常归还 / 锁状态不确定则销毁
+模板门禁 -> 调用方: 原业务结果或异常
 ```

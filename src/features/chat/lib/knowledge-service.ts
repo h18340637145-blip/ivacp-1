@@ -34,7 +34,12 @@ export async function uploadKnowledgeFiles(userId: string, files: File[]): Promi
       notices.push(`${file.name} 超过 2MB，已跳过`);
       continue;
     }
-    const pieces = chunkText(await file.text());
+    if (!/\.(txt|md|json|csv|log)$/i.test(file.name) && !file.type.startsWith("text/")) {
+      notices.push(`${file.name} 不是支持的文本文件，已跳过`);
+      continue;
+    }
+    const text = await file.text();
+    const pieces = text.includes("\0") ? [] : chunkText(text);
     if (!pieces.length) {
       notices.push(`${file.name} 内容为空或不是文本文件`);
       continue;
@@ -60,6 +65,12 @@ export async function deleteKnowledgeDoc(id: string) {
 
 /** 升级前没有 userId 的旧数据归当前登录用户 */
 export async function claimOrphanRecords(userId: string) {
-  await db.chatMessages.filter((m) => !m.userId).modify({ userId });
-  await db.knowledgeDocs.filter((d) => !d.userId).modify({ userId });
+  await db.transaction("rw", [db.chatMessages, db.knowledgeDocs, db.memories, db.notes], async () => {
+    await Promise.all([
+      db.chatMessages.filter(row => !row.userId).modify({ userId }),
+      db.knowledgeDocs.filter(row => !row.userId).modify({ userId }),
+      db.memories.filter(row => !row.userId).modify({ userId }),
+      db.notes.filter(row => !row.userId).modify({ userId }),
+    ]);
+  });
 }

@@ -16,13 +16,13 @@ import { beginProcessAttempt, failProcessAttempt, finishProcessAttempt } from ".
 import { notifyFeishuProcessResultSafely } from "./process-result-notify";
 import { runValidation } from "./validation";
 
-const active = new Map<string, Promise<void>>();
+const active = new Map<string, Promise<ProcessTask | undefined>>();
 const controllers = new Map<string, AbortController>();
 const schedule = createLimiter(CLIENT_CONCURRENCY);
 
 async function executeProcess(input: TicketSnapshot, group: RuleGroup, reanalyze: boolean) {
   const { task, snapshot, started } = await beginProcessAttempt(input, group, reanalyze);
-  if (!started) return;
+  if (!started) return task;
   const controller = new AbortController();
   controllers.set(task.id, controller);
   const notify = { source: task.source, ruleGroupName: group.name, issueKey: snapshot.ticketKey, issueSummary: snapshot.title,
@@ -60,15 +60,16 @@ async function executeProcess(input: TicketSnapshot, group: RuleGroup, reanalyze
     await failProcessAttempt(task, message);
     await notifyFeishuProcessResultSafely({ ...notify, status: "failed", failureReason: message });
   } finally { controllers.delete(task.id); }
+  return db.processTasks.get(task.id);
 }
 
-export function processTicket(snapshot: TicketSnapshot, group: RuleGroup, options: { reanalyze?: boolean; shouldStart?: () => Promise<boolean> } = {}): Promise<void> {
-  const key = JSON.stringify([group.id, snapshot.source, snapshot.projectKey, snapshot.workItemTypeKey, snapshot.ticketKey]);
+export function processTicket(snapshot: TicketSnapshot, group: RuleGroup, options: { reanalyze?: boolean; shouldStart?: () => Promise<boolean> } = {}): Promise<ProcessTask | undefined> {
+  const key = JSON.stringify([group.id, snapshot.source, snapshot.projectKey, snapshot.workItemTypeKey, snapshot.ticketKey, snapshot.source === "jira" ? snapshot.jiraProvider ?? group.jiraProvider ?? "default" : undefined]);
   const pending = active.get(key);
   if (pending) return pending;
   const promise = schedule(async () => {
     if (options.shouldStart && !(await options.shouldStart())) return;
-    await executeProcess(snapshot, group, Boolean(options.reanalyze));
+    return executeProcess(snapshot, group, Boolean(options.reanalyze));
   }).finally(() => active.delete(key));
   active.set(key, promise);
   return promise;

@@ -52,6 +52,10 @@ export interface ProcessRequest {
 }
 
 export interface ProcessResponse {
+  /** 服务端确认的独立运行目录身份，旧响应可能没有。 */
+  analysisRunId?: string;
+  /** 分析时日志使用的规则组目录名，不随配置改名改变。 */
+  analysisGroupName?: string;
   /** 经办人接手时间（统计用，ISO 时间） */
   handoverAt?: string;
   replyText: string;

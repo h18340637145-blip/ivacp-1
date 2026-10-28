@@ -13,7 +13,7 @@
 | `src/server` | Node 服务、外部系统适配、MySQL 和流水线阶段 |
 | `src/app` | 页面组装与 API 路由 |
 
-`src/domain/entities.ts` 是统一数据结构来源。Jira / 飞书的筛票、快照、处理、结果、历史和校验合并到带来源字段的表，IndexedDB 名称为 `IvacpDB`；MySQL 使用新镜像表 `sync_records`、`sync_clients`。旧系统转换逻辑在 `domain/migration/legacy.ts`，服务端入口在 `server/migration/legacy-mysql.ts`，迁移界面尚未接通。不得将服务函数存在视为完整迁移验收。
+`src/domain/entities.ts` 是统一数据结构来源。Jira / 飞书的筛票、快照、处理、结果、历史和校验合并到带来源字段的表，IndexedDB 名称为 `IvacpDB`；MySQL 使用新镜像表 `sync_records`、`sync_clients`。旧系统转换逻辑在 `domain/migration/legacy.ts`，服务端入口在 `server/migration/legacy-mysql.ts`，迁移界面在 `/settings/data` 接通。不得将服务函数存在视为完整迁移验收。
 
 规则组管理已接通：`app/(app)/page.tsx` 只组装 `features/rule-groups/components/kanban-board.tsx`。看板、卡片、配置表单和导入确认按职责拆分；`features/rule-groups/store.ts` 负责 IndexedDB 写入和缓存。`domain/rule-groups/import.ts` 在覆盖事务之前校验全部输入、恢复日期并规范化旧车型配置。合并与覆盖均使用单次读写事务；拖拽排序写入成功才发布新的缓存。数据库版本仍为 v1，没有为 UI 新增表或索引。
 
@@ -23,7 +23,7 @@
 
 共享服务端处理路由只组装 `server/pipeline/process/orchestrator.ts`，复用准备、附件、需求、信号映射、日志、证据、最终结论等阶段。所有新成功路径先严格保存最终回复、stages 与 `process-response.json`，最后发布带 `responseArtifactVersion: 1` 的成功指标。恢复时校验同一工单与回复，保留曲线、ticks、模型与 Token，重新签发运行引用及回填凭据；旧版本运行保留兼容判断。
 
-当前已增加 `/rule-groups/[id]`、`/tickets/[source]/[key]` 及结果兼容页、校验详情页。`/meegle` 保留首页兼容入口。AutoCycle、数据管理、标注、终端工作台和 API 文档仍按 `docs/REFACTOR_STATUS.md` 续接；下文旧系统架构不是新仓库完整实现的证明。
+当前已增加 `/rule-groups/[id]`、`/tickets/[source]/[key]` 及结果兼容页、校验详情页。`/meegle` 保留首页兼容入口。AutoCycle、数据管理和标注已接通；终端工作台已接通；其余功能对照仍按 `docs/REFACTOR_STATUS.md` 续接；下文旧系统架构不是新仓库完整实现的证明。
 
 ## 本年度统计读取边界
 
@@ -200,7 +200,7 @@ POST /api/feishu/process-result
 lib/server/docupedia.ts
 服务端成功响应完成后，Next.js `after` 异步上传当前 run 的 logRoot 文本日志；浏览器收到成功响应后独立持久化 IndexedDB，两者互不作为门槛。失败不影响结果、复核或回填，重启不恢复未完成上传
 
-归档模块在文本文章 find-or-create 成功后调用 `lib/server/docupedia-upload-stats.ts`，只记录原始归档正文 `text.length > 700` 的文章，不计 HTML 转义和包装字符，不计目录页面。记录追加到 `log/docupedia-upload-stats/YYYY-MM.jsonl`，月份取服务器本地时间，`uploadedAt` 保存 UTC ISO 时间。同月以标题去重，累计篇数从持久文件中的唯一标题计算；单个 Next.js 进程内按月文件串行写入，避免并发分析相互覆盖，不支持多个服务进程同时写同一统计目录。写入失败独立告警，不进入上传失败计数。数据清理跳过统计目录，进程重启后从原文件继续累计；无合格文章时不创建月文件。
+归档模块在文本文章 find-or-create 成功后调用 `lib/server/docupedia-upload-stats.ts`，只记录原始归档正文 `text.length > 500` 的文章，不计 HTML 转义和包装字符，不计目录页面。记录追加到 `log/docupedia-upload-stats/YYYY-MM.jsonl`，月份取服务器本地时间，`uploadedAt` 保存 UTC ISO 时间。同月以标题去重，累计篇数从持久文件中的唯一标题计算；单个 Next.js 进程内按月文件串行写入，避免并发分析相互覆盖，不支持多个服务进程同时写同一统计目录。写入失败独立告警，不进入上传失败计数。数据清理跳过统计目录，进程重启后从原文件继续累计；无合格文章时不创建月文件。
 
 [8] 远程终端 (Terminal)
 Browser -- WebSocket --> Terminal Gateway -- SSH --> Server
@@ -1005,7 +1005,7 @@ Docupedia / Confluence REST API
 - **触发时机**：单票处理结果为 `success` 后触发；`reject`、`failed` 和历史日志补传不触发。
 - **上传范围**：仅当前处理上下文中的 `log/<规则组>/<车型>/<IssueKey>/`，不会扫描 `log/` 根目录，也不会检查之前未上传的日志。
 - **开关配置**：`ENABLE_DOCUPEDIA=1` 开启成功票自动归档，`ENABLE_DOCUPEDIA=0` 关闭自动上传；未配置 `ENABLE_DOCUPEDIA` 时兼容旧的 `DOCUPEDIA_ENABLED` 开关。
-- **页面结构**：沿用参考项目的 Docupedia 目标配置，默认 `DOCUPEDIA_BASE_URL=https://inside-docupedia.bosch.com/confluence2`、`DOCUPEDIA_SPACE_KEY=BCSCVC`，并通过 `DOCUPEDIA_PARENT_ID` 指定目标父页面；每次成功归档都会在目标父页面下创建 `jira_<随机数>` 根页面。当前日志目录中 `stepN_` 开头且数字相同的可导入文本文件会合并为一个 `jira_<随机数>_stepN` 子文章，正文按源文件名分段拼接；非 `stepN_` 文本文件仍按 `jira_<随机数>_stepN_...` 标题创建文章，`input_comments.txt` 明确跳过，不再把 `log/<规则组>/<车型>/<IssueKey>/` 路径映射成 Docupedia 页面标题。子文章沿用根页面的随机前缀，避免 Docupedia 同空间标题重复导致创建失败。
+- **页面结构**：沿用参考项目的 Docupedia 目标配置，默认 `DOCUPEDIA_BASE_URL=https://inside-docupedia.bosch.com/confluence2`、`DOCUPEDIA_SPACE_KEY=BCSCVC`，并通过 `DOCUPEDIA_PARENT_ID` 指定目标父页面；每次成功归档都会在目标父页面下创建 `meegle_<随机数>` 根页面。当前日志目录中 `stepN_` 开头且数字相同的可导入文本文件会合并为一个 `meegle_<随机数>_stepN` 子文章，正文按源文件名分段拼接；非 `stepN_` 文本文件仍按 `meegle_<随机数>_stepN_...` 标题创建文章，`input_comments.txt` 明确跳过，不再把 `log/<规则组>/<车型>/<IssueKey>/` 路径映射成 Docupedia 页面标题。子文章沿用根页面的随机前缀，避免 Docupedia 同空间标题重复导致创建失败。
 - **鉴权配置**：支持 `DOCUPEDIA_AUTH=auto|cookie|bearer|basic|negotiate`，并读取 `DOCUPEDIA_COOKIE`、`DOCUPEDIA_TOKEN`、`DOCUPEDIA_USERNAME` / `DOCUPEDIA_PASSWORD`、`EMAIL` / `DAN_TEST` 等凭据；`auto` 模式下 `DAN_TEST` 按 Bearer token 使用，显式 `DOCUPEDIA_AUTH=basic` 时可用 `EMAIL` + `DAN_TEST` 组成 Basic 认证。Node HTTPS 请求会显式读取 `HTTPS_PROXY` / `HTTP_PROXY` / 小写代理变量，避免内网 Docupedia 连接绕过代理。
 - **稳定性策略**：Docupedia 单个 REST 请求默认超时 180 秒，可通过 `DOCUPEDIA_REQUEST_TIMEOUT_MS` 调整；`socket hang up`、超时、连接重置、429 和 5xx 等瞬时错误会在页面 find-or-create 层默认重试 6 次。等待采用初始 3 秒、最多 60 秒的指数退避与 ±20% 抖动，可通过 `DOCUPEDIA_REQUEST_RETRIES`、`DOCUPEDIA_RETRY_DELAY_MS` 和 `DOCUPEDIA_RETRY_MAX_DELAY_MS` 覆盖；重试前会重新查询页面是否已创建，避免 POST 成功但响应断开时重复创建。根页面和目录页面失败会终止归档；单个日志文章最终失败会计入 `failed` 并继续上传后续文章。
 - **运行可观测性与失败策略**：后台归档开始、每篇文章创建或确认已存在、以及单篇最终失败都会立即写入当前 run 的 `pipeline.log` 的 `DOCUPEDIA` 阶段，并由同一 `PipelineLogger` 输出到 Next.js 服务终端；上传失败不改变 `IssueProcessResult` 成功状态，`ENABLE_DOCUPEDIA=0` 可显式关闭归档，进程重启后仍不会恢复未完成上传。
@@ -1395,3 +1395,77 @@ QWEN_MODEL 用于指定调用模型。
 `features/workflow/auto-cycle-service.ts` 使用 IndexedDB 事务领取每组的运行租约，网络筛票与处理在事务外进行；同组存在运行任务时跳过启动。跨标签页通过 token 协调，过期租约在两小时后可重新领取。处理队列实际出队时再次读取周期开关和 token，避免关闭后启动排队工单；周期结束按当前间隔安排下一轮，不重置用户关闭状态。AppShell 中的 WorkflowRuntime 统一轮询任务恢复和自动周期。
 
 `features/data-management` 组装备份和迁移界面。writeTables 在一个跨表事务中写入；镜像恢复先拉取全部表，再原子写入，拉取中断不改变本地。Dexie hooks 仅在事务提交后安排镜像同步，回滚不能生成删除队列。首次自动同步只增量补齐本地 ID；完整备份 finalize 必须由明确操作触发。管理员 `GET /api/migration/legacy?preview=1` 仅执行只读预检；实际服务端迁移按批次合并，可在失败后重复续迁，当前不保证整库事务原子性。
+
+### 标注客户端分层
+
+`app/(app)/labeling/page.tsx` 仅组装 `features/labeling`。工作台负责筛选与选择，详情以账号/条目身份隔离异步请求和编辑器；`service.ts` 使用统一请求封装，保存前复用 `domain/labeling/schema.ts`，JSONL 保持原始文本，失败不触发下载。
+
+独立标注仍由既有 MySQL `labeling_annotations` 保存，不改写 IndexedDB 分析结果或 `sync_records` 原始数据。未提交草稿仅在 sessionStorage 临时保存，键包含账号与条目，携带草稿格式版本与原标注内容基线，基线变化不自动恢复；已保存业务数据仍以现有 MySQL 标注 API 为准。组件切换取消过期结果，保存/撤销期间阻止切换；正常站内链接经过草稿确认，历史返回通过暂存恢复，不修改 Next.js 历史栈。
+
+### OpenAPI 与本地文档资源
+
+`server/openapi` 管理迁移后的基础描述、当前契约修订与明确的请求 schema，`app/api/openapi` 和 `app/api/docs` 仅返回 JSON 与 HTML。Swagger UI 从 `swagger-ui-dist` 的本机安装读取，`docs/assets/[file]` 只允许固定 JS/CSS 名称；不拼接用户路径，不读取运行数据，不向外部校验器发送规格。路由与方法全集测试将规格和 `src/app/api/**/route.ts` 对照；另检查引用、路径参数、Cookie鉴权、角色及标注/模板示例的领域合法性。
+
+### 终端客户端与Gateway关联
+
+`app/(app)/terminal` 只组装管理员工作台。`features/terminal` 拆分配置请求校验、命令生成/文件解析、文件读写、串行SessionClient、xterm生命周期、每标签工作区与Repo面板。xterm在浏览器挂载后动态导入；隐藏标签保持挂载与会话，销毁时释放socket、监听器、resize观察器和定时器。
+
+`domain/terminal/context.ts` 统一生成包含项目名、mainPath、scriptPath、分支及全部repo身份的contextKey。结构化Client/Server消息新增可选requestId，返回状态、Git、配置与下载回显；自动输入后刷新无requestId但带contextKey。旧字段保持兼容，新客户端仅接受自身关联响应，因此更新客户端时需同时更新Gateway。队列一次发送一个结构化请求，连接和操作超时关闭会话，避免把迟到成功归给后续动作。
+
+Gateway按session串行处理输入和审计，将普通多行输入逐行检查；阻止命令或审计失败时取消PTY残留输入。SSH连接建立前后均检查manager是否关闭，失败/关闭时释放晚到channel。逐文件Git操作在网络前校验非空相对路径与仓库归属，使用literal pathspec与选项分隔；护栏仍是现有命令模式匹配，不是隔离shell，访问权限继续由管理员会话和SSH账号提供。
+
+### 指定票号分析编排
+
+`features/direct-analysis/service.ts` 校验票号、精确读取同站点Jira工单、调用领域车型匹配并复用 `features/tickets/services/process.ts`。统一process现在返回实际ProcessTask（或未启动时undefined），调用方据此显示失败而不把已吞入生命周期的API失败误当成功。相同页面相同站点/票号共享promise，跨标签页沿用task事务门禁；出队前核对捕获的完整分析配置签名。
+
+直接分析快照为origin=process，无filterRunId，附非索引可选analysisTrigger=direct，无schema版本变化。最近入口在单一只读事务关联snapshot/task/group，不修改处理或筛票数据。
+
+Jira的inflight键、task门禁、归档及最终提交比较快照中的不可变provider；详情与候选项也按provider分组，ticketHref传递provider查询参数。即使原组配置后来切换站点，同名票的分析与历史仍分别保留。无显式provider的旧记录保留按原组推断的兼容边界，不能凭新参数为已丢失的原来源补写证明。
+
+### Jira运行产物与复核证据
+
+`createProcessContext` 对带runId的所有来源使用独立日志子目录并拒绝重复runId；Meegle附件仍按run隔离，Jira附件按jira-default/jira-bosch隔离并保留同站点缓存复用。无runId旧调用保留原目录兼容，不能把这一路径视为跨站点隔离证明。
+
+ProcessResponse/ProcessResult新增非索引可选analysisRunId和analysisGroupName（分析时目录名），由服务端确认后回传；客户端落库时与当前task.id核对。AI复核仅在服务端曾返回运行身份时提交runId，新结果按不可变分析目录名精确读取相应票/run子目录，不依赖后续规则组名称，找不到返回404，不能读到旧父目录证据。旧结果不虚构runId，原有无run请求仍兼容票目录。Meegle继续使用签名artifactRef，客户端补齐meegle-工单前缀；本轮没有新增云存储或Jira后台恢复API。
+
+## 当前统计身份实现（2026-10-28）
+
+`src/domain/analysis/statistics-records.ts` 统一提取当前模型的统计运行。飞书结果通过 snapshotId、历史通过 sourceSnapshotId 关联分析原快照；其次使用 assignmentId 关联分配。完整身份采用项目、类型、字符串化工作项 ID 的元组，避免不同项目或类型中的同号被合并；身份不可用时保留分配 ID 回退及无分配旧记录的兼容边界。
+
+`features/statistics/load-local-statistics.ts` 在单一 Dexie 只读事务中读取结果、历史、快照、分配四表。`server/statistics/team-statistics.ts` 从 sync_records 投影关联 ID 和最小身份字段，按 owner 建立独立上下文；身份行不按统计时间截断，因为创建时间可能早于分析范围。接口仍只返回聚合数字，不返回工单内容，无 schema 升版。
+
+## 团队模板的共享配置校验（2026-10-28）
+
+`src/domain/rule-groups/model-files.ts` 提供统一车型文件 schema 与解析函数，规则组备份导入及团队模板解析共同复用，避免模板直接把任意对象断言为 ModelFileConfig 后保存。模板保留自己的元信息、提示词白名单与配置 checksum，不引入新数据库或 schema 版本。
+
+模板删除由 ConfirmDialog 接收真实失败，不能再经过吞掉异常的 useAction 后误关对话框；其他操作继续沿用现有 UI / 服务 / 领域分层。应用计数失败不回滚已经创建的本地规则组。
+
+## 智能助手的运行与持久化边界（2026-10-28）
+
+`features/chat/lib/chat-runtime.ts` 维护当前标签页内按 userId 分开的运行状态、AbortController 与订阅。ChatPanel 用 useSyncExternalStore 观察运行，用统一 useAsync 读取 IndexedDB 消息；抽屉卸载不拥有请求生命周期。消息提交后 version 递增，重开抽屉和后台完成均重新读取持久数据。同账号同标签页只有一个正在执行的发送，跨标签页不新增调度或租约。
+
+`conversation.streamChat` 解析 NDJSON，必须收到 done 才接受最终回复；停止或错误释放 reader，部分增量不作为成功落库。运行服务在检索和模型返回后检查取消信号，晚到响应不能启动后续分析、保存成功助手消息或抽取记忆。文档、未归档笔记和记忆的上下文组装仍独立于 UI。
+
+`notes-service` 在事务外进行向量化，然后在短 Dexie 写事务内比较原记录和当前记录，只有基线一致才提交；NoteEditor 同时提交打开时原始基线，检测另一标签页的编辑或删除。四类孤儿记录认领使用同一跨表事务；不增加 schema 或新数据库。
+
+## 当前运维与评测分层（2026-10-28）
+
+完整入口审计发现 package.json 的 6 个运维命令原先引用缺失脚本，已恢复。scripts/eval-accuracy.ts、eval-set-coverage.ts、export-eval-set.ts 为薄 CLI，分别调用 src/server/evaluation 的准确率、覆盖和真值服务；共用 ticket-directories 收集旧票目录及新 Jira/飞书 run 目录。新版指标是成功提交标记；responseArtifactVersion=1 还需对应响应文件，不能把取消或未完成运行残留的 final_reply 当成功评测样本。
+
+真值导出使用统一 ReviewSample、Date 序列化和目录规范化函数，从 sync_records 读取 reviewSamples/ruleGroups；不再使用旧 idb_records/issueReviewSamples。指标基线工具保留原统计字段。附件下载脚本保留原多平台后端；独立 replay_cantrace.py 复用 plot_can_signals.py 的解码、时钟、周期和绘图函数，避免两份核心算法漂移。Python 缓存加入忽略。
+
+README 已替换脚手架说明，提供实际分层、运行、迁移、检查和运维入口。下文旧系统路径示例仍需最终文档审计，不能当作当前新库表名或测试命令使用。
+
+## 当前 Docupedia 统计与重试边界（2026-10-28）
+
+`src/server/docupedia/upload-stats.ts` 的 DOCUPEDIA_STAT_MIN_CHARACTERS=500 供计数和成功日志共用。以原始正文 text.length 判断，不计 HTML 包装。每个“目录/月份”键使用独立 Promise 写队列，同进程串行读持久文件、按标题去重、追加累计值；进程重启从原文件续计。该设计不提供多进程同时写同一文件的互斥。损坏文件不自动覆盖，修复后后续请求可继续；调用方仅告警，不回滚成功归档。
+
+`client.ts` 保留原 meegle_ 随机前缀、Step合并、瞬时错误退避、文章间100–150秒节流。withDocupediaRetries新增实际尝试计数，避免永久403只尝试一次却报告配置上限。协议测试拦截 node:https，长等待仅在测试中加速，不改变生产节流。原始500阈值和标题前缀均与参考当前源码核对，文档700/jira_残留已统一。
+
+## 团队模板的数据库门禁（2026-10-28）
+
+`src/server/templates/template-lock.ts` 从池中取得单一连接，以 WEIGHT_STRING 的 utf8mb4_unicode_ci / CHAR(64) 权重生成不超过64字节的命名锁，匹配当前 team_templates.template_key 的排序与长度。GET_LOCK等待上限10秒；操作、回读和RELEASE_LOCK都用同一连接，避免池大小5时等待者占满池而持锁者再申请连接的死锁。该门禁跨Node进程生效；当前实例中其他数据库的同名标识可能被一并串行，不影响数据归属。
+
+发布、删除和迁移模板行共用withTemplateLock。获取锁通信失败或释放状态不确定时销毁连接，防止带锁连接回池；正常业务异常先释放再保留原错误，已提交成功不因清理失败而误报失败。门禁超时以HttpError(503)穿过发布校验包装，OpenAPI同步描述。没有新增表或schema版本；如果修改列排序规则，需要同步门禁权重规则。
+
+同配置去重仅在全体版本中的最高版本未删除且配置相同时成立，并回读该版本，不能拿较旧的可见版本代替已删除最新版本。旧模板迁移仍逐行提交；SQL和门禁都复用传入连接，不更改旧库。

@@ -29,8 +29,10 @@ export function TicketDetail({ source, ticketKey }: { source: TicketSource; tick
   const groupId = params.get("group") ?? params.get("ruleGroupId") ?? undefined;
   const projectKey = params.get("project") ?? params.get("projectKey") ?? undefined;
   const workItemTypeKey = params.get("type") ?? params.get("workItemTypeKey") ?? undefined;
+  const provider = params.get("provider");
+  const jiraProvider = provider === "bosch" || provider === "default" ? provider : undefined;
   const assignmentId = params.get("assignmentId") ?? undefined;
-  const loader = useCallback(() => loadTicketDetail({ source, ticketKey, groupId, projectKey, workItemTypeKey, assignmentId }), [source, ticketKey, groupId, projectKey, workItemTypeKey, assignmentId]);
+  const loader = useCallback(() => loadTicketDetail({ source, ticketKey, groupId, projectKey, workItemTypeKey, assignmentId, jiraProvider }), [source, ticketKey, groupId, projectKey, workItemTypeKey, assignmentId, jiraProvider]);
   const state = useLiveData(loader);
   const [backfillOpen, setBackfillOpen] = useState(false);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
@@ -40,7 +42,7 @@ export function TicketDetail({ source, ticketKey }: { source: TicketSource; tick
   const stop = useAction(async () => { if (context?.task && context.group) await stopProcess(context.task, context.latestSnapshot, context.group); }, { success: "分析已停止" });
   if (state.error) return <Page><ErrorState error={state.error} onRetry={state.reload} /></Page>;
   if (state.loading) return <Page><Spinner label="正在读取工单与分析记录" /></Page>;
-  if (!context) return <Page className="space-y-4"><PageHeader title={ticketKey} breadcrumbs={[{ label: "规则组看板", href: "/" }, { label: ticketKey }]} />{state.data?.candidates.length ? <div className="space-y-2"><p className="text-sm text-muted-foreground">此票号存在多个项目或规则组，请选择上下文。</p>{state.data.candidates.map((row) => <Button key={row.id} asChild variant="outline"><Link href={ticketHref(row)}>{row.ruleGroupId} · {row.projectKey ?? "Jira"} · {row.title}</Link></Button>)}</div> : <EmptyState title="当前浏览器没有此工单" description="请先在规则组中筛选，或从服务器恢复分析数据。" />}</Page>;
+  if (!context) return <Page className="space-y-4"><PageHeader title={ticketKey} breadcrumbs={[{ label: "规则组看板", href: "/" }, { label: ticketKey }]} />{state.data?.candidates.length ? <div className="space-y-2"><p className="text-sm text-muted-foreground">此票号存在多个项目或规则组，请选择上下文。</p>{state.data.candidates.map((row) => <Button key={row.id} asChild variant="outline"><Link href={ticketHref(row)}>{row.ruleGroupId} · {row.projectKey ?? (row.jiraProvider === "bosch" ? "Bosch Jira" : "默认 Jira")} · {row.title}</Link></Button>)}</div> : <EmptyState title="当前浏览器没有此工单" description="请先在规则组中筛选，或从服务器恢复分析数据。" />}</Page>;
   const { snapshot, latestSnapshot, result, group, task } = context;
   const running = task?.status === "running";
   const trustedSource = source !== "jira" || Boolean(snapshot.jiraProvider || group);

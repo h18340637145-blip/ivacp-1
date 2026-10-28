@@ -37,6 +37,7 @@ import {
   Select,
   Skeleton,
   Tooltip,
+  toast,
 } from "@/shared/ui";
 import {
   deleteTemplate,
@@ -150,14 +151,12 @@ export function TemplateLibraryView() {
     { success: (message) => message, error: "下载失败" },
   );
 
-  const removeRemote = useAction(
-    async (item: TemplateSummary) => {
-      await deleteTemplate(item.templateKey);
-      await library.reload();
-      return `已删除「${item.name}」`;
-    },
-    { success: (message) => message, error: "删除失败" },
-  );
+  // 交给 ConfirmDialog 保留失败与重试状态；不能用会吞掉异常的 useAction。
+  async function removeRemote(item: TemplateSummary) {
+    await deleteTemplate(item.templateKey);
+    await library.reload();
+    toast.success(`已删除「${item.name}」`);
+  }
 
   return (
     <Page>

@@ -1,9 +1,9 @@
 import type { RuleGroup } from "@/domain/entities";
 import { z } from "zod";
 import { emptyPrompts } from "./form";
+import { modelFilesSchema } from "./model-files";
 
 const text = z.string().default("");
-const fileText = z.union([z.string(), z.array(z.string()).transform((items) => items.join(", "))]).default("");
 const date = z.union([z.string(), z.number(), z.date()]).transform((value) => new Date(value))
   .refine((value) => Number.isFinite(value.getTime()), "日期无效").optional();
 const schema = z.object({
@@ -13,11 +13,7 @@ const schema = z.object({
     name: z.string().trim().min(1),
     jql: text, meegleMql: z.string().optional(), jiraProvider: z.literal("bosch").optional(), expand: text,
     base_paths: z.object({ json_dir: text, dbc_dir: text, proto_dir: text }).default({ json_dir: "", dbc_dir: "", proto_dir: "" }),
-    model_to_files: z.record(z.string(), z.object({
-      json: fileText,
-      dbc: z.union([z.array(z.string()), z.string().transform((value) => value.split(",").map((s) => s.trim()).filter(Boolean))]).default([]),
-      proto: text,
-    })).default({}),
+    model_to_files: modelFilesSchema,
     prompts: z.record(z.string(), z.string()).default({}),
     sortOrder: z.number().finite().optional(), createdAt: date, updatedAt: date,
   })),

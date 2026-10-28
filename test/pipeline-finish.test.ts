@@ -13,13 +13,15 @@ beforeEach(() => { vi.spyOn(qwen, "currentQwenTokenUsage").mockReturnValue(123);
 afterEach(async () => { vi.restoreAllMocks(); for (const directory of directories.splice(0)) await fs.rm(directory, { recursive: true, force: true }); });
 async function context(): Promise<ProcessContext> {
  const logRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ivacp-finish-")); directories.push(logRoot);
- return { issueKey: "meegle-1", ruleGroupId: "g", groupDirName: "g", carModel: "", summary: "问题", issueScene: undefined, logRoot, startTime: Date.now(), stages: {}, artifactRef: "signed", analysisReceipt: "receipt", metrics: createPipelineMetrics({ issueKey: "meegle-1", ruleGroupId: "g", ruleGroupName: "g", summary: "问题", carModel: "", attachRoot: logRoot, logRoot }), logger: { log: vi.fn(), flush: vi.fn(async () => undefined) } } as unknown as ProcessContext;
+ return { request: { runId: "confirmed-run" }, issueKey: "meegle-1", ruleGroupId: "g", groupDirName: "g", carModel: "", summary: "问题", issueScene: undefined, logRoot, startTime: Date.now(), stages: {}, artifactRef: "signed", analysisReceipt: "receipt", metrics: createPipelineMetrics({ issueKey: "meegle-1", ruleGroupId: "g", ruleGroupName: "g", summary: "问题", carModel: "", attachRoot: logRoot, logRoot }), logger: { log: vi.fn(), flush: vi.fn(async () => undefined) } } as unknown as ProcessContext;
 }
 const evidence = { canPlotResult: { image: "", summary: "信号摘要", error: "", trace_data: { State: { x: ["2026-10-27 09:00:00"], y: [1] } }, ticks: { State: { ticks: [1], labels: ["有效"] } } }, reviewEvidence: { props: [], signalTokens: [], propertyIds: [] } } as unknown as EvidenceBundle;
 describe("success recovery gate", () => {
  it("persists the complete early-success response behind the same success gate", async () => {
   const ctx = await context(); ctx.stages.GENERATING_REPLY = "完成";
   const response = await finishEarly(ctx, { replyText: "摘要", status: "success", mode: "no_attachments" });
+  expect(response.analysisRunId).toBe("confirmed-run");
+  expect(response.analysisGroupName).toBe("g");
   const stored = JSON.parse(await fs.readFile(path.join(ctx.logRoot, "process-response.json"), "utf8"));
   expect(stored).toMatchObject({ issueKey: ctx.issueKey, replyText: "摘要", model: process.env.QWEN_MODEL ?? "", mode: "no_attachments", stages: ctx.stages, tokenUsage: 123 });
   expect(response).toMatchObject({ replyText: "摘要", artifactRef: "signed", analysisReceipt: "receipt" });

@@ -69,3 +69,23 @@ describe("Feishu notification cards", () => {
   expect(text).toContain("https://example.test/api/charts/log/g/x.png"); expect(text).not.toContain("javascript:");
  });
 });
+
+describe("Jira run and provider storage isolation", () => {
+ it("keeps logs per run and attachment caches per Jira site without losing same-site reuse", async () => {
+  vi.spyOn(console, "log").mockImplementation(() => undefined);
+  const group = `pipeline-test-${randomUUID()}`; groups.push(group);
+  const request = { source: "jira" as const, issueKey: "TEST-1", summary: "[D01]", ruleGroupId: group, rawData: {}, prompts: {}, runId: "jira-run-one" };
+  const first = await createProcessContext(request);
+  await fs.writeFile(path.join(first.logRoot, "final_reply.md"), "默认原结论");
+  await fs.writeFile(path.join(first.attachRoot, "cached.txt"), "默认附件缓存");
+  const second = await createProcessContext({ ...request, runId: "jira-run-two" });
+  expect(second.logRoot).not.toBe(first.logRoot);
+  expect(second.attachRoot).toBe(first.attachRoot);
+  expect(await fs.readFile(path.join(second.attachRoot, "cached.txt"), "utf8")).toBe("默认附件缓存");
+  const bosch = await createProcessContext({ ...request, jiraProvider: "bosch", runId: "bosch-run-one" });
+  expect(bosch.logRoot).not.toBe(first.logRoot); expect(bosch.attachRoot).not.toBe(first.attachRoot);
+  await expect(fs.access(path.join(bosch.attachRoot, "cached.txt"))).rejects.toThrow();
+  await expect(createProcessContext(request)).rejects.toMatchObject({ status: 409 });
+  expect(await fs.readFile(path.join(first.logRoot, "final_reply.md"), "utf8")).toBe("默认原结论");
+ });
+});

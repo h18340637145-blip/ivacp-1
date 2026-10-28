@@ -1,4 +1,5 @@
 import type { RuleGroup, RuleGroupPrompts } from "@/domain/entities";
+import { parseModelFiles } from "@/domain/rule-groups/model-files";
 
 export const TEMPLATE_KIND = "rule-group-template";
 export const TEMPLATE_SCHEMA_VERSION = 1;
@@ -140,13 +141,20 @@ export function parseTemplate(input: unknown): RuleGroupTemplate {
   const rawPrompts = isRecord(raw.prompts) ? raw.prompts : {};
   const prompts = Object.fromEntries(PROMPT_KEYS.map((key) => [key, str(rawPrompts[key])])) as unknown as RuleGroupPrompts;
   const rawPaths = isRecord(raw.base_paths) ? raw.base_paths : {};
+  let modelToFiles: TemplateConfig["model_to_files"];
+  try {
+    // 与规则组文件导入共用同一套车型校验与旧格式规范化，不能把任意对象强转后持久化。
+    modelToFiles = parseModelFiles(raw.model_to_files);
+  } catch {
+    throw new Error("模板车型文件配置无效，请检查 JSON、DBC 和 proto 文件字段");
+  }
   const config: TemplateConfig = {
     jql,
     ...(meegleMql ? { meegleMql } : {}),
     ...(raw.jiraProvider === "bosch" ? { jiraProvider: "bosch" as const } : {}),
     expand: str(raw.expand).trim(),
     base_paths: { json_dir: str(rawPaths.json_dir), dbc_dir: str(rawPaths.dbc_dir), proto_dir: str(rawPaths.proto_dir) },
-    model_to_files: isRecord(raw.model_to_files) ? (raw.model_to_files as TemplateConfig["model_to_files"]) : {},
+    model_to_files: modelToFiles,
     prompts,
   };
 

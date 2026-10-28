@@ -40,6 +40,8 @@ export function buildEarlyResponse(
   args: { replyText: string; model: string; mode: AttachmentMode },
 ): ProcessResponse {
   return {
+    analysisRunId: ctx.request?.runId,
+    analysisGroupName: ctx.request?.runId ? ctx.groupDirName : undefined,
     tokenUsage: currentQwenTokenUsage(),
     replyText: args.replyText,
     model: args.model,
@@ -76,6 +78,8 @@ export async function finishSuccess(
   ctx.logger.log("RESULT", `${ctx.issueKey} ${ctx.summary} 分析摘要：${replyText.slice(0, 300)}`);
 
   const response: ProcessResponse = {
+    analysisRunId: ctx.request?.runId,
+    analysisGroupName: ctx.request?.runId ? ctx.groupDirName : undefined,
     tokenUsage: currentQwenTokenUsage(), replyText, model: process.env.QWEN_MODEL ?? "", issueKey: ctx.issueKey,
     mode: args.classified.mode, chartImage: plot.image ? `/api/charts/${path.relative(process.cwd(), plot.image).split(path.sep).join("/")}` : undefined,
     signalSummary: plot.summary || undefined, traceData: plot.trace_data, ticks: plot.ticks, reviewEvidence: args.evidence.reviewEvidence,

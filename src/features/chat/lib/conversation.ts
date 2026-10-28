@@ -77,14 +77,24 @@ export async function streamChat(
     }
   };
 
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    lines.forEach(handle);
+  try {
+    for (;;) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      lines.forEach(handle);
+    }
+    handle(buffer + decoder.decode());
+    signal?.throwIfAborted();
+    if (finalReply === null) throw new Error("对话流已中断，未收到完整回复，请重试");
+    return (finalReply as string).trim();
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
+  } finally {
+    reader.releaseLock();
   }
-  handle(buffer + decoder.decode());
-  return (finalReply ?? reply).trim();
 }

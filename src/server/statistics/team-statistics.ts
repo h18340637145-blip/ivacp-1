@@ -6,7 +6,7 @@ import { buildTeamStatistics, type TeamStatistics } from "@/domain/analysis/team
 import { deserializeRecord, reviveDates, toDate } from "@/domain/storage/serialization";
 
 /**
- * 团队统计：读取服务端镜像 sync_records 中全部账号的 processResults / analysisHistories。
+ * 团队统计：读取服务端镜像 sync_records 中全部账号的 processResults / analysisHistories，关联快照与分配的最小身份字段。
  * source / ticket_key / record_created_at 用抽取列；其余统计字段只投影所需 JSON 字段（避免回传整条结论），
  * 投影结果仍是序列化记录（Date 为 {"$date": iso}），用 deserializeRecord 还原。
  */
@@ -14,8 +14,10 @@ import { deserializeRecord, reviveDates, toDate } from "@/domain/storage/seriali
 type StatisticsTable = keyof RawStatisticsTables;
 
 const PROJECTED_FIELDS: Record<StatisticsTable, string[]> = {
-  processResults: ["createdAt", "reviewStatus", "manualReviewedAt", "dwellMs", "tokenUsage", "handoverAt"],
-  analysisHistories: ["sourceResultId", "resultCreatedAt", "reviewStatus"],
+  processResults: ["snapshotId", "assignmentId", "createdAt", "reviewStatus", "manualReviewedAt", "dwellMs", "tokenUsage", "handoverAt"],
+  analysisHistories: ["sourceResultId", "sourceSnapshotId", "assignmentId", "resultCreatedAt", "reviewStatus"],
+  snapshots: ["projectKey", "workItemTypeKey", "workItemId"],
+  assignments: ["projectKey", "workItemTypeKey", "workItemId"],
 };
 
 /** 时区与边界余量：SQL 粗筛只为减少传输，精确的区间判断由 calculateAnnualStatistics 完成 */
@@ -47,7 +49,7 @@ const reviewStatus = (value: unknown) =>
 
 /** 镜像行 → 按账号分组的统计原始表（纯函数，便于测试） */
 export function groupStatisticsRows(
-  rows: { processResults: StatisticsMirrorRow[]; analysisHistories: StatisticsMirrorRow[] },
+  rows: { processResults: StatisticsMirrorRow[]; analysisHistories: StatisticsMirrorRow[]; snapshots?: StatisticsMirrorRow[]; assignments?: StatisticsMirrorRow[] },
 ): Map<string, RawStatisticsTables> {
   const byOwner = new Map<string, RawStatisticsTables>();
   const tablesOf = (owner: string) => {
@@ -65,6 +67,8 @@ export function groupStatisticsRows(
     const createdAt = toDate(data.createdAt) ?? toDate(row.record_created_at) ?? "";
     tablesOf(String(row.owner)).processResults.push({
       id: String(row.record_id),
+      snapshotId: typeof data.snapshotId === "string" ? data.snapshotId : undefined,
+      assignmentId: typeof data.assignmentId === "string" ? data.assignmentId : undefined,
       source,
       ticketKey: row.ticket_key ?? "",
       createdAt,
@@ -81,11 +85,26 @@ export function groupStatisticsRows(
     const data = decode(row.data);
     tablesOf(String(row.owner)).analysisHistories.push({
       sourceResultId: typeof data.sourceResultId === "string" ? data.sourceResultId : "",
+      sourceSnapshotId: typeof data.sourceSnapshotId === "string" ? data.sourceSnapshotId : undefined,
+      assignmentId: typeof data.assignmentId === "string" ? data.assignmentId : undefined,
       source,
       ticketKey: row.ticket_key ?? "",
       resultCreatedAt: toDate(data.resultCreatedAt) ?? "",
       reviewStatus: reviewStatus(data.reviewStatus),
     });
+  }
+  for (const name of ["snapshots", "assignments"] as const) {
+    for (const row of rows[name] ?? []) {
+      if (row.source !== "meegle") continue;
+      const data = decode(row.data);
+      const tables = tablesOf(String(row.owner));
+      (tables[name] ??= []).push({
+        id: String(row.record_id), source: "meegle",
+        projectKey: typeof data.projectKey === "string" ? data.projectKey : undefined,
+        workItemTypeKey: typeof data.workItemTypeKey === "string" ? data.workItemTypeKey : undefined,
+        workItemId: typeof data.workItemId === "number" || typeof data.workItemId === "string" ? data.workItemId : undefined,
+      });
+    }
   }
   return byOwner;
 }
@@ -115,9 +134,18 @@ export async function readTeamRawStatistics(range?: MonthRange): Promise<Map<str
         ${bounds ? "AND (record_created_at IS NULL OR record_created_at >= ?)" : ""}`,
     bounds ? [bounds.start] : [],
   );
+  // 身份上下文可能早于统计区间，不能按快照创建时间筛掉；只取最小身份投影。
+  const identityRows = await Promise.all((["snapshots", "assignments"] as const).map(async table => {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT owner, record_id, source, ticket_key, ${projectionSql(PROJECTED_FIELDS[table])}
+         FROM sync_records WHERE table_name = ? AND source = 'meegle' AND deleted = 0`, [table],
+    );
+    return rows as StatisticsMirrorRow[];
+  }));
   return groupStatisticsRows({
     processResults: processResults as StatisticsMirrorRow[],
     analysisHistories: analysisHistories as StatisticsMirrorRow[],
+    snapshots: identityRows[0], assignments: identityRows[1],
   });
 }
 

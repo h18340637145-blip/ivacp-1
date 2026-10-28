@@ -62,7 +62,7 @@ describe("统一分析生命周期", () => {
     const meegle: TicketSnapshot = { ...snapshot, id: "ms1", source: "meegle", ticketKey: "99", projectKey: "p", workItemId: 99, workItemTypeKey: "issue" };
     await db.snapshots.put(meegle);
     await db.assignments.put({ id: "a1", source: "meegle", ticketKey: "99", workItemId: 99, projectKey: "p", projectName: "P", workItemTypeKey: "issue", workItemName: "实车测试", stateName: "Open", ruleGroupId: "g1", assignmentSource: "auto", status: "pending", assignedAt: new Date() });
-    const fetchMock = vi.fn(async (url: string) => url === "/api/meegle/context" ? response({ rawData: { description: "上下文" } }) : url === "/api/issues/review" ? response({ verdict: "PASS", reason: "AI 建议通过" }) : response({ replyText: "飞书结论", artifactRef: "artifact", analysisReceipt: "receipt" }));
+    const fetchMock = vi.fn<typeof fetch>(async (url) => url === "/api/meegle/context" ? response({ rawData: { description: "上下文" } }) : url === "/api/issues/review" ? response({ verdict: "PASS", reason: "AI 建议通过" }) : response({ replyText: "飞书结论", artifactRef: "artifact", analysisReceipt: "receipt" }));
     vi.stubGlobal("fetch", fetchMock);
     await processTicket(meegle, group);
     const [result] = await db.processResults.toArray();
@@ -71,6 +71,8 @@ describe("统一分析生命周期", () => {
     expect(assignment).toMatchObject({ latestResultId: result.id, latestAttemptTaskId: task.id, status: "completed" });
     expect(fetchMock.mock.calls.some(([url]) => url === "/api/meegle/analyze")).toBe(false);
     const reviewed = await aiReviewResult({ result, issueSummary: "实车测试" });
+    const reviewPayload = JSON.parse(fetchMock.mock.calls.find(([url]) => url === "/api/issues/review")?.[1]?.body as string);
+    expect(reviewPayload).toMatchObject({ issueKey: "meegle-99", artifactRef: "artifact" });
     expect(reviewed.aiReviewVerdict).toBe("pass");
     expect(reviewed.reviewStatus).toBe("pending");
     expect(reviewed.manualReviewedAt).toBeUndefined();
@@ -118,4 +120,42 @@ it("自动周期关闭时，处理队列跳过尚未开始的工单，已启动�
   expect(started).toBe(3);
   expect(await db.processTasks.count()).toBe(3);
   expect((await db.processTasks.toArray()).every(task => task.status === "completed")).toBe(true);
+});
+
+it("同一规则组更换Jira站点后，同名票号的任务、归档和迟到响应独立", async () => {
+  const defaultInput = { ...snapshot, jiraProvider: "default" as const };
+  const old = await beginProcessAttempt(defaultInput, group, false);
+  const boschGroup = { ...group, jiraProvider: "bosch" as const };
+  await db.ruleGroups.put(boschGroup);
+  const bosch = await beginProcessAttempt({ ...snapshot, jiraProvider: "bosch" }, boschGroup, false);
+  expect(bosch.started).toBe(true); expect(bosch.task.id).not.toBe(old.task.id);
+  await finishProcessAttempt(bosch.task, { issueKey: snapshot.ticketKey, replyText: "Bosch结论", model: "test" });
+  await finishProcessAttempt(old.task, { issueKey: snapshot.ticketKey, replyText: "默认站点结论", model: "test" });
+  expect(await db.processResults.count()).toBe(2);
+  expect(await db.analysisHistories.count()).toBe(0);
+});
+
+it("保存服务端确认的运行ID用于Jira复核，旧结果不会编造日志运行身份", async () => {
+  const fetchMock = vi.fn<typeof fetch>(async (url, init) => {
+    if (url === "/api/issues/process") { const body = JSON.parse(init!.body as string); return response({ issueKey: "TEST-1", replyText: "结论", model: "test", analysisRunId: body.runId, analysisGroupName: "分析时规则组" }); }
+    if (url === "/api/issues/review") return response({ verdict: "PASS", reason: "证据已核对" });
+    return response({});
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const task = await processTicket(snapshot, group);
+  const [result] = await db.processResults.toArray();
+  expect(result.analysisRunId).toBe(task?.id);
+  await aiReviewResult({ result, issueSummary: snapshot.title, ruleGroupName: "改名后规则组" });
+  const review = fetchMock.mock.calls.filter(([url]) => url === "/api/issues/review");
+  expect(JSON.parse(review[0][1]!.body as string)).toMatchObject({ runId: task?.id, ruleGroupName: "分析时规则组" });
+  await aiReviewResult({ result: { ...result, analysisRunId: undefined }, issueSummary: snapshot.title });
+  const requests = fetchMock.mock.calls.filter(([url]) => url === "/api/issues/review");
+  expect(JSON.parse(requests[1][1]!.body as string)).not.toHaveProperty("runId");
+});
+
+it("分析响应运行ID不匹配时不能保存为成功结果", async () => {
+  vi.stubGlobal("fetch", vi.fn<typeof fetch>(async url => url === "/api/issues/process" ? response({ issueKey: "TEST-1", replyText: "不匹配结论", model: "test", analysisRunId: "other-run" }) : response({})));
+  const task = await processTicket(snapshot, group);
+  expect(task?.status).toBe("failed"); expect(task?.error).toContain("运行身份");
+  expect(await db.processResults.count()).toBe(0);
 });

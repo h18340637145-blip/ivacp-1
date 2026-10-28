@@ -74,7 +74,7 @@ export function StatisticsView() {
   }
 
   async function copyReport() {
-    if (!data) return;
+    if (!data || error || loading) return;
     const markdown = buildStatisticsReport({
       title: data.scope === "team" ? "团队工单分析统计" : "我的工单分析统计",
       total: data.total,
@@ -104,7 +104,7 @@ export function StatisticsView() {
             <Button variant="outline" onClick={() => void reload()} loading={loading} disabled={rangeInvalid}>
               {!loading && <RefreshCw aria-hidden />}重新统计
             </Button>
-            <Button variant="primary" onClick={() => void copyReport()} disabled={!report || loading}>
+            <Button variant="primary" onClick={() => void copyReport()} disabled={!report || loading || Boolean(error)}>
               <ClipboardCopy aria-hidden />复制统计报告
             </Button>
           </>

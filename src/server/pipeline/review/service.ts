@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { sanitizeName } from "@/server/pipeline/paths-logging";
 import { chat, runQwenRequest } from "@/server/ai/qwen";
-import { resolveArtifactRef } from "@/server/artifacts/analysis-artifacts";
-import { badRequest } from "@/server/http/route";
+import { assertSafeRunId, resolveArtifactRef } from "@/server/artifacts/analysis-artifacts";
+import { badRequest, notFound } from "@/server/http/route";
 import { parseReviewVerdict, type ReviewVerdict } from "./verdict";
 
 interface ReviewAnalysisContext {
@@ -32,6 +33,8 @@ export interface ReviewRequest {
     errorReason: string;
   }>;
   artifactRef?: string;
+  /** Jira 当前分析运行；旧结果未提供时兼容票目录。 */
+  runId?: string;
 }
 
 
@@ -66,10 +69,6 @@ const REVIEW_LOG_FILES = [
   "pipeline.log",
 ];
 
-function sanitizeName(s: string): string {
-  return s.replace(/[/\\:*?"<>|]/g, "_").slice(0, 80);
-}
-
 async function findAnalysisLogDir(req: ReviewRequest): Promise<string | null> {
   if (req.issueKey.startsWith("meegle-") && !req.artifactRef) throw badRequest("飞书复核必须指定当前分析运行的 artifactRef");
   if (req.artifactRef) {
@@ -79,6 +78,11 @@ async function findAnalysisLogDir(req: ReviewRequest): Promise<string | null> {
     catch { throw badRequest("分析产物引用无效"); }
     if (resolved.identity.issueKey !== sanitizeName(req.issueKey)) throw badRequest("分析产物与工单不匹配");
     return resolved.directory;
+  }
+  let runId: string | undefined;
+  if (req.runId !== undefined) {
+    try { runId = assertSafeRunId(req.runId); }
+    catch { throw badRequest("分析运行 runId 无效"); }
   }
   const groupCandidates = [req.ruleGroupName, req.ruleGroupId]
     .filter((value): value is string => Boolean(value?.trim()))
@@ -95,7 +99,8 @@ async function findAnalysisLogDir(req: ReviewRequest): Promise<string | null> {
 
     for (const entry of carModelEntries) {
       if (!entry.isDirectory()) continue;
-      const candidate = path.join(groupPath, entry.name, sanitizeName(req.issueKey));
+      const issueDir = path.join(groupPath, entry.name, sanitizeName(req.issueKey));
+      const candidate = runId ? path.join(issueDir, runId) : issueDir;
       try {
         const stat = await fs.stat(candidate);
         if (stat.isDirectory()) return candidate;
@@ -105,6 +110,7 @@ async function findAnalysisLogDir(req: ReviewRequest): Promise<string | null> {
     }
   }
 
+  if (runId) throw notFound("指定分析运行的复核产物不存在，请确认原分析运行");
   return null;
 }
 

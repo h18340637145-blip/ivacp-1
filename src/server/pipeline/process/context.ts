@@ -71,8 +71,9 @@ export async function createProcessContext(request: ProcessRequest): Promise<Pro
   const groupDirName = ruleGroupName || ruleGroupId;
 
   const issueAttachments = issueAttachDir(groupDirName, carModel, issueKey);
-  const attachRoot = source === "meegle" && runId ? path.join(issueAttachments, assertSafeRunId(runId)) : issueAttachments;
-  const logRoot    = issueLogDir(groupDirName, carModel, issueKey, source === "meegle" ? runId : undefined);
+  const attachRoot = source === "meegle" && runId ? path.join(issueAttachments, assertSafeRunId(runId))
+    : runId ? path.join(issueAttachments, jiraProvider === "bosch" ? "jira-bosch" : "jira-default") : issueAttachments;
+  const logRoot    = issueLogDir(groupDirName, carModel, issueKey, runId);
   const artifactRef = source === "meegle" && runId
     ? createArtifactRef({
         groupDir: sanitizeName(groupDirName),
@@ -84,7 +85,7 @@ export async function createProcessContext(request: ProcessRequest): Promise<Pro
   const analysisReceipt = artifactRef && typeof rawData.projectKey === "string" && typeof rawData.workItemId === "string"
     ? createMeegleAnalysisReceipt({ projectKey: rawData.projectKey, workItemTypeKey: "issue", workItemId: rawData.workItemId, artifactRef })
     : undefined;
-  if (source === "meegle" && runId) {
+  if (runId) {
     await fs.mkdir(path.dirname(logRoot), { recursive: true });
     try { await fs.mkdir(logRoot); }
     catch (error) {

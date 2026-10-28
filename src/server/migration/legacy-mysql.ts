@@ -1,3 +1,4 @@
+import { withTemplateLock } from "@/server/templates/template-lock";
 import type { RowDataPacket } from "mysql2/promise";
 import { ENTITY_TABLES, recordPrimaryKey, type EntityTableName } from "@/domain/entities";
 import { migrateLegacyTables, type LegacyTables, type MigrationReport } from "@/domain/migration/legacy";
@@ -120,16 +121,15 @@ async function migrateOwner(
   return { report: { ...report, written, owner, skippedExisting }, renamedResultIds };
 }
 
-async function migrateTemplates(overwrite: boolean): Promise<{ read: number; written: number }> {
+export async function migrateTemplates(overwrite: boolean): Promise<{ read: number; written: number }> {
   if (!(await tableExists("team_templates"))) return { read: 0, written: 0 };
   const [rows] = await (await getLegacyPool()).query<RowDataPacket[]>(
     `SELECT template_key, version, name, description, tags, author, config, checksum, apply_count, deleted, created_at
      FROM team_templates`,
   );
-  const pool = await getPool();
   let written = 0;
   for (const row of rows) {
-    const [result] = await pool.query(
+    const [result] = await withTemplateLock(String(row.template_key), connection => connection.query(
       `INSERT ${overwrite ? "" : "IGNORE"} INTO team_templates
          (template_key, version, name, description, tags, author, config, checksum, apply_count, deleted, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -138,7 +138,7 @@ async function migrateTemplates(overwrite: boolean): Promise<{ read: number; wri
          apply_count = VALUES(apply_count), deleted = VALUES(deleted), created_at = VALUES(created_at)` : ""}`,
       [row.template_key, row.version, row.name, row.description, row.tags, row.author, row.config, row.checksum,
         row.apply_count, row.deleted, row.created_at],
-    );
+    ));
     if ((result as { affectedRows?: number }).affectedRows) written += 1;
   }
   return { read: rows.length, written };

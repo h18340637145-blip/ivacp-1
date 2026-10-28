@@ -172,9 +172,11 @@ export async function aiReviewResult(target: ReviewTarget): Promise<ProcessResul
     json: {
       conclusion: result.replyText,
       issueSummary: target.issueSummary,
-      issueKey: result.ticketKey,
+      issueKey: result.source === "meegle" ? `meegle-${result.ticketKey}` : result.ticketKey,
+      runId: result.source === "jira" ? result.analysisRunId : undefined,
+      artifactRef: result.source === "meegle" ? result.artifactRef : undefined,
       ruleGroupId: result.ruleGroupId,
-      ruleGroupName: target.ruleGroupName,
+      ruleGroupName: result.source === "jira" && result.analysisRunId ? result.analysisGroupName ?? target.ruleGroupName : target.ruleGroupName,
       analysisContext: buildReviewAnalysisContext(target.rawData ?? {}, result.signalSummary),
       samples: fewShot,
     },

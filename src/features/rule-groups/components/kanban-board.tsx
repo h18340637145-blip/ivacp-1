@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Download, Filter, LayoutGrid, Play, Plus, Search, Upload } from "lucide-react";
+import { DirectJiraAnalysis } from "@/features/direct-analysis/components/direct-jira-analysis";
 import { useProcessAction } from "@/features/tickets/use-process-action";
 import { createRuleGroupSourceSummary, getConfiguredSources } from "@/domain/issue-source/contracts";
 import { loadRuleGroupFilters } from "@/features/workflow/filter-service";
@@ -68,6 +69,7 @@ export function KanbanBoard() {
         <Stat label="已配置 Jira" value={groups.filter((group) => group.jql.trim()).length} />
         <Stat label="已配置飞书项目" value={groups.filter((group) => group.jiraProvider !== "bosch" && group.meegleMql?.trim()).length} />
       </div>
+      <DirectJiraAnalysis disabled={!state.loaded || !!state.error || !groups.length} />
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full min-w-0 flex-none sm:w-auto sm:max-w-md sm:flex-1"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" aria-hidden /><Input aria-label="搜索规则组" placeholder="搜索规则组、车型或查询语句" className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
         <Select aria-label="来源筛选" className="w-40" value={source} onValueChange={setSource} options={[{ value: "all", label: "全部来源" }, { value: "jira", label: "Jira" }, { value: "meegle", label: "飞书项目" }]} />

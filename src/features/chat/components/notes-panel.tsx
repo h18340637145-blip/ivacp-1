@@ -64,7 +64,8 @@ export function NotesPanel({ userId }: { userId: string }) {
       <NoteEditor
         key={editing.id}
         note={editing}
-        onBack={() => setEditing(null)}
+        isNew={!notes.some(note => note.id === editing.id)}
+        onBack={() => { setEditing(null); void load(); }}
         onSaved={() => {
           setEditing(null);
           void load();

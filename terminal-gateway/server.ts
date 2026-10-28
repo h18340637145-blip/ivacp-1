@@ -191,27 +191,28 @@ wss.on("connection", (socket, request) => {
     connectSsh,
     runRemoteCommand: runSshCommand,
     uploadRemoteFile,
-    send: (message) => socket.send(JSON.stringify(message)),
+    send: (message) => { if (socket.readyState === 1) socket.send(JSON.stringify(message)); },
     audit: (event) => appendAuditEvent(auditPath, { ...event, ...(operator ? { operator } : {}) }),
   });
 
   socket.on("message", async (raw) => {
+    let message: ClientTerminalMessage | undefined;
     try {
-      const message = JSON.parse(raw.toString()) as ClientTerminalMessage;
+      message = JSON.parse(raw.toString()) as ClientTerminalMessage;
       if (message.type === "connect") {
         try {
           await manager.connect(message);
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
           await appendAuditEvent(auditPath, { event: "connect_failed", targetId: message.targetId, reason, operator });
-          socket.send(JSON.stringify({ type: "status", status: "error", message: reason }));
+          if (socket.readyState === 1) socket.send(JSON.stringify({ type: "status", requestId: message.requestId, status: "error", message: reason }));
         }
         return;
       }
       if (message.type === "input") await manager.inputMessage(message);
       if (message.type === "resize") manager.resize(message.sessionId, message.cols, message.rows);
       if (message.type === "disconnect") manager.disconnect(message.sessionId, "client_disconnect");
-      if (message.type === "projectGitStatus") await manager.refreshGitStatus(message.sessionId, message.projectContext);
+      if (message.type === "projectGitStatus") await manager.refreshGitStatus(message.sessionId, message.projectContext, message.requestId);
       if (message.type === "uploadFile") await manager.uploadFile(message);
       if (message.type === "packageFiles") await manager.packageRemoteFiles(message);
       if (message.type === "packageChecklist") await manager.packageChecklist(message);
@@ -221,7 +222,7 @@ wss.on("connection", (socket, request) => {
       if (message.type === "gitCheckout") await manager.gitCheckout(message);
       if (message.type === "gitReset") await manager.gitReset(message);
     } catch (error) {
-      socket.send(JSON.stringify({ type: "status", status: "error", message: error instanceof Error ? error.message : String(error) }));
+      if (socket.readyState === 1) socket.send(JSON.stringify({ type: "status", requestId: message?.requestId, status: "error", message: error instanceof Error ? error.message : String(error) }));
     }
   });
 

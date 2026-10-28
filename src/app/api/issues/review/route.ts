@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 const schema = z.object({
   conclusion: z.string().trim().min(1), issueSummary: z.string(), issueKey: z.string().min(1),
   ruleGroupId: z.string().optional(), ruleGroupName: z.string().optional(), artifactRef: z.string().optional(),
+  runId: z.string().regex(/^[A-Za-z0-9_-]{1,120}$/, "分析运行 runId 无效").optional(),
   analysisContext: z.object({ issueDescription: z.string().optional(), commentsText: z.string().optional(), rawDataText: z.string().optional(), signalSummary: z.string().optional() }).optional(),
   samples: z.array(z.object({ wrongConclusion: z.string(), correctConclusion: z.string(), errorReason: z.string() })).optional(),
 });

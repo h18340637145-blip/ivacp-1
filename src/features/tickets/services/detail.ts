@@ -1,9 +1,9 @@
 "use client";
 
-import type { TicketSource } from "@/domain/entities";
+import type { TicketSnapshot, TicketSource } from "@/domain/entities";
 import { db } from "@/shared/db/database";
 
-export interface TicketLocation { source: TicketSource; ticketKey: string; groupId?: string; projectKey?: string; workItemTypeKey?: string; assignmentId?: string }
+export interface TicketLocation { source: TicketSource; ticketKey: string; groupId?: string; projectKey?: string; workItemTypeKey?: string; assignmentId?: string; jiraProvider?: TicketSnapshot["jiraProvider"] }
 
 export async function loadTicketDetail(location: TicketLocation) {
   if (location.assignmentId && location.source === "meegle") {
@@ -14,10 +14,16 @@ export async function loadTicketDetail(location: TicketLocation) {
     location = { ...location, groupId: location.groupId ?? resultSnapshot?.ruleGroupId ?? (assignment.ruleGroupId || undefined),
       projectKey: assignment.projectKey, workItemTypeKey: assignment.workItemTypeKey };
   }
-  const snapshots = (await db.snapshots.where("[source+ticketKey]").equals([location.source, location.ticketKey])
+  let snapshots = (await db.snapshots.where("[source+ticketKey]").equals([location.source, location.ticketKey])
     .filter((row) => (!location.groupId || row.ruleGroupId === location.groupId) && (!location.projectKey || row.projectKey === location.projectKey)
       && (!location.workItemTypeKey || row.workItemTypeKey === location.workItemTypeKey)).toArray()).sort((a, b) => +b.createdAt - +a.createdAt);
-  const candidates = [...new Map(snapshots.map((row) => [JSON.stringify([row.ruleGroupId, row.projectKey, row.workItemTypeKey]), row])).values()];
+  if (location.source === "jira") {
+    const groups = new Map((await db.ruleGroups.bulkGet([...new Set(snapshots.map(row => row.ruleGroupId))])).filter(row => !!row).map(row => [row.id, row]));
+    const site = (row: typeof snapshots[number]) => row.jiraProvider ?? (groups.has(row.ruleGroupId) ? groups.get(row.ruleGroupId)?.jiraProvider ?? "default" : undefined);
+    snapshots = snapshots.filter(row => !location.jiraProvider || site(row) === location.jiraProvider)
+      .map(row => row.jiraProvider || !site(row) ? row : { ...row, jiraProvider: site(row) });
+  }
+  const candidates = [...new Map(snapshots.map((row) => [JSON.stringify([row.ruleGroupId, row.projectKey, row.workItemTypeKey, row.jiraProvider]), row])).values()];
   if (!candidates.length || candidates.length > 1) return { candidates, context: null };
   const latestSnapshot = snapshots[0];
   const ids = new Set(snapshots.map((row) => row.id));

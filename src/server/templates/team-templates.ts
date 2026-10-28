@@ -1,7 +1,8 @@
-import type { RowDataPacket } from "mysql2/promise";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { getPool } from "@/server/db/mysql";
 import { MAX_TEMPLATE_BYTES, parseTemplate, type RuleGroupTemplate } from "@/domain/templates/rule-group-template";
 import type { TemplateSummary } from "@/domain/templates/summary";
+import { withTemplateLock } from "./template-lock";
 
 /**
  * 团队模板库（表 team_templates，由 @/server/db/mysql 建立）。
@@ -52,8 +53,11 @@ export async function listTemplates(): Promise<TemplateSummary[]> {
 }
 
 export async function getTemplate(templateKey: string, version?: number): Promise<RuleGroupTemplate | null> {
-  const pool = await getPool();
-  const [rows] = await pool.query<RowDataPacket[]>(
+  return readTemplate(await getPool(), templateKey, version);
+}
+
+async function readTemplate(connection: Pick<PoolConnection, "query">, templateKey: string, version?: number): Promise<RuleGroupTemplate | null> {
+  const [rows] = await connection.query<RowDataPacket[]>(
     `SELECT * FROM team_templates WHERE template_key = ? AND deleted = 0 ${version ? "AND version = ?" : ""}
       ORDER BY version DESC LIMIT 1`,
     version ? [templateKey, version] : [templateKey],
@@ -84,38 +88,39 @@ export async function publishTemplate(
 ): Promise<{ template: RuleGroupTemplate; created: boolean }> {
   if (JSON.stringify(input ?? null).length > MAX_TEMPLATE_BYTES) throw new Error("模板过大（上限 1MB）");
   const parsed = parseTemplate(input);
-  const pool = await getPool();
-  const [latestRows] = await pool.query<RowDataPacket[]>(
-    "SELECT version, author, checksum FROM team_templates WHERE template_key = ? ORDER BY version DESC LIMIT 1",
-    [parsed.templateKey],
-  );
-  const latest = latestRows[0];
-  if (latest && latest.author !== actor.username && !actor.isAdmin) {
-    throw new Error(`模板标识已被 ${String(latest.author)} 使用，请更换名称`);
-  }
-  if (latest && latest.checksum === parsed.checksum) {
-    const existing = await getTemplate(parsed.templateKey);
-    if (existing) return { template: existing, created: false };
-  }
-  const version = latest ? Number(latest.version) + 1 : 1;
-  const author = latest ? String(latest.author) : actor.username;
-  await pool.query(
-    `INSERT INTO team_templates (template_key, version, name, description, tags, author, config, checksum, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(3))`,
-    [
-      parsed.templateKey,
-      version,
-      parsed.name,
-      parsed.description,
-      JSON.stringify(parsed.tags),
-      author,
-      JSON.stringify(parsed.config),
-      parsed.checksum,
-    ],
-  );
-  const template = await getTemplate(parsed.templateKey, version);
-  if (!template) throw new Error("模板保存失败");
-  return { template, created: true };
+  return withTemplateLock(parsed.templateKey, async connection => {
+    const [latestRows] = await connection.query<RowDataPacket[]>(
+      "SELECT version, author, checksum, deleted FROM team_templates WHERE template_key = ? ORDER BY version DESC LIMIT 1",
+      [parsed.templateKey],
+    );
+    const latest = latestRows[0];
+    if (latest && latest.author !== actor.username && !actor.isAdmin) {
+      throw new Error(`模板标识已被 ${String(latest.author)} 使用，请更换名称`);
+    }
+    if (latest && Number(latest.deleted) === 0 && latest.checksum === parsed.checksum) {
+      const existing = await readTemplate(connection, parsed.templateKey, Number(latest.version));
+      if (existing) return { template: existing, created: false };
+    }
+    const version = latest ? Number(latest.version) + 1 : 1;
+    const author = latest ? String(latest.author) : actor.username;
+    await connection.query(
+      `INSERT INTO team_templates (template_key, version, name, description, tags, author, config, checksum, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(3))`,
+      [
+        parsed.templateKey,
+        version,
+        parsed.name,
+        parsed.description,
+        JSON.stringify(parsed.tags),
+        author,
+        JSON.stringify(parsed.config),
+        parsed.checksum,
+      ],
+    );
+    const template = await readTemplate(connection, parsed.templateKey, version);
+    if (!template) throw new Error("模板保存失败");
+    return { template, created: true };
+  });
 }
 
 export async function markTemplateApplied(templateKey: string, version: number): Promise<boolean> {
@@ -132,13 +137,14 @@ export async function deleteTemplate(
   templateKey: string,
   actor: TemplateActor,
 ): Promise<"deleted" | "not_found" | "forbidden"> {
-  const pool = await getPool();
-  const [rows] = await pool.query<RowDataPacket[]>(
-    "SELECT author FROM team_templates WHERE template_key = ? AND deleted = 0 LIMIT 1",
-    [templateKey],
-  );
-  if (!rows[0]) return "not_found";
-  if (rows[0].author !== actor.username && !actor.isAdmin) return "forbidden";
-  await pool.query("UPDATE team_templates SET deleted = 1 WHERE template_key = ?", [templateKey]);
-  return "deleted";
+  return withTemplateLock(templateKey, async connection => {
+    const [rows] = await connection.query<RowDataPacket[]>(
+      "SELECT author FROM team_templates WHERE template_key = ? AND deleted = 0 LIMIT 1",
+      [templateKey],
+    );
+    if (!rows[0]) return "not_found";
+    if (rows[0].author !== actor.username && !actor.isAdmin) return "forbidden";
+    await connection.query("UPDATE team_templates SET deleted = 1 WHERE template_key = ?", [templateKey]);
+    return "deleted";
+  });
 }

@@ -1,18 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { BookOpen, Loader2, MessageSquare, Send, Square, Trash2 } from "lucide-react";
 import type { ChatMessageRecord } from "@/domain/entities";
-import { newId } from "@/shared/lib/ids";
-import { errorMessage } from "@/shared/lib/errors";
 import { cn } from "@/shared/lib/cn";
 import { Button } from "@/shared/ui/button";
 import { Textarea } from "@/shared/ui/input";
 import { Callout, EmptyState, ErrorState, Spinner } from "@/shared/ui/feedback";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Tooltip } from "@/shared/ui/tooltip";
-import { clearChatMessages, listChatMessages, prepareContext, saveChatMessage, streamChat } from "../lib/conversation";
-import { rememberExchange } from "../lib/memory-service";
+import { listChatMessages } from "../lib/conversation";
+import { clearChatHistory, getChatRun, IDLE_CHAT_RUN, startChatRun, stopChatRun, subscribeChatRun } from "../lib/chat-runtime";
+import { useAsync } from "@/shared/hooks/use-async";
+
+const NO_MESSAGES: ChatMessageRecord[] = [];
 
 interface ChatPanelProps {
   userId: string;
@@ -21,35 +22,22 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ userId, onMemoryChanged }: ChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessageRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const run = useSyncExternalStore(
+    useCallback(listener => subscribeChatRun(userId, listener), [userId]),
+    useCallback(() => getChatRun(userId), [userId]),
+    () => IDLE_CHAT_RUN,
+  );
+  const { busy, phase, streaming, notice, version } = run;
   const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [phase, setPhase] = useState<"retrieving" | "answering" | null>(null);
-  const [streaming, setStreaming] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setMessages(await listChatMessages(userId));
-      setLoadError(null);
-    } catch (error) {
-      setLoadError(errorMessage(error));
-    } finally {
-      setLoading(false);
-    }
-  }, [userId]);
-
-  // 关闭抽屉不打断进行中的回复：请求继续完成并写入 IndexedDB，下次打开可见
-  useEffect(() => {
-    let cancelled = false;
-    queueMicrotask(() => { if (!cancelled) void load(); });
-    return () => { cancelled = true; };
-  }, [load]);
+  const load = useCallback(() => listChatMessages(userId), [userId]);
+  const { data, loading, error: loadError, reload } = useAsync(useCallback(async () => {
+    // version 在同一运行写入用户消息和完整回复后递增；重开抽屉也重新读持久数据。
+    void version;
+    return load();
+  }, [load, version]));
+  const messages = data ?? NO_MESSAGES;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -57,60 +45,21 @@ export function ChatPanel({ userId, onMemoryChanged }: ChatPanelProps) {
 
   const send = async () => {
     const text = input.trim();
-    if (!text || busy) return;
+    if (!text || getChatRun(userId).busy) return;
     setInput("");
-    setBusy(true);
-    setNotice(null);
-    setPhase("retrieving");
-    const userMsg: ChatMessageRecord = { id: newId(), userId, role: "user", content: text, createdAt: new Date().toISOString() };
-    const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      await saveChatMessage(userMsg);
-      setMessages((m) => [...m, userMsg]);
-      const { context, memories } = await prepareContext(userId, text);
-      setPhase("answering");
-      setStreaming("");
-      const replyText = await streamChat({ message: text, history, context, memories }, setStreaming, controller.signal);
-      const reply: ChatMessageRecord = {
-        id: newId(),
-        userId,
-        role: "assistant",
-        content: replyText || "（无回复）",
-        sources: [...new Set(context.map((c) => c.docName))],
-        createdAt: new Date().toISOString(),
-      };
-      await saveChatMessage(reply);
-      setMessages((m) => [...m, reply]);
-      void rememberExchange(userId, text, reply.content)
-        .then(onMemoryChanged)
-        .catch(() => undefined);
-    } catch (error) {
-      if (!controller.signal.aborted) setNotice(errorMessage(error));
-    } finally {
-      setStreaming(null);
-      setPhase(null);
-      setBusy(false);
-      abortRef.current = null;
-    }
+    await startChatRun(userId, text, onMemoryChanged);
   };
+  const stop = () => stopChatRun(userId);
+  const clear = () => clearChatHistory(userId);
 
-  const stop = () => abortRef.current?.abort();
-
-  const clear = async () => {
-    await clearChatMessages(userId);
-    setMessages([]);
-  };
-
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <Spinner label="加载对话" />
       </div>
     );
   }
-  if (loadError) return <ErrorState error={loadError} onRetry={load} className="m-4" />;
+  if (loadError) return <ErrorState error={loadError} onRetry={() => void reload()} className="m-4" />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

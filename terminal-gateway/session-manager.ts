@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { terminalContextKey } from "../src/domain/terminal/context";
 import { checkCommandAllowed } from "../src/domain/terminal/command-guard";
 import type { AuditEvent } from "./audit-log";
 import type {
@@ -41,6 +42,22 @@ function shellPath(value: string): string {
 
 function joinRemotePath(base: string, child: string): string {
   return `${base.replace(/\/+$/, "")}/${child.replace(/^\/+/, "")}`;
+}
+
+function validateRepoFiles(context: TerminalProjectContext, repoPath: string, files: string[]): void {
+  if (!context.branch.repos.some(repo => repo.repoPath === repoPath)) throw new Error("仓库不属于当前项目分支");
+  if (!Array.isArray(files) || !files.length || files.some(file => typeof file !== "string" || !file || file.startsWith("/") || file.includes("\\") || /[\0\r\n]/.test(file) || file.split("/").includes("..") || file.split("/").every(part => part === "." || !part))) {
+    throw new Error("文件路径必须是仓库内的具体相对文件，且列表不能为空");
+  }
+}
+
+function updateCommandBuffer(current: string, data: string): string {
+  for (const char of data) {
+    if (char === "\x03" || char === "\x15") current = "";
+    else if (char === "\b" || char === "\x7f") current = current.slice(0, -1);
+    else current += char;
+  }
+  return current;
 }
 
 function getPrimaryRepo(context: TerminalProjectContext): TerminalRepoConfig {
@@ -90,7 +107,8 @@ function toSignalConfigFile(filePath: string): TerminalSignalConfigFile | null {
 }
 
 export class TerminalSessionManager {
-  private sessions = new Map<string, { target: RemoteShellTarget; channel: TerminalChannel; commandBuffer: string }>();
+  private sessions = new Map<string, { target: RemoteShellTarget; channel: TerminalChannel; commandBuffer: string; inputTail: Promise<void> }>();
+  private disposed = false;
   private targets: Map<string, RemoteShellTarget>;
 
   constructor(private options: SessionManagerOptions) {
@@ -98,14 +116,18 @@ export class TerminalSessionManager {
   }
 
   async connect(message: Extract<ClientTerminalMessage, { type: "connect" }>): Promise<string> {
+    if (this.disposed) throw new Error("终端连接已关闭");
     const target = this.targets.get(message.targetId);
     if (!target) throw new Error(`Unknown target: ${message.targetId}`);
     const sessionId = randomUUID();
     const channel = await this.options.connectSsh(target, { cols: message.cols, rows: message.rows });
-    this.sessions.set(sessionId, { target, channel, commandBuffer: "" });
+    if (this.disposed) { channel.close(); throw new Error("终端连接已关闭"); }
+    this.sessions.set(sessionId, { target, channel, commandBuffer: "", inputTail: Promise.resolve() });
     channel.on("data", (data) => this.options.send({ type: "output", sessionId, data: data.toString() }));
-    channel.on("close", () => this.closeSession(sessionId, "remote_closed"));
-    await this.options.audit({ event: "connect", sessionId, targetId: target.id });
+    channel.on("close", () => { void this.closeSession(sessionId, "remote_closed").catch(() => {}); });
+    try { await this.options.audit({ event: "connect", sessionId, targetId: target.id }); }
+    catch (error) { this.sessions.delete(sessionId); channel.close(); throw error; }
+    if (!this.sessions.has(sessionId)) throw new Error("终端连接已关闭");
     this.options.send({ type: "connected", sessionId, targetId: target.id });
     return sessionId;
   }
@@ -117,31 +139,42 @@ export class TerminalSessionManager {
   async inputMessage(message: Extract<ClientTerminalMessage, { type: "input" }>): Promise<void> {
     const session = this.sessions.get(message.sessionId);
     if (!session) return;
-    session.commandBuffer += message.data;
-    if (message.data.includes("\n") || message.data.includes("\r")) {
-      const command = session.commandBuffer.trim();
-      session.commandBuffer = "";
-      if (command) {
-        const guard = checkCommandAllowed(command, {
-          guardMode: session.target.guardMode,
-          strictAllowlist: session.target.strictAllowlist,
-        });
-        if (!guard.allowed) {
-          await this.options.audit({ event: "blocked", sessionId: message.sessionId, targetId: session.target.id, command, reason: guard.reason ?? "blocked" });
-          this.options.send({ type: "blocked", sessionId: message.sessionId, command, reason: guard.reason ?? "blocked" });
-          return;
+    const pending = session.inputTail.catch(() => {}).then(async () => {
+      if (this.sessions.get(message.sessionId) !== session) return;
+      // 每个换行独立校验，不把多行粘贴当成一个shell命令。
+      for (const part of message.data.match(/[^\r\n]+|\r\n|\r|\n/g) ?? []) {
+        if (this.sessions.get(message.sessionId) !== session) return;
+        if (!/^[\r\n]+$/.test(part)) {
+          session.commandBuffer = updateCommandBuffer(session.commandBuffer, part);
+          session.channel.write(part);
+          continue;
         }
-        await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command });
-        const projectContext = message.projectContext;
-        if (projectContext) {
-          setTimeout(() => void this.refreshGitStatus(message.sessionId, projectContext), 1200);
+        const command = session.commandBuffer.trim();
+        session.commandBuffer = "";
+        if (command) {
+          const guard = checkCommandAllowed(command, { guardMode: session.target.guardMode, strictAllowlist: session.target.strictAllowlist });
+          if (!guard.allowed) {
+            // 前缀可能已实时写入PTY；取消当前行，不能残留给下一次Enter。
+            session.channel.write("\x03");
+            await this.options.audit({ event: "blocked", sessionId: message.sessionId, targetId: session.target.id, command, reason: guard.reason ?? "blocked" });
+            this.options.send({ type: "blocked", sessionId: message.sessionId, command, reason: guard.reason ?? "blocked" });
+            continue;
+          }
+          try { await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command }); }
+          catch (error) { session.channel.write("\x03"); throw error; }
+          if (message.projectContext) {
+            const context = message.projectContext;
+            setTimeout(() => { void this.refreshGitStatus(message.sessionId, context).catch(() => {}); }, 1200);
+          }
         }
+        if (this.sessions.get(message.sessionId) === session) session.channel.write(part);
       }
-    }
-    session.channel.write(message.data);
+    });
+    session.inputTail = pending;
+    return pending;
   }
 
-  async refreshGitStatus(sessionId: string, projectContext: TerminalProjectContext): Promise<void> {
+  async refreshGitStatus(sessionId: string, projectContext: TerminalProjectContext, requestId?: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     const statuses = await Promise.all(projectContext.branch.repos.map(async (repo) => {
@@ -166,7 +199,7 @@ export class TerminalSessionManager {
         };
       }
     }));
-    this.options.send({ type: "gitStatus", sessionId, statuses });
+    if (this.sessions.has(sessionId)) this.options.send({ type: "gitStatus", sessionId, statuses, requestId, contextKey: terminalContextKey(projectContext) });
   }
 
   async uploadFile(message: Extract<ClientTerminalMessage, { type: "uploadFile" }>): Promise<void> {
@@ -177,8 +210,8 @@ export class TerminalSessionManager {
     const content = Buffer.from(message.contentBase64, "base64");
     await this.options.uploadRemoteFile(session.target, { remotePath, content });
     await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command: `upload ${message.uploadKind} ${remotePath}` });
-    this.options.send({ type: "status", sessionId: message.sessionId, status: "info", message: `上传完成：${remotePath}` });
-    await this.refreshGitStatus(message.sessionId, message.projectContext);
+    this.options.send({ type: "status", sessionId: message.sessionId, requestId: message.requestId, contextKey: terminalContextKey(message.projectContext), status: "info", message: `上传完成：${remotePath}` });
+    await this.refreshGitStatus(message.sessionId, message.projectContext, message.requestId);
   }
 
   async packageRemoteFiles(message: Extract<ClientTerminalMessage, { type: "packageFiles" }>): Promise<void> {
@@ -203,6 +236,8 @@ export class TerminalSessionManager {
     this.options.send({
       type: "fileDownload",
       sessionId: message.sessionId,
+      requestId: message.requestId,
+      contextKey: terminalContextKey(message.projectContext),
       fileName,
       mimeType: "application/zip",
       contentBase64: extractMarkedBase64(result.stdout),
@@ -228,6 +263,8 @@ export class TerminalSessionManager {
     this.options.send({
       type: "fileDownload",
       sessionId: message.sessionId,
+      requestId: message.requestId,
+      contextKey: terminalContextKey(message.projectContext),
       fileName,
       mimeType: "application/vnd.ms-excel",
       contentBase64: extractMarkedBase64(result.stdout),
@@ -265,7 +302,7 @@ export class TerminalSessionManager {
         };
       }
     }));
-    this.options.send({ type: "signalConfigFiles", sessionId: message.sessionId, configs });
+    if (this.sessions.has(message.sessionId)) this.options.send({ type: "signalConfigFiles", sessionId: message.sessionId, configs, requestId: message.requestId, contextKey: terminalContextKey(message.projectContext) });
   }
 
   async checkoutSignalConfigFiles(message: Extract<ClientTerminalMessage, { type: "checkoutSignalConfigFiles" }>): Promise<void> {
@@ -273,11 +310,12 @@ export class TerminalSessionManager {
     if (!session) return;
     let total = 0;
     for (const repo of message.repos) {
+      validateRepoFiles(message.projectContext, repo.repoPath, repo.files);
       const files = repo.files.filter((file) => /^tools\/json\/config_[^/]+\.json$/.test(file));
       if (files.length === 0) continue;
       const repoDir = joinRemotePath(message.projectContext.project.mainPath, repo.repoPath);
       const quotedFiles = files.map(file => shellQuote(file)).join(" ");
-      const command = `cd ${shellPath(repoDir)} && git checkout -- ${quotedFiles}`;
+      const command = `cd ${shellPath(repoDir)} && git --literal-pathspecs checkout -- ${quotedFiles}`;
       const result = await this.options.runRemoteCommand(session.target, command);
       if (result.code !== 0) {
         throw new Error(result.stderr || result.stdout || "配置文件 checkout 执行失败");
@@ -285,57 +323,60 @@ export class TerminalSessionManager {
       total += files.length;
       await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command });
     }
-    this.options.send({ type: "status", sessionId: message.sessionId, status: "info", message: `配置完成：已 checkout ${total} 个未选配置文件` });
-    await this.refreshGitStatus(message.sessionId, message.projectContext);
-    await this.listSignalConfigFiles({ type: "signalConfigFiles", sessionId: message.sessionId, projectContext: message.projectContext });
+    this.options.send({ type: "status", sessionId: message.sessionId, requestId: message.requestId, contextKey: terminalContextKey(message.projectContext), status: "info", message: `配置完成：已 checkout ${total} 个未选配置文件` });
+    await this.refreshGitStatus(message.sessionId, message.projectContext, message.requestId);
+    await this.listSignalConfigFiles({ type: "signalConfigFiles", sessionId: message.sessionId, projectContext: message.projectContext, requestId: message.requestId });
   }
 
   async gitAdd(message: Extract<ClientTerminalMessage, { type: "gitAdd" }>): Promise<void> {
     const session = this.sessions.get(message.sessionId);
     if (!session) return;
+    validateRepoFiles(message.projectContext, message.repoPath, message.files);
     const repoDir = joinRemotePath(message.projectContext.project.mainPath, message.repoPath);
     const quotedFiles = message.files.map(file => shellQuote(file)).join(" ");
-    const command = `cd ${shellPath(repoDir)} && git add ${quotedFiles}`;
+    const command = `cd ${shellPath(repoDir)} && git --literal-pathspecs add -- ${quotedFiles}`;
     const result = await this.options.runRemoteCommand(session.target, command);
     if (result.code !== 0) {
       throw new Error(result.stderr || result.stdout || "git add 执行失败");
     }
     await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command });
-    this.options.send({ type: "status", sessionId: message.sessionId, status: "info", message: `git add 成功：已暂存 ${message.files.length} 个文件` });
-    await this.refreshGitStatus(message.sessionId, message.projectContext);
+    this.options.send({ type: "status", sessionId: message.sessionId, requestId: message.requestId, contextKey: terminalContextKey(message.projectContext), status: "info", message: `git add 成功：已暂存 ${message.files.length} 个文件` });
+    await this.refreshGitStatus(message.sessionId, message.projectContext, message.requestId);
   }
 
   async gitCheckout(message: Extract<ClientTerminalMessage, { type: "gitCheckout" }>): Promise<void> {
     const session = this.sessions.get(message.sessionId);
     if (!session) return;
+    validateRepoFiles(message.projectContext, message.repoPath, message.files);
     const repoDir = joinRemotePath(message.projectContext.project.mainPath, message.repoPath);
     const fileCommands = message.files.map(file => {
       const qFile = shellQuote(file);
-      return `if git ls-files --error-unmatch ${qFile} >/dev/null 2>&1; then git checkout -- ${qFile}; else rm -rf ${qFile}; fi`;
-    }).join(" ; ");
+      return `if git --literal-pathspecs ls-files --error-unmatch -- ${qFile} >/dev/null 2>&1; then git --literal-pathspecs checkout -- ${qFile}; else rm -rf -- ${qFile}; fi`;
+    }).join(" && ");
     const command = `cd ${shellPath(repoDir)} && ( ${fileCommands} )`;
     const result = await this.options.runRemoteCommand(session.target, command);
     if (result.code !== 0) {
       throw new Error(result.stderr || result.stdout || "git checkout 执行失败");
     }
     await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command });
-    this.options.send({ type: "status", sessionId: message.sessionId, status: "info", message: `git checkout 成功：已撤销/删除 ${message.files.length} 个文件` });
-    await this.refreshGitStatus(message.sessionId, message.projectContext);
+    this.options.send({ type: "status", sessionId: message.sessionId, requestId: message.requestId, contextKey: terminalContextKey(message.projectContext), status: "info", message: `git checkout 成功：已撤销/删除 ${message.files.length} 个文件` });
+    await this.refreshGitStatus(message.sessionId, message.projectContext, message.requestId);
   }
 
   async gitReset(message: Extract<ClientTerminalMessage, { type: "gitReset" }>): Promise<void> {
     const session = this.sessions.get(message.sessionId);
     if (!session) return;
+    validateRepoFiles(message.projectContext, message.repoPath, message.files);
     const repoDir = joinRemotePath(message.projectContext.project.mainPath, message.repoPath);
     const quotedFiles = message.files.map(file => shellQuote(file)).join(" ");
-    const command = `cd ${shellPath(repoDir)} && git reset HEAD ${quotedFiles}`;
+    const command = `cd ${shellPath(repoDir)} && git --literal-pathspecs reset HEAD -- ${quotedFiles}`;
     const result = await this.options.runRemoteCommand(session.target, command);
     if (result.code !== 0) {
       throw new Error(result.stderr || result.stdout || "git reset 执行失败");
     }
     await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command });
-    this.options.send({ type: "status", sessionId: message.sessionId, status: "info", message: `git reset 成功：已撤出暂存区 ${message.files.length} 个文件` });
-    await this.refreshGitStatus(message.sessionId, message.projectContext);
+    this.options.send({ type: "status", sessionId: message.sessionId, requestId: message.requestId, contextKey: terminalContextKey(message.projectContext), status: "info", message: `git reset 成功：已撤出暂存区 ${message.files.length} 个文件` });
+    await this.refreshGitStatus(message.sessionId, message.projectContext, message.requestId);
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
@@ -345,11 +386,12 @@ export class TerminalSessionManager {
   disconnect(sessionId: string, reason: string): void {
     const session = this.sessions.get(sessionId);
     if (!session) return;
+    void this.closeSession(sessionId, reason).catch(() => {});
     session.channel.close();
-    void this.closeSession(sessionId, reason);
   }
 
   disconnectAll(reason: string): void {
+    this.disposed = true;
     for (const sessionId of Array.from(this.sessions.keys())) {
       this.disconnect(sessionId, reason);
     }

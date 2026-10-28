@@ -131,7 +131,7 @@ export interface FilterRun {
 /**
  * 工单快照（旧 filteredIssueSnapshots + meegleFilteredIssueSnapshots + meegleIssueSnapshots）。
  * - origin=filter：筛票命中时写入（带 filterRunId）。Jira 处理任务直接引用该快照。
- * - origin=process：飞书每次处理前抓取的上下文快照（带 assignmentId）。
+ * - origin=process：每次Jira/飞书处理的独立上下文快照；飞书带 assignmentId。
  */
 export interface TicketSnapshot {
   id: string;
@@ -141,6 +141,8 @@ export interface TicketSnapshot {
   ticketKey: string;
   ruleGroupId: string;
   origin: "filter" | "process";
+  /** 指定票号发起，供刷新后找回入口；不关联或替代批量筛票运行。 */
+  analysisTrigger?: "direct";
   filterRunId?: string;
   assignmentId?: string;
   /** Jira summary / 飞书工作项名称 */
@@ -243,6 +245,9 @@ export interface ProcessResult {
   ticketKey: string;
   ruleGroupId: string;
   processTaskId: string;
+  /** 服务端确认的运行目录；复核只在显式提供时读取该run。 */
+  analysisRunId?: string;
+  analysisGroupName?: string;
   snapshotId: string;
   assignmentId?: string;
 

@@ -10,6 +10,9 @@ export interface DocupediaUploadRecord {
   monthlyTotal: number;
 }
 
+/** 原始正文严格超过此UTF-16长度才统计；不包含HTML包装。 */
+export const DOCUPEDIA_STAT_MIN_CHARACTERS = 500;
+
 const pendingWrites = new Map<string, Promise<unknown>>();
 
 export async function recordDocupediaUpload(input: {
@@ -19,7 +22,7 @@ export async function recordDocupediaUpload(input: {
   directory?: string;
   uploadedAt?: Date;
 }): Promise<DocupediaUploadRecord | null> {
-  if (input.text.length <= 500) return null;
+  if (input.text.length <= DOCUPEDIA_STAT_MIN_CHARACTERS) return null;
   const uploadedAt = input.uploadedAt ?? new Date();
   const month = `${uploadedAt.getFullYear()}-${String(uploadedAt.getMonth() + 1).padStart(2, "0")}`;
   const directory = path.resolve(input.directory ?? path.join(process.cwd(), "log", "docupedia-upload-stats"));

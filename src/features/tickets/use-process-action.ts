@@ -32,6 +32,7 @@ export function useProcessAction() {
 
 export function ticketHref(snapshot: TicketSnapshot) {
   const query = new URLSearchParams({ group: snapshot.ruleGroupId });
+  if (snapshot.source === "jira" && snapshot.jiraProvider) query.set("provider", snapshot.jiraProvider);
   if (snapshot.projectKey) query.set("project", snapshot.projectKey);
   if (snapshot.workItemTypeKey) query.set("type", snapshot.workItemTypeKey);
   return `/tickets/${snapshot.source}/${encodeURIComponent(snapshot.ticketKey)}?${query}`;

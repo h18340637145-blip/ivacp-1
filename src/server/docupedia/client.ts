@@ -5,7 +5,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { HttpsProxyAgent } from "https-proxy-agent";
-import { recordDocupediaUpload } from "./upload-stats";
+import { DOCUPEDIA_STAT_MIN_CHARACTERS, recordDocupediaUpload } from "./upload-stats";
 const DEFAULT_BASE_URL = "https://inside-docupedia.bosch.com/confluence2";
 const DEFAULT_SPACE_KEY = "BCSCVC";
 const DEFAULT_PARENT_ID = "1359712499"; // docupedia的父节点
@@ -485,8 +485,10 @@ export async function withDocupediaRetries<T>(args: {
   random?: () => number;
 }): Promise<T> {
   let lastError: unknown;
+  let attemptsUsed = 0;
   for (let attempt = 0; attempt <= args.options.requestRetries; attempt += 1) {
     try {
+      attemptsUsed = attempt + 1;
       return await args.operation();
     } catch (error) {
       lastError = error;
@@ -505,7 +507,7 @@ export async function withDocupediaRetries<T>(args: {
       await (args.sleep ?? delay)(retryDelayMs);
     }
   }
-  throw new Error(`Docupedia page "${args.title}" failed after ${args.options.requestRetries + 1} attempt(s): ${String(lastError)}`);
+  throw new Error(`Docupedia page "${args.title}" failed after ${attemptsUsed} attempt(s): ${String(lastError)}`);
 }
 
 async function findOrCreatePage(args: {
@@ -629,7 +631,7 @@ export async function archiveIssueLogToDocupedia(input: DocupediaArchiveInput): 
       try {
         const record = await recordDocupediaUpload({ title: page.title, text: page.text, action: result.action });
         if (record) {
-          console.log(`[docupedia] ${record.month}: ${record.monthlyTotal} articles over 500 characters`);
+          console.log(`[docupedia] ${record.month}: ${record.monthlyTotal} articles over ${DOCUPEDIA_STAT_MIN_CHARACTERS} characters`);
         }
       } catch (error) {
         console.warn(`[docupedia] upload statistics write failed for "${page.title}": ${String(error).slice(0, 200)}`);

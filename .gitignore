@@ -58,3 +58,7 @@ docs/golden-baseline/eval-report.md
 
 # 服务端规则组 JSON（/api/rule-groups）
 /data/
+
+# Python CAN 工具缓存
+__pycache__/
+*.py[cod]

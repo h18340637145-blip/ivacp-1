@@ -72,7 +72,7 @@ export interface TerminalRepoSignalConfig {
   error?: string;
 }
 
-export type ClientTerminalMessage =
+export type ClientTerminalMessage = (
   | { type: "connect"; targetId: string; cols: number; rows: number }
   | { type: "input"; sessionId: string; data: string; projectContext?: TerminalProjectContext }
   | { type: "resize"; sessionId: string; cols: number; rows: number }
@@ -85,9 +85,10 @@ export type ClientTerminalMessage =
   | { type: "checkoutSignalConfigFiles"; sessionId: string; projectContext: TerminalProjectContext; repos: Array<{ repoPath: string; files: string[] }> }
   | { type: "gitAdd"; sessionId: string; projectContext: TerminalProjectContext; repoPath: string; files: string[] }
   | { type: "gitCheckout"; sessionId: string; projectContext: TerminalProjectContext; repoPath: string; files: string[] }
-  | { type: "gitReset"; sessionId: string; projectContext: TerminalProjectContext; repoPath: string; files: string[] };
+  | { type: "gitReset"; sessionId: string; projectContext: TerminalProjectContext; repoPath: string; files: string[] }
+) & { requestId?: string };
 
-export type ServerTerminalMessage =
+export type ServerTerminalMessage = (
   | { type: "connected"; sessionId: string; targetId: string }
   | { type: "output"; sessionId: string; data: string }
   | { type: "status"; sessionId?: string; status: string; message: string }
@@ -95,4 +96,5 @@ export type ServerTerminalMessage =
   | { type: "closed"; sessionId: string; reason: string }
   | { type: "gitStatus"; sessionId: string; statuses: TerminalRepoGitStatus[] }
   | { type: "signalConfigFiles"; sessionId: string; configs: TerminalRepoSignalConfig[] }
-  | { type: "fileDownload"; sessionId: string; fileName: string; mimeType: string; contentBase64: string };
+  | { type: "fileDownload"; sessionId: string; fileName: string; mimeType: string; contentBase64: string }
+) & { requestId?: string; contextKey?: string };

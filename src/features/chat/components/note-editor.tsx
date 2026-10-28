@@ -15,11 +15,12 @@ import { saveNote } from "../lib/notes-service";
 
 interface NoteEditorProps {
   note: NoteRecord;
+  isNew: boolean;
   onBack: () => void;
   onSaved: () => void;
 }
 
-export function NoteEditor({ note, onBack, onSaved }: NoteEditorProps) {
+export function NoteEditor({ note, isNew, onBack, onSaved }: NoteEditorProps) {
   const [draft, setDraft] = useState(note);
   const [tagText, setTagText] = useState(note.tags.join(", "));
   const [showVersions, setShowVersions] = useState(false);
@@ -28,7 +29,7 @@ export function NoteEditor({ note, onBack, onSaved }: NoteEditorProps) {
   const save = async () => {
     setSaving(true);
     try {
-      await saveNote(draft, tagText);
+      await saveNote(draft, tagText, isNew ? null : note);
       toast.success("笔记已保存");
       onSaved();
     } catch (error) {

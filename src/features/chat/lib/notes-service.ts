@@ -47,13 +47,27 @@ async function buildChunks(title: string, content: string): Promise<KnowledgeChu
   return pieces.map((text, i) => ({ text, embedding: vectors?.[i] }));
 }
 
+function unchanged(a: NoteRecord | undefined, b: NoteRecord | undefined) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+async function commitNote(previous: NoteRecord | undefined, next: NoteRecord) {
+  await db.transaction("rw", db.notes, async () => {
+    const current = await db.notes.get(next.id);
+    if (!unchanged(current, previous)) throw new Error("笔记已被修改或删除，请返回列表重新加载后再保存");
+    await db.notes.put(next);
+  });
+}
+
 /**
  * 保存笔记：标题或正文变化时把上一版本压入历史（最多 MAX_VERSIONS 个）并重建检索分片；
  * 已归档笔记不参与检索（分片清空）。
  */
-export async function saveNote(draft: NoteRecord, tagText: string): Promise<NoteRecord> {
+export async function saveNote(draft: NoteRecord, tagText: string, expected?: NoteRecord | null): Promise<NoteRecord> {
   const title = draft.title.trim() || "未命名笔记";
   const prev = await db.notes.get(draft.id);
+  if (prev && prev.userId !== draft.userId) throw new Error("不能修改其他用户的笔记");
+  if (expected !== undefined && !unchanged(prev, expected ?? undefined)) throw new Error("笔记已被修改或删除，请返回列表重新加载后再保存");
   const changed = !prev || prev.title !== title || prev.content !== draft.content;
   const versions =
     prev && changed
@@ -66,16 +80,16 @@ export async function saveNote(draft: NoteRecord, tagText: string): Promise<Note
     tags: parseTagInput(tagText),
     versions,
     chunks,
-    updatedAt: new Date().toISOString(),
+    updatedAt: new Date(Math.max(Date.now(), prev ? Date.parse(prev.updatedAt) + 1 : 0)).toISOString(),
   };
-  await db.notes.put(next);
+  await commitNote(prev, next);
   return next;
 }
 
 export async function patchNote(note: NoteRecord, changes: Partial<Pick<NoteRecord, "pinned" | "archived">>) {
-  const next = { ...note, ...changes };
+  const next = { ...note, ...changes, updatedAt: new Date(Math.max(Date.now(), Date.parse(note.updatedAt) + 1)).toISOString() };
   if ("archived" in changes) next.chunks = next.archived ? [] : await buildChunks(next.title, next.content);
-  await db.notes.put(next);
+  await commitNote(note, next);
 }
 
 export async function deleteNote(id: string) {
