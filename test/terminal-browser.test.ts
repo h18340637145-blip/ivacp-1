@@ -8,7 +8,7 @@ const projects: TerminalProject[] = ["甲项目", "乙项目"].map((projectName,
 const targets = ["服务器甲", "服务器乙"].map((name, i) => ({ id: `target-${i}`, name, description: "隔离模拟目标", environment: "test", riskLevel: "normal", guardMode: "strict" }));
 describe.skipIf(!baseURL)("远程终端浏览器验收（模拟Gateway）", () => {
   let browser: Browser, context: BrowserContext, page: Page;
-  let requests: ClientTerminalMessage[], sockets: WebSocketRoute[], accept: boolean, errors: string[], dialogs: string[], failConnect: boolean, failAction: boolean, failConfig: boolean;
+  let requests: ClientTerminalMessage[], sockets: WebSocketRoute[], accept: boolean, errors: string[], dialogs: string[], failConnect: boolean, failAction: boolean, failConfig: boolean, stallScan: boolean;
   beforeAll(async () => { browser = await chromium.launch({ headless: true, executablePath: process.env.IVACP_BROWSER_EXECUTABLE }); });
   afterAll(async () => { await browser?.close(); });
   afterEach(async () => { await context?.close(); });
@@ -20,7 +20,7 @@ describe.skipIf(!baseURL)("远程终端浏览器验收（模拟Gateway）", () =
     send(socket, { type: "signalConfigFiles", sessionId, requestId, contextKey: terminalContextKey(ctx), configs: ctx.branch.repos.map(repo => ({ ...repo, status: "success", files: ["A", "B"].map(label => ({ fileName: `config_${label}.json`, filePath: `tools/json/config_${label}.json`, label })) })) });
   }
   async function start(role: "admin" | "analyst" = "admin") {
-    requests = []; sockets = []; accept = true; errors = []; dialogs = []; failConnect = false; failAction = false; failConfig = false;
+    requests = []; sockets = []; accept = true; errors = []; dialogs = []; failConnect = false; failAction = false; failConfig = false; stallScan = false;
     context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1100 }, permissions: ["clipboard-read", "clipboard-write"] });
     context.setDefaultTimeout(20_000);
     await context.addCookies([{ name: AUTH_SESSION_COOKIE, value: createSessionToken({ username: "terminal-browser-test", displayName: "终端验收", role }), url: baseURL! }]);
@@ -44,6 +44,7 @@ describe.skipIf(!baseURL)("远程终端浏览器验收（模拟Gateway）", () =
         }
         const ctx = message.projectContext, requestId = message.requestId;
         if (failAction) return send(socket, { type: "status", sessionId, requestId, status: "error", message: "模拟操作失败" });
+        if (message.type === "signalConfigFiles" && stallScan) return;
         if (message.type === "signalConfigFiles") return configs(socket, sessionId, ctx, requestId);
         if (message.type === "projectGitStatus") return git(socket, sessionId, ctx, requestId);
         if (message.type === "packageFiles" || message.type === "packageChecklist") return send(socket, { type: "fileDownload", sessionId, requestId, contextKey: terminalContextKey(ctx), fileName: message.type === "packageFiles" ? "test-script-files.zip" : "VHAL_SIGNAL_CHECKLIST_s.xls", mimeType: "application/octet-stream", contentBase64: Buffer.from("isolated test file").toString("base64") });
@@ -77,6 +78,24 @@ describe.skipIf(!baseURL)("远程终端浏览器验收（模拟Gateway）", () =
     await expect.poll(() => messages("connect").length).toBe(2);
     await page.getByRole("tab", { name: /服务器甲/ }).click(); expect(messages("disconnect").length).toBe(0);
     await page.getByRole("button", { name: "关闭 服务器甲 终端", exact: true }).click(); await expect.poll(() => messages("disconnect").length).toBe(1);
+    expect(errors).toEqual([]);
+  });
+  it("配置查询卡住30秒后仍保持终端交互，取消排队操作并支持刷新", async () => {
+    await start();
+    await page.clock.install();
+    stallScan = true;
+    await page.getByRole("button", { name: "连接服务器", exact: true }).click();
+    await expect.poll(() => messages("signalConfigFiles").length).toBe(1);
+    await page.clock.fastForward(30001);
+    await page.getByRole("alert").filter({ hasText: "仓库查询超时，终端仍可使用" }).waitFor();
+    expect(messages("disconnect")).toHaveLength(0);
+    await page.locator(".xterm-helper-textarea").focus();
+    await page.keyboard.type("echo alive"); await page.keyboard.press("Enter");
+    await expect.poll(() => messages("input").map(message => message.type === "input" ? message.data : "").join("").includes("echo alive")).toBe(true);
+    stallScan = false;
+    await page.getByRole("button", { name: "刷新状态", exact: true }).click();
+    await expect.poll(() => page.getByRole("button", { name: "刷新状态", exact: true }).isEnabled()).toBe(true);
+    expect(messages("disconnect")).toHaveLength(0);
     expect(errors).toEqual([]);
   });
   it("逐文件Git操作、配置保留/恢复、三类上传、两类下载与面板宽度", async () => {

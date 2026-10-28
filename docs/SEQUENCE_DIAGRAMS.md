@@ -725,9 +725,13 @@ sequenceDiagram
     Gateway->>SSH: 建立PTY
     Gateway-->>UI: connected(sessionId)
     UI->>Gateway: signalConfigFiles(requestId, projectContext)
-    Gateway->>SSH: 独立exec扫描配置
+    Gateway->>SSH: 复用已认证连接，独立 exec 通道扫描配置（20 秒时限）
     Gateway-->>UI: configs(requestId, contextKey)
     Note over UI: 仅接受本标签和当前上下文响应
+    opt 只读查询 30 秒超时
+        UI->>UI: 提示错误、取消排队操作，保留 PTY
+        UI->>Gateway: 新 requestId 手动刷新
+    end
     UI->>Gateway: input（普通多行逐行校验/审计）
     Gateway->>SSH: 按到达顺序写入PTY
     SSH-->>UI: output（不落盘）

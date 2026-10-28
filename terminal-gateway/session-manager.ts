@@ -12,7 +12,10 @@ import type {
   UploadTargetKind,
 } from "../src/domain/terminal/types";
 
+export interface RemoteCommandResult { stdout: string; stderr: string; code: number | null }
 export interface TerminalChannel {
+  runCommand?(command: string): Promise<RemoteCommandResult>;
+  uploadFile?(file: { remotePath: string; content: Buffer }): Promise<void>;
   write(data: string): void;
   setWindow(rows: number, cols: number): void;
   close(): void;
@@ -107,7 +110,7 @@ function toSignalConfigFile(filePath: string): TerminalSignalConfigFile | null {
 }
 
 export class TerminalSessionManager {
-  private sessions = new Map<string, { target: RemoteShellTarget; channel: TerminalChannel; commandBuffer: string; inputTail: Promise<void> }>();
+  private sessions = new Map<string, { target: RemoteShellTarget; channel: TerminalChannel; commandBuffer: string; inputTail: Promise<void>; refreshTimer?: ReturnType<typeof setTimeout>; refreshing?: boolean; refreshContext?: TerminalProjectContext }>();
   private disposed = false;
   private targets: Map<string, RemoteShellTarget>;
 
@@ -123,12 +126,22 @@ export class TerminalSessionManager {
     const channel = await this.options.connectSsh(target, { cols: message.cols, rows: message.rows });
     if (this.disposed) { channel.close(); throw new Error("终端连接已关闭"); }
     this.sessions.set(sessionId, { target, channel, commandBuffer: "", inputTail: Promise.resolve() });
-    channel.on("data", (data) => this.options.send({ type: "output", sessionId, data: data.toString() }));
+    let connected = false;
+    let initialOutput = "";
+    channel.on("data", (data) => {
+      if (!this.sessions.has(sessionId)) return;
+      if (!connected) {
+        // Auth/audit may still be pending; the browser rejects output before connected.
+        initialOutput = (initialOutput + data.toString()).slice(-256 * 1024);
+      } else this.options.send({ type: "output", sessionId, data: data.toString() });
+    });
     channel.on("close", () => { void this.closeSession(sessionId, "remote_closed").catch(() => {}); });
     try { await this.options.audit({ event: "connect", sessionId, targetId: target.id }); }
     catch (error) { this.sessions.delete(sessionId); channel.close(); throw error; }
     if (!this.sessions.has(sessionId)) throw new Error("终端连接已关闭");
     this.options.send({ type: "connected", sessionId, targetId: target.id });
+    connected = true;
+    if (initialOutput) this.options.send({ type: "output", sessionId, data: initialOutput });
     return sessionId;
   }
 
@@ -164,7 +177,12 @@ export class TerminalSessionManager {
           catch (error) { session.channel.write("\x03"); throw error; }
           if (message.projectContext) {
             const context = message.projectContext;
-            setTimeout(() => { void this.refreshGitStatus(message.sessionId, context).catch(() => {}); }, 1200);
+            session.refreshContext = context;
+            clearTimeout(session.refreshTimer);
+            session.refreshTimer = setTimeout(() => {
+              session.refreshTimer = undefined;
+              void this.autoRefresh(message.sessionId);
+            }, 1200);
           }
         }
         if (this.sessions.get(message.sessionId) === session) session.channel.write(part);
@@ -174,6 +192,21 @@ export class TerminalSessionManager {
     return pending;
   }
 
+  private async autoRefresh(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session || session.refreshing || !session.refreshContext) return;
+    const context = session.refreshContext;
+    session.refreshContext = undefined;
+    session.refreshing = true;
+    try { await this.refreshGitStatus(sessionId, context); }
+    catch { /* Individual repo failures are reported in gitStatus. */ }
+    finally {
+      session.refreshing = false;
+      if (this.sessions.has(sessionId) && session.refreshContext && !session.refreshTimer)
+        session.refreshTimer = setTimeout(() => { session.refreshTimer = undefined; void this.autoRefresh(sessionId); }, 1200);
+    }
+  }
+
   async refreshGitStatus(sessionId: string, projectContext: TerminalProjectContext, requestId?: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session) return;
@@ -181,7 +214,7 @@ export class TerminalSessionManager {
       const repoDir = joinRemotePath(projectContext.project.mainPath, repo.repoPath);
       const command = `cd ${shellPath(repoDir)} && git status --short --branch`;
       try {
-        const result = await this.options.runRemoteCommand(session.target, command);
+        const result = await (session.channel.runCommand ? session.channel.runCommand(command) : this.options.runRemoteCommand(session.target, command));
         return {
           repoName: repo.repoName,
           repoPath: repo.repoPath,
@@ -208,7 +241,7 @@ export class TerminalSessionManager {
     const directory = uploadDirectory(message.projectContext, message.uploadKind);
     const remotePath = joinRemotePath(directory, sanitizeFileName(message.fileName));
     const content = Buffer.from(message.contentBase64, "base64");
-    await this.options.uploadRemoteFile(session.target, { remotePath, content });
+    await (session.channel.uploadFile ? session.channel.uploadFile({ remotePath, content }) : this.options.uploadRemoteFile(session.target, { remotePath, content }));
     await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command: `upload ${message.uploadKind} ${remotePath}` });
     this.options.send({ type: "status", sessionId: message.sessionId, requestId: message.requestId, contextKey: terminalContextKey(message.projectContext), status: "info", message: `上传完成：${remotePath}` });
     await this.refreshGitStatus(message.sessionId, message.projectContext, message.requestId);
@@ -228,7 +261,7 @@ export class TerminalSessionManager {
       `printf '\\n__REMOTE_ZIP_BASE64_END__\\n'`,
       `rm -f ${shellPath(remoteZip)}`,
     ].join(" && ");
-    const result = await this.options.runRemoteCommand(session.target, command);
+    const result = await (session.channel.runCommand ? session.channel.runCommand(command) : this.options.runRemoteCommand(session.target, command));
     if (result.code !== 0) {
       throw new Error(result.stderr || result.stdout || "远端打包失败");
     }
@@ -255,7 +288,7 @@ export class TerminalSessionManager {
       `base64 ${shellPath(remoteFile)}`,
       `printf '\\n__REMOTE_ZIP_BASE64_END__\\n'`,
     ].join(" && ");
-    const result = await this.options.runRemoteCommand(session.target, command);
+    const result = await (session.channel.runCommand ? session.channel.runCommand(command) : this.options.runRemoteCommand(session.target, command));
     if (result.code !== 0) {
       throw new Error(result.stderr || result.stdout || "远端下载 checklist 失败");
     }
@@ -278,7 +311,7 @@ export class TerminalSessionManager {
       const repoDir = joinRemotePath(message.projectContext.project.mainPath, repo.repoPath);
       const command = `cd ${shellPath(repoDir)} && if [ -d tools/json ]; then find tools/json -maxdepth 1 -type f -name 'config_*.json' | sort; fi`;
       try {
-        const result = await this.options.runRemoteCommand(session.target, command);
+        const result = await (session.channel.runCommand ? session.channel.runCommand(command) : this.options.runRemoteCommand(session.target, command));
         const files = result.stdout
           .split("\n")
           .map(toSignalConfigFile)
@@ -316,7 +349,7 @@ export class TerminalSessionManager {
       const repoDir = joinRemotePath(message.projectContext.project.mainPath, repo.repoPath);
       const quotedFiles = files.map(file => shellQuote(file)).join(" ");
       const command = `cd ${shellPath(repoDir)} && git --literal-pathspecs checkout -- ${quotedFiles}`;
-      const result = await this.options.runRemoteCommand(session.target, command);
+      const result = await (session.channel.runCommand ? session.channel.runCommand(command) : this.options.runRemoteCommand(session.target, command));
       if (result.code !== 0) {
         throw new Error(result.stderr || result.stdout || "配置文件 checkout 执行失败");
       }
@@ -335,7 +368,7 @@ export class TerminalSessionManager {
     const repoDir = joinRemotePath(message.projectContext.project.mainPath, message.repoPath);
     const quotedFiles = message.files.map(file => shellQuote(file)).join(" ");
     const command = `cd ${shellPath(repoDir)} && git --literal-pathspecs add -- ${quotedFiles}`;
-    const result = await this.options.runRemoteCommand(session.target, command);
+    const result = await (session.channel.runCommand ? session.channel.runCommand(command) : this.options.runRemoteCommand(session.target, command));
     if (result.code !== 0) {
       throw new Error(result.stderr || result.stdout || "git add 执行失败");
     }
@@ -354,7 +387,7 @@ export class TerminalSessionManager {
       return `if git --literal-pathspecs ls-files --error-unmatch -- ${qFile} >/dev/null 2>&1; then git --literal-pathspecs checkout -- ${qFile}; else rm -rf -- ${qFile}; fi`;
     }).join(" && ");
     const command = `cd ${shellPath(repoDir)} && ( ${fileCommands} )`;
-    const result = await this.options.runRemoteCommand(session.target, command);
+    const result = await (session.channel.runCommand ? session.channel.runCommand(command) : this.options.runRemoteCommand(session.target, command));
     if (result.code !== 0) {
       throw new Error(result.stderr || result.stdout || "git checkout 执行失败");
     }
@@ -370,7 +403,7 @@ export class TerminalSessionManager {
     const repoDir = joinRemotePath(message.projectContext.project.mainPath, message.repoPath);
     const quotedFiles = message.files.map(file => shellQuote(file)).join(" ");
     const command = `cd ${shellPath(repoDir)} && git --literal-pathspecs reset HEAD -- ${quotedFiles}`;
-    const result = await this.options.runRemoteCommand(session.target, command);
+    const result = await (session.channel.runCommand ? session.channel.runCommand(command) : this.options.runRemoteCommand(session.target, command));
     if (result.code !== 0) {
       throw new Error(result.stderr || result.stdout || "git reset 执行失败");
     }
@@ -401,6 +434,7 @@ export class TerminalSessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     this.sessions.delete(sessionId);
+    clearTimeout(session.refreshTimer);
     await this.options.audit({ event: "disconnect", sessionId, targetId: session.target.id, reason });
     this.options.send({ type: "closed", sessionId, reason });
   }

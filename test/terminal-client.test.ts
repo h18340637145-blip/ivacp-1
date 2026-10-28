@@ -199,7 +199,7 @@ describe("terminal protocol correlation", () => {
         JSON.stringify({ type: "connected", sessionId: "s", targetId: "t" }),
       );
       client.setContext(context);
-      client.enqueue({ type: "signalConfigFiles" });
+      client.enqueue({ type: "packageChecklist" });
       client.enqueue({ type: "gitAdd", repoPath: "repo", files: ["a"] });
       vi.advanceTimersByTime(30001);
       expect(fatal).toHaveBeenCalledOnce();

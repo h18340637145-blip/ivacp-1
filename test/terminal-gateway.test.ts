@@ -121,3 +121,20 @@ it("Git pathspec魔法与通配文件名只按字面处理，不得撤销其他�
     manager.disconnectAll("test_done");
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
+
+it("连接审计期间的SSH欢迎信息在connected之后交付，不丢失首屏提示符", async () => {
+  let output: ((data: string) => void) | undefined;
+  let release!: () => void;
+  const barrier = new Promise<void>(resolve => { release = resolve; });
+  const messages: ServerTerminalMessage[] = [];
+  const channel = { write() {}, setWindow() {}, close() {}, on(event: string, handler: (data: string) => void) { if (event === "data") output = handler; return this; } } as TerminalChannel;
+  const manager = new TerminalSessionManager({ targets: [target], connectSsh: async () => channel, runRemoteCommand: async () => ({ stdout: "", stderr: "", code: 0 }), uploadRemoteFile: async () => {}, send: message => messages.push(message), audit: async event => { if (event.event === "connect") await barrier; } });
+  const connecting = manager.connect({ type: "connect", targetId: target.id, cols: 80, rows: 24 });
+  await Promise.resolve();
+  output?.("welcome\r\n$ ");
+  expect(messages).toEqual([]);
+  release(); await connecting;
+  expect(messages.map(message => message.type)).toEqual(["connected", "output"]);
+  expect(messages[1]).toMatchObject({ data: "welcome\r\n$ " });
+  manager.disconnectAll("test_done");
+});

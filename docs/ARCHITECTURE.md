@@ -242,7 +242,7 @@ Meegle 与 Jira 只共享分析、复核、证据校验、处理结果通知和 
 
 `REMOTE_SHELL_TARGETS_JSON` 的敏感认证字段只在 Gateway 进程内使用，不返回浏览器。每个目标至少需要配置 `privateKeyPath`、`password` 或 `agentSocket` 之一；私钥可额外配置 `privateKeyPassphrase`。SSH 认证失败会被转换为明确的认证错误并写入审计日志，不记录命令输出或密码内容。
 
-远程终端项目操作读取仓库内 `docs/project.json`。Next.js 通过 `/api/terminal/projects` 返回项目、分支和 repo 元数据；Terminal Gateway 根据当前 WebSocket session 复用目标服务器认证材料，使用独立 SSH exec 执行 git status、上传文件、打包下载和配置文件扫描，不把这些自动化命令写入交互式 PTY。此外，针对选中的文件，浏览器可通过 WebSocket 向 Gateway 发送 `gitAdd`、`gitCheckout` 或 `gitReset` 类型的消息，Gateway 同样会通过独立 SSH exec 静默在对应的 repo 目录下执行远程的 `git add`、`git checkout --` 和 `git reset HEAD` 命令，避免干扰用户的 PTY 屏幕。配置文件扫描使用 `signalConfigFiles` 消息，在每个 repo 下读取 `tools/json/config_*.json` 并把 `*` 作为前端复选框名称；前端以 `repoPath + branchName` 作为配置复选框状态和请求签名，路径或分支变化会清空旧列表并重新扫描；点击“配置”会发送 `checkoutSignalConfigFiles`，Gateway 只接受 `tools/json/config_*.json` 形式的文件路径，并在对应 repo 下执行 `git checkout --` 恢复未勾选文件。上传文件从浏览器转为 base64 发送到 Gateway，再写入远端 `mainPath/scriptPath/`、`mainPath/repoPath/tools/sdb/` 或 `mainPath/repoPath/tools/inc/`。打包下载在远端生成临时 zip，使用静默 `zip -q` 避免进度信息混入 stdout，并通过 base64 起止标记截取有效内容，base64 回传浏览器后由前端触发本地下载。
+远程终端项目操作读取仓库内 `docs/project.json`。Next.js 通过 `/api/terminal/projects` 返回项目、分支和 repo 元数据；Terminal Gateway 根据当前 WebSocket session 复用目标服务器认证材料，在当前已认证 SSH 连接上使用独立 exec 通道执行 git status、上传文件、打包下载和配置文件扫描，不把这些自动化命令写入交互式 PTY。此外，针对选中的文件，浏览器可通过 WebSocket 向 Gateway 发送 `gitAdd`、`gitCheckout` 或 `gitReset` 类型的消息，Gateway 同样会通过独立 SSH exec 静默在对应的 repo 目录下执行远程的 `git add`、`git checkout --` 和 `git reset HEAD` 命令，避免干扰用户的 PTY 屏幕。配置文件扫描使用 `signalConfigFiles` 消息，在每个 repo 下读取 `tools/json/config_*.json` 并把 `*` 作为前端复选框名称；前端以 `repoPath + branchName` 作为配置复选框状态和请求签名，路径或分支变化会清空旧列表并重新扫描；点击“配置”会发送 `checkoutSignalConfigFiles`，Gateway 只接受 `tools/json/config_*.json` 形式的文件路径，并在对应 repo 下执行 `git checkout --` 恢复未勾选文件。上传文件从浏览器转为 base64 发送到 Gateway，再写入远端 `mainPath/scriptPath/`、`mainPath/repoPath/tools/sdb/` 或 `mainPath/repoPath/tools/inc/`。打包下载在远端生成临时 zip，使用静默 `zip -q` 避免进度信息混入 stdout，并通过 base64 起止标记截取有效内容，base64 回传浏览器后由前端触发本地下载。
 
 需要改变用户当前 shell 上下文的动作通过交互式 PTY 发送命令：选择项目发送 `cd mainPath`，选择分支发送各 repo 的 `git checkout branchName`，点击配信号发送 `cd mainPath/scriptPath`。一键 checkout 和一键 pull 也通过交互式 PTY 顺序执行当前分支配置下所有 repo 的 `git checkout .` / `git pull`。分支切换命令带有失败兜底：若 checkout 因本地未提交文件失败，则先 `git stash push -u` 再重试 checkout。这类命令会显示在终端中，并继续经过 Gateway 的命令审计和拦截逻辑。
 
@@ -1410,7 +1410,7 @@ QWEN_MODEL 用于指定调用模型。
 
 `app/(app)/terminal` 只组装管理员工作台。`features/terminal` 拆分配置请求校验、命令生成/文件解析、文件读写、串行SessionClient、xterm生命周期、每标签工作区与Repo面板。xterm在浏览器挂载后动态导入；隐藏标签保持挂载与会话，销毁时释放socket、监听器、resize观察器和定时器。
 
-`domain/terminal/context.ts` 统一生成包含项目名、mainPath、scriptPath、分支及全部repo身份的contextKey。结构化Client/Server消息新增可选requestId，返回状态、Git、配置与下载回显；自动输入后刷新无requestId但带contextKey。旧字段保持兼容，新客户端仅接受自身关联响应，因此更新客户端时需同时更新Gateway。队列一次发送一个结构化请求，连接和操作超时关闭会话，避免把迟到成功归给后续动作。
+`domain/terminal/context.ts` 统一生成包含项目名、mainPath、scriptPath、分支及全部repo身份的contextKey。结构化Client/Server消息新增可选requestId，返回状态、Git、配置与下载回显；自动输入后刷新无requestId但带contextKey。旧字段保持兼容，新客户端仅接受自身关联响应，因此更新客户端时需同时更新Gateway。队列一次发送一个结构化请求，连接和有副作用的操作超时关闭会话，避免把迟到成功归给后续动作；只读扫描/状态查询超时清空队列并保留 PTY，迟到响应仍按 requestId 丢弃。
 
 Gateway按session串行处理输入和审计，将普通多行输入逐行检查；阻止命令或审计失败时取消PTY残留输入。SSH连接建立前后均检查manager是否关闭，失败/关闭时释放晚到channel。逐文件Git操作在网络前校验非空相对路径与仓库归属，使用literal pathspec与选项分隔；护栏仍是现有命令模式匹配，不是隔离shell，访问权限继续由管理员会话和SSH账号提供。
 
@@ -1469,3 +1469,9 @@ README 已替换脚手架说明，提供实际分层、运行、迁移、检查�
 发布、删除和迁移模板行共用withTemplateLock。获取锁通信失败或释放状态不确定时销毁连接，防止带锁连接回池；正常业务异常先释放再保留原错误，已提交成功不因清理失败而误报失败。门禁超时以HttpError(503)穿过发布校验包装，OpenAPI同步描述。没有新增表或schema版本；如果修改列排序规则，需要同步门禁权重规则。
 
 同配置去重仅在全体版本中的最高版本未删除且配置相同时成立，并回读该版本，不能拿较旧的可见版本代替已删除最新版本。旧模板迁移仍逐行提交；SQL和门禁都复用传入连接，不更改旧库。
+
+### SSH 传输与查询超时隔离（2026-10-28）
+
+`terminal-gateway/ssh-connection.ts` 管理每会话的 ssh2 Client、PTY 和独立 exec 通道。会话内查询及文件操作复用认证，每操作 20 秒超时、40 MB 输出上限，使用 StringDecoder 保留跨分片 UTF-8。操作失败关闭自身通道，连接关闭取消全部未完成操作；SSH 每 10 秒保活，连续 3 次无回应判定断连。PTY 初始化另有 18 秒总时限。
+
+SessionManager 的自动 Git 刷新按会话延迟 1.2 秒合并；刷新执行期间的新输入最多保留一次后续刷新，断开时清理计时器。连接审计期间缓存最多 256 KiB 首屏输出，发送 connected 后按序交付，防止客户端丢弃未确认会话的数据。

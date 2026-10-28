@@ -90,8 +90,18 @@ export class TerminalClient {
     this.pending = next;
     this.busy(true);
     this.timer = setTimeout(() => {
-      this.fatal("终端操作响应超时，请重新连接后核对远端状态。");
-      this.dispose();
+      if (next.action.type === "signalConfigFiles" || next.action.type === "projectGitStatus") {
+        // Queries cannot mutate remote state. Drop queued actions rather than running
+        // a mutation after the user has seen a timeout; late replies retain old IDs.
+        this.queue = [];
+        this.pending = undefined;
+        this.busy(false);
+        this.emit({ type: "status", sessionId: this.session, status: "error",
+          message: "仓库查询超时，终端仍可使用，请点击刷新重试；排队操作已取消。" });
+      } else {
+        this.fatal("终端操作响应超时，请重新连接后核对远端状态。");
+        this.dispose();
+      }
     }, 30000);
     this.send({
       ...next.action,
