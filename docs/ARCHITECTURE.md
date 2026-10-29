@@ -1475,3 +1475,23 @@ README 已替换脚手架说明，提供实际分层、运行、迁移、检查�
 `terminal-gateway/ssh-connection.ts` 管理每会话的 ssh2 Client、PTY 和独立 exec 通道。会话内查询及文件操作复用认证，每操作 20 秒超时、40 MB 输出上限，使用 StringDecoder 保留跨分片 UTF-8。操作失败关闭自身通道，连接关闭取消全部未完成操作；SSH 每 10 秒保活，连续 3 次无回应判定断连。PTY 初始化另有 18 秒总时限。
 
 SessionManager 的自动 Git 刷新按会话延迟 1.2 秒合并；刷新执行期间的新输入最多保留一次后续刷新，断开时清理计时器。连接审计期间缓存最多 256 KiB 首屏输出，发送 connected 后按序交付，防止客户端丢弃未确认会话的数据。
+
+## 日志版本提取实现（2026-10-29）
+
+`src/server/pipeline/log-versions.ts` 使用现有 `dltreader` 依赖流式解码 SCC DLT，无新增 Python 或外部服务依赖。`collectEvidence` 在嵌套解压完成后、生成提取日志时调用，按 Buildinfo 相对路径分组保存 SOC 和 SCC 及 DLT 来源。`log-versions.json`、`extract.md`、`step4_android_qnx_input.md` 写入本次 logRoot，版本进入 Step 4/Step 5 输入。飞书产物白名单允许读取版本 JSON。保留既有 IndexedDB 架构，不升版。
+
+7za 使用 `x` 保留压缩包目录结构，避免原 `e` 打平层级造成同名 Buildinfo 覆盖和 SCC 跨目录匹配。缺文件与解析失败不阻塞分析，失败通过 VERSION_EXTRACT 日志记录；取消仍传播。版本文字在日志截断之后附加，生成结构化信号证据时剔除这段元数据，避免将版本当成日志命中。
+
+### VHAL 配置快照（2026-10-29）
+
+`src/server/pipeline/vhal-version.ts` 移植参考 `extract-vhal-version.js` 的解析规则（去除块注释，匹配有效的 `#define VER_PRO_CFG "8位数字"`）。只读取请求中当前规则组的 `basePaths.proto_dir/type.h`，无硬编码默认目录，无缓存。`collectEvidence` 依次提取 SOC/SCC、VHAL，再写运行产物；不依赖压缩日志存在。
+
+`log-versions.json` 保留 schemaVersion=1 和 records，新增可选兼容字段 `vhal`：成功为 `{status:"ok",file,raw,platform,version}`；缺少根目录为 `{status:"not_configured"}`；读取或解析失败为 `{status:"unavailable",file,error}`。旧产物不回写，无 IndexedDB schema 变更。VHAL 文本与 SOC/SCC 一起追加到分析输入，结构化信号证据构建时排除这段元数据。
+
+`buildFilteredLogsBySignalIds` 将已提取的 `boschVehicleHalHashLines` 与 Android/QNX 文本一起返回；`collectEvidence` 复用同次扫描结果，完成筛选后将这些完整行和 SOC/SCC、VHAL 一并写入 `log-versions.json`，不额外扫描，也不受 Android 文本字符截断影响。schemaVersion 保持 1，新增字段不影响旧产物读取。
+
+## 远程终端同步约束（需求确认，尚未实现，2026-10-29）
+
+以 docs/project.json 全部项目/分支组/repos 为范围，复用现有登录、管理员权限和白名单SSH目标。读取 SSH 仓库本地 refs/heads/<branchName> 固定 commit，从同一提交读取信息与配置文件，不 fetch/pull。RTC完整保存RTC1-数字格式。
+
+文件递归收集并打平到 configuration/<projectName>/<分支组名>/{json,sdb,.h,xls}；没有repoName/scripts层。来源与各repo提交必须通过清单追溯。提交不变且完整跳过、缺失补齐、变化替换托管快照并移除旧文件。打平冲突建议：同内容去重，异内容报告冲突并保留上一份完整分支组快照；该发布边界属待审补充建议。详见 requirements/terminal-sync-review.md；不是当前已实现架构。

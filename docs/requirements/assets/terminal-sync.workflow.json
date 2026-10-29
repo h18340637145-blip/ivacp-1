@@ -1,0 +1,144 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "远程终端同步 · 已确认范围",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "batch",
+      "label": "按项目、分支组、仓库遍历"
+    },
+    {
+      "id": "local",
+      "label": "复制文件并保存到 IVACP 本机"
+    }
+  ],
+  "mainPath": [
+    "start",
+    "ref",
+    "compare",
+    "mapping",
+    "files",
+    "publish",
+    "report"
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "lane": "batch",
+      "col": 0,
+      "type": "frontend",
+      "label": "点击同步",
+      "sublabel": "全部项目与分支组",
+      "width": 160
+    },
+    {
+      "id": "ref",
+      "lane": "batch",
+      "col": 1,
+      "type": "external",
+      "label": "读取 SSH 本地分支",
+      "sublabel": "固定本地 commit ID",
+      "width": 160
+    },
+    {
+      "id": "compare",
+      "lane": "batch",
+      "col": 2,
+      "type": "backend",
+      "label": "与本地记录比较",
+      "sublabel": "按项目、分支和仓库隔离",
+      "width": 160
+    },
+    {
+      "id": "mapping",
+      "lane": "batch",
+      "col": 3,
+      "type": "backend",
+      "label": "提取 RTC1-数字",
+      "sublabel": "完整保留 RTC1- 前缀",
+      "width": 160
+    },
+    {
+      "id": "files",
+      "lane": "local",
+      "col": 3,
+      "type": "backend",
+      "label": "递归收集并打平",
+      "sublabel": "json / sdb / .h / xls",
+      "width": 160
+    },
+    {
+      "id": "publish",
+      "lane": "local",
+      "col": 4,
+      "type": "database",
+      "label": "发布完整快照",
+      "sublabel": "分支组分类目录",
+      "width": 160
+    },
+    {
+      "id": "report",
+      "lane": "local",
+      "col": 5,
+      "type": "frontend",
+      "label": "汇总同步结果",
+      "sublabel": "更新 / 未变化 / 失败",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-ref",
+      "from": "start",
+      "to": "ref"
+    },
+    {
+      "id": "ref-compare",
+      "from": "ref",
+      "to": "compare"
+    },
+    {
+      "id": "compare-map",
+      "from": "compare",
+      "to": "mapping",
+      "label": "提交变化"
+    },
+    {
+      "id": "map-files",
+      "from": "mapping",
+      "to": "files"
+    },
+    {
+      "id": "files-publish",
+      "from": "files",
+      "to": "publish"
+    },
+    {
+      "id": "publish-report",
+      "from": "publish",
+      "to": "report"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "提交没有变化",
+      "items": [
+        "已有完整快照：跳过，不重复追加映射",
+        "本地文件缺失：补齐文件，映射不重复"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "同名冲突策略（建议）",
+      "items": [
+        "同名同内容合并，保留多个来源",
+        "同名异内容报冲突，保留旧快照"
+      ]
+    }
+  ]
+}

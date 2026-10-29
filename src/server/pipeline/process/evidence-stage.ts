@@ -2,6 +2,8 @@ import { buildEvidencePacket, type EvidencePacket } from "@/domain/analysis/evid
 import { reviewEvidenceFromEvidencePacket } from "@/domain/analysis/review-sample";
 import type { ReviewEvidence } from "@/domain/entities";
 import { buildExtractMarkdown, buildFilteredLogsBySignalIds, extractCommentTimeWindow } from "@/server/pipeline/log-extract";
+import { extractLogVersions, formatLogVersions } from "@/server/pipeline/log-versions";
+import { extractVhalVersion, formatVhalVersion } from "@/server/pipeline/vhal-version";
 import { recordMetricStage } from "@/server/pipeline/metrics";
 import { saveStepLog } from "@/server/pipeline/paths-logging";
 import { awaitCanSignalExtraction } from "@/server/pipeline/signals";
@@ -60,26 +62,40 @@ export async function collectEvidence(
   let extractMarkdown = "";
   let androidLog = "";
   let qnxLog = "";
-  if (args.classified.latestZip && extractDir) {
+  let versionFooter = "";
+  const hasExtractedLogs = Boolean(args.classified.latestZip && extractDir);
+  const logVersions = hasExtractedLogs
+    ? await extractLogVersions(extractDir, message => logger.log("VERSION_EXTRACT", message))
+    : [];
+  logger.log("VERSION_EXTRACT", `日志软件版本提取完成：Buildinfo=${logVersions.length}，SCC=${logVersions.reduce((sum, record) => sum + record.sccVersions.length, 0)}`);
+  // Read the rule group's current configuration only after SOC/SCC extraction.
+  const vhal = await extractVhalVersion(ctx.request?.basePaths?.proto_dir);
+  logger.log("VERSION_EXTRACT", vhal.status === "ok"
+    ? `当前配置 VHAL版本：${vhal.version}，VER_PRO_CFG=${vhal.raw}，来源：${vhal.file}`
+    : vhal.status === "unavailable" ? `VHAL版本提取失败：${vhal.file}：${vhal.error}` : "未配置 Proto 根目录，跳过 VHAL版本提取");
+  let boschVehicleHalHashLines: string[] = [];
+  versionFooter = formatLogVersions(logVersions) + formatVhalVersion(vhal);
+  if (hasExtractedLogs) {
     extractMarkdown = await buildExtractMarkdown(extractDir, commentTimeWindow, signals.signalIdRecords);
-    await saveStepLog(logRoot, "extract.md", extractMarkdown);
     const filteredLogs = await buildFilteredLogsBySignalIds(extractDir, commentTimeWindow, signals.signalIdRecords);
+    boschVehicleHalHashLines = filteredLogs.boschVehicleHalHashLines;
     androidLog = filteredLogs.android;
     qnxLog = filteredLogs.qnx;
-    metrics.counts.androidLogChars = androidLog.length;
-    metrics.counts.qnxLogChars = qnxLog.length;
-    metrics.evidenceCompleteness.androidQnxLogLinesFound = Boolean(androidLog.trim() || qnxLog.trim());
-    await saveStepLog(logRoot, "step4_android_qnx_input.md", [
-      "<Android日志筛选结果>",
-      androidLog || "空",
-      "</Android日志筛选结果>",
-      "",
-      "<QNX日志筛选结果>",
-      qnxLog || "空",
-      "</QNX日志筛选结果>",
-    ].join("\n"));
   } else {
-    await saveStepLog(logRoot, "extract.md", "# CAN Trace Window Extract\n\n未生成筛选结果：没有解压日志目录。\n");
+    extractMarkdown = "# CAN Trace Window Extract\n\n未生成筛选结果：没有解压日志目录。\n";
+  }
+  await saveStepLog(logRoot, "log-versions.json", JSON.stringify({ schemaVersion: 1, records: logVersions, vhal, boschVehicleHalHashLines }, null, 2));
+  metrics.evidenceCompleteness.androidQnxLogLinesFound = Boolean(androidLog.trim() || qnxLog.trim());
+  extractMarkdown += versionFooter;
+  androidLog += versionFooter;
+  metrics.counts.androidLogChars = androidLog.length;
+  metrics.counts.qnxLogChars = qnxLog.length;
+  await saveStepLog(logRoot, "extract.md", extractMarkdown);
+  if (hasExtractedLogs || versionFooter) {
+    await saveStepLog(logRoot, "step4_android_qnx_input.md", [
+      "<Android日志筛选结果>", androidLog || "空", "</Android日志筛选结果>", "",
+      "<QNX日志筛选结果>", qnxLog || "空", "</QNX日志筛选结果>",
+    ].join("\n"));
   }
 
   const evidencePacket = buildEvidencePacket({
@@ -98,8 +114,9 @@ export async function collectEvidence(
     })),
     signalIdRecords: signals.signalIdRecords,
     signalSummary: canPlotResult.summary,
-    extractMarkdown,
-    androidLog,
+    // Version metadata must not turn an empty signal extraction into log evidence.
+    extractMarkdown: versionFooter ? extractMarkdown.slice(0, -versionFooter.length) : extractMarkdown,
+    androidLog: versionFooter ? androidLog.slice(0, -versionFooter.length) : androidLog,
     qnxLog,
     unmatchedTokens: signals.unmatchedTokens,
   });

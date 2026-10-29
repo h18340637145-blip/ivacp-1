@@ -9,7 +9,7 @@ import { PipelineLogger, sanitizeName } from "@/server/pipeline/paths-logging";
 export async function extractArchive(archivePath: string, destDir: string): Promise<void> {
   // Use spawn instead of exec to avoid shell interpolation issues with special chars in paths
   throwIfPipelineCancelled();
-  const args = ["e", "-y", `-o${destDir}`, archivePath];
+  const args = ["x", "-y", `-o${destDir}`, archivePath];
   await new Promise<void>((resolve, reject) => {
     const child = spawn("7za", args, { detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
     trackPipelineChild(child);

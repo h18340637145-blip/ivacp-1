@@ -1262,3 +1262,20 @@ KanbanBoard setInterval 触发 runDueAutoCycles()
 3. 本机隔离 ssh2 Server 验证真实 SSH 认证、PTY/exec 复用、exec 超时后继续查询与交互，不连接业务 SSH 或修改业务仓库。
 4. 连续提交命令只触发合并刷新；关闭终端取消未开始的刷新并释放 SSH 操作通道。
 5. 此次 Gateway 代码需随前端更新后生效；验证使用独立构建目录，不重启已有业务服务。
+
+## 解压日志版本提取（2026-10-29）
+
+1. 下载日志包后保留目录结构解压，并展开嵌套压缩包。
+2. 收集证据时递归查找 Buildinfo，提取 MAIN_VERSION；解码同目录所有 Scc DLT，去重记录每个文件的 SCC 版本。
+3. 写入本次运行 `log-versions.json`；将 SOC/SCC 及来源附加到 `extract.md` 和 `step4_android_qnx_input.md` 的 Android 筛选结果末尾，不受时间窗限制。
+4. 模型沿用当前日志输入读取版本；版本缺失不阻断处理，也不构成信号日志证据。历史运行保持原样。
+
+### VHAL 提取顺序（2026-10-29）
+
+完成 SOC/SCC 提取后，读取当前规则组 Proto 根目录下的 `type.h`，解析 `VER_PRO_CFG` 并记录平台与版本。每次分析重新读取文件，从而保存该次分析采用的最新配置快照。将结果写入本次 `log-versions.json` 的 vhal 字段，并在 SOC/SCC 后追加到提取日志和模型输入；日志缺失时仍可保留配置版本。路径未配置或文件无效只记录状态与原因，继续分析。参考脚本默认目录不参与运行。
+
+Android 日志筛选完成后，将同次提取、去重的 BoschVehicleHalHash 完整行保存到本次 `log-versions.json` 的 `boschVehicleHalHashLines` 数组；最多 20 行，缺失时为空。现有 Android 日志输入继续保留这些行。
+
+## 远程终端同步流程（需求确认，尚未实现，2026-10-29）
+
+管理员登录并连接白名单SSH目标后点击同步，遍历project.json全部项目、分支组及仓库；读取各本地branchName的最新commit，提取完整RTC1-数字标识。固定同一commit后递归收集tools/json、tools/sdb、tools/scripts下指定文件，按json/sdb/.h/xls分类打平保存到configuration/<projectName>/<分支组名>/。提交不变且完整则跳过，缺失补齐，变化替换托管快照并移除旧文件。无fetch/pull，无repoName目录层。详细需求与同名冲突补充建议见requirements/terminal-sync-review.md。

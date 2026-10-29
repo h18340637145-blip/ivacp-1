@@ -863,3 +863,52 @@ MySQL -> 模板门禁: 获得锁 / 超时503
 模板门禁 -> 连接池: 正常归还 / 锁状态不确定则销毁
 模板门禁 -> 调用方: 原业务结果或异常
 ```
+
+## 日志软件版本提取（2026-10-29）
+
+```mermaid
+sequenceDiagram
+  participant P as 共享流水线
+  participant FS as 解压目录
+  participant D as Node DLT 解码器
+  participant A as 本次运行产物
+  P->>FS: 保留目录层级解压及展开嵌套压缩包
+  P->>FS: 递归读取 Buildinfo.txt 的 MAIN_VERSION
+  loop 每个 Buildinfo 同目录的 Scc-*.dlt
+    P->>D: 流式解码 DLT payload
+    D-->>P: [Vip-App]App: 后的 SCC 版本
+  end
+  P->>FS: 读取规则组 Proto 根目录/type.h 的 VER_PRO_CFG
+  FS-->>P: 当前配置 VHAL 平台/版本或缺失状态
+  P->>FS: 筛选日志并提取去重的 BoschVehicleHalHash 完整行
+  P->>A: 保存 log-versions.json（SOC/SCC records + vhal + boschVehicleHalHashLines）
+  P->>A: 在 extract.md 与 Step4 日志输入末尾依次追加 SOC/SCC、VHAL
+  Note over P,A: 不受时间窗限制，不计作信号命中；缺失不阻断分析
+```
+
+## 远程终端同步（已确认需求时序，尚未实现，2026-10-29）
+
+```mermaid
+sequenceDiagram
+  participant U as 管理员
+  participant S as 同步任务
+  participant R as SSH服务器本地仓库
+  participant L as IVACP本地磁盘
+  U->>S: 点击同步（全部配置项目与分支组）
+  loop 每个项目/分支组下的repos
+    S->>R: 读取本地branchName最新commit（不fetch/pull）
+    R-->>S: 固定commit与提交正文
+    S->>S: 提取完整RTC1-数字标识并比较已同步记录
+    alt 提交未变且文件完整
+      S->>S: 跳过
+    else 提交变化或文件缺失
+      S->>R: 从固定commit递归收集指定文件
+      R-->>S: JSON、SDB普通文件、type.h、types.hal、xls
+      S->>S: 按分类打平并检查同名冲突
+    end
+  end
+  S->>L: 发布configuration/项目/分支组/{json,sdb,.h,xls}
+  S->>L: 保存各repo的commit/RTC映射及快照清单
+  S-->>U: 汇总更新、跳过、补齐、失败
+  Note over S,L: 同名冲突与完整发布边界为补充建议，详见需求文档
+```

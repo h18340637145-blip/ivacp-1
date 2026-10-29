@@ -1,3 +1,43 @@
+## 最新续接：终端同步需求 v0.2（2026-10-29，用户审核意见已纳入）
+
+- 用户确认：覆盖project.json全部项目；最新commit取SSH服务器本地分支；RTC完整保存RTC1-3103704格式；json/sdb/scripts递归收集且打平；目标configuration/<projectName>/<分支组名>/{json,sdb,.h,xls}，无repoName/scripts层；管理员启动沿用现有登录；提交未变且完整跳过、缺失补齐、变化替换托管快照并移除旧文件。
+- 更新 docs/requirements/terminal-sync-review.md 为v0.2，保留用户添加的真实提交信息例子并规范代码块，映射示例改为完整RTC ID。明确.h为字面量目录，type.h/types.hal进入.h、xls进入xls；固定SSH本地refs/heads分支commit读取，禁止fetch/pull或回退其他HEAD。
+- 配置打平后的同名冲突及分支组完整发布边界仅为补充建议：同内容合并、多来源留清单；异内容报冲突并保留旧快照，尚非用户单独确认要求。下一步若继续开发，需遵循v0.2已确认项，不能再沿用前轮fetch-origin/repo层目录建议。
+- PRODUCT、ARCHITECTURE、WORKFLOW、SEQUENCE_DIAGRAMS和两张PNG/文件SVG/流程HTML/源JSON均同步。流程图9/9校验通过、0错误0警告；四种桌面尺寸无溢出；最终两张中文PNG人工检查可读。流程spec SHA256 80c274c10a75818cc44f029a09c9998df7cecb580e75f289d8c881d34ca4a604；HTML SHA256 20627535774eea6aad40429f3d74be97c2d842e76758e2c2a0eddd5259a5803d。
+- 文档相对链接、SVG XML、流程JSON和git diff --check通过。仅文档/配图更新，没有改project.json、应用代码或真实远端，不重启服务；未运行应用测试。图的自动检查诊断文件移至/tmp/v02-terminal-sync-flow.visual-check.*。
+
+## 最新续接：远程终端同步需求审核稿（2026-10-29）
+
+- 用户要求先整理同步需求并配图审核；本轮只编写文档和图，不实现功能、不修改docs/project.json、不连接真实SSH/Git origin、不重启服务。保留既有流水线改动。
+- 新增 docs/requirements/terminal-sync-review.md，含明确需求、现有项目/分支组/repo配置结构、commit/RTC数组示例、文件复制表和目录图、异常/重试/回退语义、验收场景及A-G审核项。PRODUCT登记待审核入口，不把建议写成已上线行为。
+- 建议方案待审核：全部项目/全部分支组，fetch origin后的分支commit，文件来自同一commit；configuration/<projectName>/<分支组名>/<repoName>/{json,sdb,scripts}，引入repo层防同名覆盖；JSON/SDB递归，scripts只当前层type.h/types.hal/*.xls；RTC格式须真实脱敏提交样例；管理员启动。以上可由用户修订，不能自行当作已确认需求。
+- 图解：terminal-sync-flow.html（Archify workflow，9/9校验通过，0 errors/warnings；spec SHA256 e81070da1dd33ac139537e2734acb8dd212c37344ac1f81b814ac6d602d0ec62，HTML SHA256 d63aa59b3cf4e5af7a7d2056200cb700469ab86ee8e491ee1c81b697b4025556），以及assets目录两张中文PNG和文件映射SVG。流程源JSON可供后续调整。
+- Archify四种桌面尺寸自动检查无溢出；初始截图缺中文字体，已临时下载Noto字体到/tmp并生成字体子集，嵌入文件SVG及PNG截图导出，未改系统字体或已校验HTML。人工检查两张最终PNG内容可读。诊断receipt/截图移至/tmp/terminal-sync-flow.visual-check.*。文档相对链接、project.json解析、git diff --check通过；纯文档轮未重跑应用测试。
+- 下一步：请用户审核需求文档第10节A-G，特别是最新commit来源、目录层级及RTC样例。审核前不进入同步实现。
+
+## 最新续接：BoschVehicleHalHash 随版本持久化（2026-10-29）
+
+- `buildFilteredLogsBySignalIds` 新增返回 `boschVehicleHalHashLines`，复用当前扫描提取的完整行；`collectEvidence` 在筛选后将其写入 `log-versions.json`，与 records/vhal 同存。沿用去重、最多20行、无时间窗/信号ID限制；无日志/无命中为空数组，不重复扫描。Android输入原有行为保留。
+- 新增 test/vehicle-hal-hash-persistence.test.ts 两项红绿回归，验证重复行、20行上限、无命中空数组、与Android输入一致、保留原SOC/SCC/VHAL结构。相关6文件29项通过，typecheck及相关3文件ESLint通过。四份Harness已同步。
+- 未更改旧运行、真实日志或业务服务；本轮未重跑全量/浏览器/生产构建。
+
+## 最新续接：规则组 Proto 根目录的 VHAL 版本（2026-10-29）
+
+- 参考只读脚本 `/home/huo2wx/project/nextjs/test-vhal-version/extract-vhal-version.js`，新增 `src/server/pipeline/vhal-version.ts`。从当前规则组 `basePaths.proto_dir/type.h` 读取 VER_PRO_CFG，按4位平台+2位主版本+2位次版本解析；忽略注释，校验8位数字字符串。没有使用参考脚本中的硬编码目录，没有缓存，每次运行重新读当前配置。
+- collectEvidence 中 SOC/SCC 后调用 VHAL 提取；有无日志包均可记录。log-versions.json 保留schemaVersion=1/records并新增vhal快照（ok/not_configured/unavailable；成功包含file/raw/platform/version）。配置缺失或文件无效不阻断流水线；取消仍传播。
+- 在 extract.md、step4_android_qnx_input.md 的版本区块后追加“当前配置的 VHAL 版本”，供Step4/Step5分析，与日志中的SOC/SCC区分；元数据仍不计作信号日志证据。没有变更IndexedDB结构、旧运行或外部配置文件。
+- 定向5文件27项通过：vhal-version(4)、log-versions(5)、pipeline-services、pipeline-orchestrator、pipeline-cancellation。覆盖参考编码/注释/非法宏、规则组根目录、每次运行更新、缺失/无效、有无ZIP的落盘和模型输入顺序；未执行真实模型或外部业务操作。
+- typecheck、相关3文件ESLint及git diff --check通过。四份Harness及本交接已同步。本轮未重跑浏览器/生产构建和全量测试；上轮全量沙箱限制记录保留，不宣称全量通过。
+
+## 最新续接：日志 SOC / SCC 版本提取（2026-10-29）
+
+- 共享 Jira / 飞书流水线在 collectEvidence 中递归寻找 Buildinfo.txt，读取 MAIN_VERSION 全行作为 SOC；仅流式解码同目录 Scc-*.dlt 的 payload，提取 [Vip-App]App: 后的 SCC。多目录、多文件、多版本保留来源，不跨目录配对。
+- 新增 src/server/pipeline/log-versions.ts。版本保存到每次运行 logRoot/log-versions.json，并追加到 extract.md 和 step4_android_qnx_input.md 的 Android 输入末尾，进入后续分析，不受时间窗或信号 ID 过滤影响。不把版本元数据计入结构化信号日志命中。飞书产物白名单支持版本 JSON。
+- 7za 从 e 改为 x 保留层级，避免同名文件覆盖和配对错误。真实 ZIP 回归覆盖两个目录内同名 Buildinfo/Scc；缺失、坏 DLT 不阻断其他分析，取消仍传播。旧运行和用户样例未改写，未触发真实外部分析或重启业务服务。
+- 用户真实样例只读验证：SOC=rb-chery-idcpro_hqx4560-es11_ip9_release_2026.43.8；SCC=ES11_IP9_2026.43.8。
+- 定向4文件23项通过（log-versions、pipeline-services、pipeline-orchestrator、pipeline-cancellation）；版本测试5项含真实样例、递归配对、损坏/缺失、collectEvidence落盘和真实ZIP保留目录。typecheck、相关5文件ESLint通过。四份Harness文档已同步。
+- 全量回归未完成：沙箱下出现MySQL连接和SSH监听EPERM、Docupedia新进程JSON为空、operations-cli子进程输出为空，运行长时间未结束后仅停止本轮测试session78339（exit130），没有停止业务服务。上述6文件独立复跑12失败/27通过，见 /tmp/ivacp-versions-unrelated.log；全量中断日志 /tmp/ivacp-versions-tests.log。不能宣称全量通过。本轮未重跑浏览器看板/IndexedDB持久化和生产构建，既有UI未改。
+
 ## 最新续接：终端连接稳定性（2026-10-28）
 
 - 连接后的配置扫描和 Git 状态原先分别建立 SSH 连接，exec 没有执行超时；只读请求 30 秒超时会关闭整个 PTY。已改为每会话复用认证连接及独立 exec 通道，20 秒操作时限、保活和资源清理；只读查询超时保留终端并清空队列，写入超时仍断线并提示核对远端状态。

@@ -223,13 +223,13 @@ export async function buildFilteredLogsBySignalIds(
   extractDir: string,
   window: TimeWindow,
   signalIds: SignalIdRecord[],
-): Promise<{ android: string; qnx: string }> {
+): Promise<{ android: string; qnx: string; boschVehicleHalHashLines: string[] }> {
   const hashLines = await extractVehicleHalHashLines(extractDir);
   const withHash = (androidLines: string[]) => [...hashLines, ...androidLines.filter((line) => !hashLines.includes(line))].join("\n").slice(0, MAX_LOG_CHARS);
   const startAt = parseFlexibleTimestamp(window.start);
   const endAt = parseFlexibleTimestamp(window.end);
   if (!startAt || !endAt || signalIds.length === 0) {
-    return { android: withHash([]), qnx: "" };
+    return { android: withHash([]), qnx: "", boschVehicleHalHashLines: hashLines };
   }
 
   const fallbackYear = startAt.getFullYear();
@@ -263,6 +263,7 @@ export async function buildFilteredLogsBySignalIds(
   }
 
   return {
+    boschVehicleHalHashLines: hashLines,
     android: withHash(androidMatches),
     qnx: qnxMatches.join("\n").slice(0, MAX_LOG_CHARS),
   };

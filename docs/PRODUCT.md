@@ -848,3 +848,25 @@ Gateway逐行检查普通多行输入并保持审计顺序，拦截后清除PTY�
 - 远端 exec 操作最多等待 20 秒；失败释放对应操作通道，PTY 保持可用。SSH 连接启用保活；连接断开时清理全部操作。
 - 连续提交命令的自动 Git 刷新合并执行，不堆积并发刷新；关闭终端取消待执行刷新。
 - 连接确认前到达的欢迎信息在确认后显示，避免丢失首屏提示符。
+
+## 解压日志的软件版本（2026-10-29）
+
+下载压缩日志并展开嵌套压缩包后，递归查找 `Buildinfo.txt`，读取 `MAIN_VERSION=` 后整行内容作为 SOC 版本；仅解码该文件同目录的 `Scc-*.dlt`，读取 DLT payload 中 `[Vip-App]App:` 后的内容作为 SCC 版本。多个目录或版本分别记录来源，不跨目录配对。缺失或损坏保留未提取状态，不中断其他证据分析。
+
+版本不受时间窗和信号 ID 筛选限制，追加到 `extract.md` 和 Android 日志筛选输入末尾，供后续模型分析；同时以 `log-versions.json`（schemaVersion=1、records）永久保存在本次运行的日志目录。版本元数据不计作信号日志命中。旧运行不会自动回写。
+
+## 当前配置的 VHAL 版本（2026-10-29）
+
+SOC/SCC 提取之后，从本次规则组配置的 Proto 根目录（`base_paths.proto_dir`，处理请求中为 `basePaths.proto_dir`）读取 `type.h` 的 `VER_PRO_CFG`。沿用参考脚本的 8 位数字编码：前 4 位平台号，后 2+2 位为主、次版本，例如 `82552236` → 平台 `8255`、版本 `22.36`。每次运行重新读取当前文件，不使用参考脚本中的默认目录，也不扫描其他路径或依赖缓存。
+
+结果标明“当前配置的 VHAL 版本”，区分日志里的 SOC/SCC 版本；追加在它们之后，随 `extract.md`、Android 筛选输入及 `log-versions.json` 持久化，供后续分析。没有压缩日志但仍进入证据分析的运行也可提取 VHAL。未配置根目录、文件缺失或编码无效时记录对应状态，不阻断其他分析，不计作信号日志命中。
+
+`log-versions.json` 同时保存 Android 日志提取中的 `BoschVehicleHalHash` 原始完整行，字段为 `boschVehicleHalHashLines`（字符串数组）。沿用现有去重、最多 20 行、不受时间窗和信号 ID 限制的规则；未找到或无压缩日志时保存空数组。
+
+## 远程终端同步扩展（需求已确认，尚未实现，2026-10-29）
+
+远程终端拟新增「同步」入口，仅管理员沿用现有登录启动。范围覆盖 docs/project.json 全部项目、全部分支组及 repos；读取 SSH 服务器本地 branchName 分支最新提交，不 fetch/pull。RTC ID 从提交信息提取，完整保存 `RTC1-3103704` 格式及前缀到 repo 的 commid-rtcids-map 数组。
+
+tools/json、tools/sdb、tools/scripts 均递归收集符合范围的文件，打平后保存到 `configuration/<projectName>/<分支组名>/{json,sdb,.h,xls}`，不保留源相对层级或 repoName 层。JSON 进 json，SDB 目录普通文件进 sdb，type.h/types.hal 进字面量 .h 目录，所有 .xls 进 xls。提交不变且文件完整则跳过；缺失补齐；提交变化时替换托管快照并移除旧文件。
+
+完整规则、目录配图、JSON 示例和验收条件见 [需求文档 v0.2](requirements/terminal-sync-review.md) 与 [交互流程图](requirements/terminal-sync-flow.html)。同名异内容冲突和分支组完整发布边界仍为补充设计建议。本轮仅更新文档，未实施同步功能。
