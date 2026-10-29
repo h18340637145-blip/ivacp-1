@@ -50,6 +50,7 @@ wss.on("connection", (socket, request) => {
   if (operator) void appendAuditEvent(auditPath, { event: "gateway_connected", operator });
   const manager = new TerminalSessionManager({
     targets,
+    canSync: () => { const current = readSession(request); return !!current && hasRole(current, "admin"); },
     connectSsh,
     // Real sessions provide exec/upload on their authenticated channel.
     runRemoteCommand: async () => { throw new Error("SSH 操作通道不可用"); },
@@ -72,6 +73,7 @@ wss.on("connection", (socket, request) => {
         }
         return;
       }
+      if (message.type === "syncProjects") await manager.syncProjects(message);
       if (message.type === "input") await manager.inputMessage(message);
       if (message.type === "resize") manager.resize(message.sessionId, message.cols, message.rows);
       if (message.type === "disconnect") manager.disconnect(message.sessionId, "client_disconnect");

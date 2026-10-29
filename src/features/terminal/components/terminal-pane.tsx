@@ -8,6 +8,7 @@ import { TerminalClient, type TerminalAction } from "../terminal-client";
 import { copyText } from "../browser-files";
 import "@xterm/xterm/css/xterm.css";
 export interface TerminalPaneHandle {
+  startSync: () => boolean;
   enqueue: (action: TerminalAction) => boolean;
   input: (data: string) => void;
   disconnect: () => void;
@@ -42,6 +43,7 @@ export const TerminalPane = forwardRef<TerminalPaneHandle, Props>(
     useImperativeHandle(
       ref,
       () => ({
+        startSync: () => client.current?.startSync() ?? false,
         enqueue: (a) => client.current?.enqueue(a) ?? false,
         input: (data) => client.current?.input(data),
         disconnect: () => close.current(),

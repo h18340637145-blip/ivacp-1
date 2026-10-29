@@ -1,3 +1,4 @@
+import type { TerminalSyncProgress, TerminalSyncReport, TerminalBranchVhal } from "./sync";
 export type RemoteShellRiskLevel = "normal" | "critical";
 export type RemoteShellGuardMode = "soft" | "strict";
 
@@ -28,9 +29,11 @@ export interface TerminalRepoConfig {
   repoPath: string;
   origin?: string;
   branchName: string;
+  "commid-rtcids-map"?: Array<{ commitid: string; rtcids: string[] }>;
 }
 
 export interface TerminalBranchConfig {
+  syncedVhal?: TerminalBranchVhal;
   name: string;
   repos: TerminalRepoConfig[];
 }
@@ -77,6 +80,7 @@ export type ClientTerminalMessage = (
   | { type: "input"; sessionId: string; data: string; projectContext?: TerminalProjectContext }
   | { type: "resize"; sessionId: string; cols: number; rows: number }
   | { type: "disconnect"; sessionId: string }
+  | { type: "syncProjects"; sessionId: string }
   | { type: "projectGitStatus"; sessionId: string; projectContext: TerminalProjectContext }
   | { type: "uploadFile"; sessionId: string; projectContext: TerminalProjectContext; uploadKind: UploadTargetKind; fileName: string; contentBase64: string }
   | { type: "packageFiles"; sessionId: string; projectContext: TerminalProjectContext }
@@ -89,6 +93,8 @@ export type ClientTerminalMessage = (
 ) & { requestId?: string };
 
 export type ServerTerminalMessage = (
+  | { type: "syncProgress"; sessionId: string; progress: TerminalSyncProgress }
+  | { type: "syncResult"; sessionId: string; report: TerminalSyncReport }
   | { type: "connected"; sessionId: string; targetId: string }
   | { type: "output"; sessionId: string; data: string }
   | { type: "status"; sessionId?: string; status: string; message: string }

@@ -7,7 +7,7 @@ import { contextKey } from "./commands";
 type ContextAction = Exclude<
   ClientTerminalMessage,
   {
-    type: "connect" | "input" | "resize" | "disconnect";
+    type: "connect" | "input" | "resize" | "disconnect" | "syncProjects";
   }
 >;
 export type TerminalAction = ContextAction extends infer A
@@ -39,6 +39,8 @@ export class TerminalClient {
   private pending?: Pending;
   private queue: Pending[] = [];
   private timer?: ReturnType<typeof setTimeout>;
+  private syncId?: string;
+  private syncTimer?: ReturnType<typeof setTimeout>;
   constructor(
     private targetId: string,
     private send: (message: ClientTerminalMessage) => void,
@@ -64,6 +66,20 @@ export class TerminalClient {
   resize(cols: number, rows: number) {
     if (!this.stopped && this.session)
       this.send({ type: "resize", sessionId: this.session, cols, rows });
+  }
+  startSync() {
+    if (this.stopped || !this.session || this.syncId) return false;
+    this.syncId = `sync-${this.targetId}-${Date.now()}-${++this.sequence}`;
+    this.armSyncTimeout();
+    this.send({ type: "syncProjects", sessionId: this.session, requestId: this.syncId });
+    return true;
+  }
+  private armSyncTimeout() {
+    clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => {
+      this.syncId = undefined;
+      this.emit({ type: "status", sessionId: this.session, status: "sync_error", message: "同步进度连接超时，终端仍可使用；请核对配置目录后重试。" });
+    }, 45000);
   }
   enqueue(action: TerminalAction) {
     if (this.stopped || !this.session || !this.context) return false;
@@ -135,6 +151,23 @@ export class TerminalClient {
       this.emit(message);
       return;
     }
+    // A sync is scoped to the SSH session and frozen server-side configuration,
+    // independent of the currently selected UI project/branch.
+    if (this.syncId && message.requestId === this.syncId && (!message.sessionId || message.sessionId === this.session)) {
+      if (message.type === "status" && message.status === "error" && typeof message.message === "string") {
+        clearTimeout(this.syncTimer); this.syncId = undefined;
+        this.emit({ ...message, status: "sync_error" }); return;
+      }
+      if (message.type === "syncProgress" || message.type === "syncResult") {
+        const progress = message.type === "syncProgress" ? message.progress : message.report;
+        if (!progress || progress.targetId !== this.targetId || typeof progress.runId !== "string" || typeof progress.message !== "string" || !Number.isFinite(progress.totalBranches) || !Number.isFinite(progress.completedBranches)) return;
+        if (message.type === "syncResult" && !Array.isArray(message.report.branches)) return;
+        if (message.type === "syncResult") { clearTimeout(this.syncTimer); this.syncId = undefined; }
+        else this.armSyncTimeout();
+        this.emit(message); return;
+      }
+    }
+    if (message.type === "syncProgress" || message.type === "syncResult") return;
     if (message.type === "status" && !message.sessionId) {
       if (
         typeof message.message !== "string" ||
@@ -264,6 +297,8 @@ export class TerminalClient {
     this.pump();
   }
   dispose() {
+    clearTimeout(this.syncTimer);
+    this.syncId = undefined;
     if (this.stopped) return;
     this.stopped = true;
     clearTimeout(this.timer);

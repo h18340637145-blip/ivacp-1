@@ -1490,8 +1490,22 @@ SessionManager 的自动 Git 刷新按会话延迟 1.2 秒合并；刷新执行�
 
 `buildFilteredLogsBySignalIds` 将已提取的 `boschVehicleHalHashLines` 与 Android/QNX 文本一起返回；`collectEvidence` 复用同次扫描结果，完成筛选后将这些完整行和 SOC/SCC、VHAL 一并写入 `log-versions.json`，不额外扫描，也不受 Android 文本字符截断影响。schemaVersion 保持 1，新增字段不影响旧产物读取。
 
-## 远程终端同步约束（需求确认，尚未实现，2026-10-29）
+## 远程终端同步实现（2026-10-29）
 
 以 docs/project.json 全部项目/分支组/repos 为范围，复用现有登录、管理员权限和白名单SSH目标。读取 SSH 仓库本地 refs/heads/<branchName> 固定 commit，从同一提交读取信息与配置文件，不 fetch/pull。RTC完整保存RTC1-数字格式。
 
-文件递归收集并打平到 configuration/<projectName>/<分支组名>/{json,sdb,.h,xls}；没有repoName/scripts层。来源与各repo提交必须通过清单追溯。提交不变且完整跳过、缺失补齐、变化替换托管快照并移除旧文件。打平冲突建议：同内容去重，异内容报告冲突并保留上一份完整分支组快照；该发布边界属待审补充建议。详见 requirements/terminal-sync-review.md；不是当前已实现架构。
+文件递归收集并打平到 configuration/<projectName>/<分支组名>/<文件名>；没有分类子目录或repoName/scripts层。来源与各repo提交必须通过清单追溯。提交不变且完整跳过、缺失补齐、变化替换托管快照并移除旧文件。同名同内容去重，异内容将旧文件备份到 bak 后新覆盖；repo 顺序和源路径排序决定最后生效者，备份同名允许覆盖。
+
+`src/server/terminal/sync/remote.ts` 封装 Git 固定本地 refs/heads、RTC 提取、递归清单及 blob 校验；storage.ts 负责 flock/路径/配置合并/原子 JSON；runner.ts 遍历全部项目和分支组、暂存发布与恢复、清单和最近报告。Gateway syncProjects 只接受 sessionId/requestId，不接受客户端配置；每次启动验证管理员，沿用当前 session.channel.runCommand。5 秒心跳、客户端 45 秒进度超时均独立于单分支操作队列，迟到响应按 session/requestId 拒绝。
+
+本地运行根目录与 Gateway cwd 一致，configuration 已加入 Git 忽略。Linux flock 提供进程退出自动释放的锁；各分支组先暂存完整快照，再保存文件和映射。manifest 身份、commit、RTC 与文件校验后才恢复，损坏当前快照先旁侧保留再恢复上份完整版本。已发布后的备份清理失败记警告，不误报回滚。详见 requirements/terminal-sync-review.md 第 11 节；前端和 Gateway 需配套部署，本轮不重启业务服务。
+
+### 同步分支 VHAL 元数据与展示（2026-10-29）
+
+sync/vhal.ts 复用流水线 parseVhalVersion 解析器，从最终打平后的 type.h 读取版本。runner 的清单及 TerminalSyncBranchResult 新增可选 vhal（targetId/raw/platform/version），旧完整快照再次同步时补记元数据。loadTerminalProjects 返回每分支 syncedVhal，恢复前验证 configurationKey、type.h 普通文件与 manifest blob ID；不跟随符号链接。客户端按项目+分支缓存同步回传，按目标服务器ID过滤；service配置schema保留syncedVhal。Workspace在选择栏下展示原始版本，缺失/无效不保留上次版本。无需IndexedDB迁移。
+
+### 最近提交映射与 type.h 归档（2026-10-29）
+
+remote.ts 固定本地分支 commit 后执行 `git log -10 -z --format=%H%x00%B`，以 NUL 分隔逐条提交，保留完整正文供 RTC 提取；文件仍从固定分支尖端读取。SyncSnapshot 可选 history 承载最近最多 10 条映射；storage 按 commit 合并、更新 RTC 并保留旧历史。清单 repos 保存 history 用于中断恢复，兼容旧清单；文件完整跳过时仍刷新映射与清单历史。
+
+runner 根据旧清单最终 type.h 来源定位仓库及旧 commit，合并映射前查找 project.json 对应 RTC，并解析旧文件版本，在暂存目录内归档到 bak/commitid_rtcids_vhal-version 后写入新 type.h。无旧清单时使用对应仓库原映射末项；同批次覆盖跟踪当前文件来源。归档不作为托管源文件删除，异内容归档名冲突阻止发布。文件、归档与 JSON 沿用原发布及回滚流程，不改变浏览器存储或数据库结构。

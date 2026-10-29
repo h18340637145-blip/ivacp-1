@@ -886,7 +886,7 @@ sequenceDiagram
   Note over P,A: 不受时间窗限制，不计作信号命中；缺失不阻断分析
 ```
 
-## 远程终端同步（已确认需求时序，尚未实现，2026-10-29）
+## 远程终端同步（已实现，2026-10-29）
 
 ```mermaid
 sequenceDiagram
@@ -897,18 +897,37 @@ sequenceDiagram
   U->>S: 点击同步（全部配置项目与分支组）
   loop 每个项目/分支组下的repos
     S->>R: 读取本地branchName最新commit（不fetch/pull）
-    R-->>S: 固定commit与提交正文
-    S->>S: 提取完整RTC1-数字标识并比较已同步记录
+    R-->>S: 固定commit与git log -10的完整提交列表
+    S->>S: 逐条提取RTC1-数字，合并最多10条映射并保留历史
     alt 提交未变且文件完整
-      S->>S: 跳过
+      S->>S: 跳过文件传输，仍更新最近10条提交映射
     else 提交变化或文件缺失
       S->>R: 从固定commit递归收集指定文件
       R-->>S: JSON、SDB普通文件、type.h、types.hal、xls
-      S->>S: 按分类打平并检查同名冲突
+      S->>S: 按文件名打平，异内容旧文件备份到bak后覆盖
+      Note over S,L: type.h使用旧映射与旧版本命名bak/commitid_rtcids_vhal-version
     end
   end
-  S->>L: 发布configuration/项目/分支组/{json,sdb,.h,xls}
+  S->>L: 发布configuration/项目/分支组/文件名（同一目录）
   S->>L: 保存各repo的commit/RTC映射及快照清单
   S-->>U: 汇总更新、跳过、补齐、失败
-  Note over S,L: 同名冲突与完整发布边界为补充建议，详见需求文档
+  Note over S,L: 按分支组暂存后发布，失败保留旧快照；真实远端待验收
+```
+
+### 同步 VHAL 标签更新（2026-10-29）
+
+```mermaid
+sequenceDiagram
+  participant S as 同步任务
+  participant F as 分支组本地快照
+  participant UI as 终端选择栏
+  S->>F: 文件打平完成后读取最终type.h
+  F-->>S: VER_PRO_CFG原始值/平台/主次版本
+  S->>F: 保存.sync-state.json的vhal
+  S-->>UI: 同步结果携带分支vhal
+  UI->>UI: 在项目/分支下一行显示原始8位版本
+  opt 页面刷新
+    UI->>F: 项目API读取匹配快照并校验type.h
+    F-->>UI: syncedVhal（按目标服务器过滤）
+  end
 ```

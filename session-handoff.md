@@ -1,3 +1,46 @@
+## 最新续接：最近 10 条提交映射与 type.h 版本归档（2026-10-29）
+
+- 用户要求点击「同步全部项目」时，将各对应仓库 git log -10 中全部 commit/RTC 更新至 docs/project.json；同名 type.h 内容变化时，以更新前映射和旧版本命名归档。保留本轮开始前所有未提交改动及用户 project.json 内容，没有主动执行真实业务同步。
+- remote.ts 固定本地 branchName 尖端后执行 git log -10，以 NUL 分隔完整 commit 与正文，逐条提取完整 RTC；storage 按 commit 去重合并、修正已有 RTC、保留窗口外历史。文件完整未变也更新映射。清单 repos 保存最近 history，支持崩溃恢复与旧清单兼容。
+- runner 对旧 type.h 从旧清单最终来源确定仓库及 commit，使用合并前 project.json 对应 RTC 与旧文件 VER_PRO_CFG，归档到 configuration/<项目>/<分支组>/bak/commitid_rtcids_vhal-version（无扩展名），新文件仍使用 type.h。多 RTC 下划线连接；无 RTC 使用 no-rtc、无有效版本使用 unknown-vhal。无旧清单时用对应仓库原映射末项；缺有效 commit 则保留旧快照并失败。归档名同名异内容阻止发布，同内容可复用；后续同步保留历史归档。普通文件 bak 规则沿用。
+- 先新增 3 项失败回归，确认原实现缺少最近提交映射与版本命名归档，再修改实现。新增回归覆盖超过 10 条真实 Git 提交、完整正文/重复与空 RTC、未变文件更新映射、覆盖前映射命名、跨仓库来源、多轮归档、同内容无归档及归档冲突失败保留原快照。定向 4 文件 34 项通过，本机真实临时 SSH 1 项通过（同一已认证连接、无业务目标）。
+- 最终全量 Vitest：84 文件通过、12 跳过；382 项通过、34 默认跳过。日志 /tmp/ivacp-history-all-tests.log；typecheck、全量及定向 ESLint、git diff --check 均通过。日志 /tmp/ivacp-history-{types,lint,lint-final,targeted,ssh}.log。
+- 独立生产副本 /tmp/ivacp-history-source-8_c0kuyn，npm run build -- --webpack 退出 0；日志 /tmp/ivacp-history-build.log。预览 http://127.0.0.1:3053（exec21599）。终端 7 场景、看板 2 场景共 9 项生产浏览器验收通过，包括同步、VHAL 标签、卡片与 IndexedDB 刷新持久化；日志 /tmp/ivacp-history-browser.log。业务接口/Gateway 使用隔离 mock；同步文件和 Git 测试使用 /tmp 真实临时数据。
+- PRODUCT、ARCHITECTURE、WORKFLOW、SEQUENCE_DIAGRAMS、需求 v0.4 均同步。静态旧流程配图保留基础流程，需求已注明 v0.4 的最近 10 条与 type.h 归档以文字第 5、6 节为准。没有重启现有业务前端/Gateway，没有连接真实业务 SSH、执行 fetch/pull 或改写业务配置快照；实际生效需运行更新后的 Gateway，真实业务验收未执行。
+
+## 最新续接：当前分支 VHAL 版本标签（2026-10-29）
+
+- 用户要求同步后提取type.h的VER_PRO_CFG原始8位版本，并在项目/分支选择栏下一行显示“当前分支已经配置的最新vhal版本是：82552236”。已实现，82552236同时记录platform=8255/version=22.36。
+- 新增server/terminal/sync/vhal.ts，复用现有流水线parseVhalVersion，从最终打平生效的type.h读取。runner成功/未变分支结果与.sync-state.json新增可选vhal（targetId/raw/platform/version），随.sync-last.json落盘。旧完整清单再次同步可补记版本，不重新传输文件；无有效/已删除type.h不保留旧版本，同步失败不更新UI当前已发布版本。
+- loadTerminalProjects增加本地已发布快照恢复（可注入root用于临时测试），各branch返回syncedVhal。恢复校验configurationKey、目标ID、type.h普通文件与manifest blob ID，不跟随目录或文件symlink，也不读取bak/type.h。服务配置schema保留该字段；Workspace按项目+分支缓存实时同步结果，按targetId隔离，在选择栏与同步面板之间显示标签。刷新从API恢复，切换分支不会串用旧版本。
+- 定向5文件33项通过，含新增同步引擎回归：多来源type.h最终覆盖者、结构化版本与落盘、旧清单补记、刷新恢复、无效/删除版本清除。最终全量86文件通过/10跳过，381项通过/30浏览器默认跳过，日志/tmp/ivacp-vhal-label-tests.log。typecheck/全量ESLint/git diff --check通过；/tmp/ivacp-vhal-label-{types,lint}.log。
+- 独立生产副本/tmp/ivacp-vhal-label-build-6fqhq8vs，构建退出0，日志/tmp/ivacp-vhal-label-build.log。预览http://127.0.0.1:3052（exec67298）。终端7+看板2共9个生产浏览器场景通过，日志/tmp/ivacp-vhal-label-browser.log；新增场景覆盖首次无版本、同步后精确label、切换分支隔离及刷新后恢复，其他场景覆盖原终端/权限/失败重试/超时交互/窄屏/看板IndexedDB持久化。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS与需求§12已同步。已有docs/project.json用户改动保留，没有主动写业务快照或连接真实远端，没有重启现有业务前端/Gateway或3051旧隔离预览。本轮测试Gateway与项目接口用隔离mock；落盘与加载使用真实/tmp文件。正式使用仍需前端与Gateway配套更新，业务远端验收未执行。
+
+## 最新续接：远程终端全项目同步已实现（2026-10-29）
+
+- 按用户最新v0.3开发；本轮启动前发现用户已修改需求§6.1为“冲突旧文件备份bak后新覆盖、bak同名允许覆盖”，以此覆盖前轮冲突即失败建议，并同步所有Harness与图解。保留其他既有文档改动，无自动提交。
+- 新增domain/terminal/sync.ts、server/terminal/sync/remote.ts/storage.ts/runner.ts。固定读取SSH服务器各repo本地refs/heads/<branchName>，先check-ref-format，禁止main~1等表达式及fallback HEAD，不fetch/pull/checkout；从提交%B提取完整RTC1-数字标识，递归Git普通blob，排除symlink/submodule。二进制base64传输后复核Git blob ID。
+- 遍历docs/project.json全部项目/分支组/repos；文件全部打平到configuration/<projectName>/<分支组名>/<文件名>，不建分类或repo层。同内容合并，异内容将被覆盖者复制到bak/<文件名>后新覆盖；project.json repo顺序+各repo源路径排序，最后者生效，bak允许覆盖。保留未托管本地文件，移除旧托管文件，不删除其他来源仍使用的文件。
+- 每组.sync-state.json保存身份、最新commit/RTC、全部来源和最终blob；configuration/.sync-last.json保存最近批次报告。未变且完整跳过、缺失/错误内容补齐、提交回退重新匹配而映射不重复。映射写到repo的commid-rtcids-map，保留其他字段和历史。configuration加入.gitignore，运行数据仍保存在磁盘。
+- 使用Linux flock子进程持有全局系统锁，避免跨进程stale锁回收竞态；进程退出自动释放，不unlink锁文件。目录/文件名及symlink/O_NOFOLLOW防护，暂存完整目录后发布，原子JSON保存；分支组失败保留旧快照并继续其他组，配置中途改变拒绝发布。恢复校验manifest身份和仓库顺序，遗留previous+当前文件缺失时旁侧保存.sync-damaged-UUID再恢复旧快照继续；备份清理失败记警告。非全磁盘断电事务承诺。
+- Gateway新增syncProjects/syncProgress/syncResult；启动时单独验证当前signed cookie的真实admin，requireAuth=false调试模式也不能绕过。只接受sessionId/requestId，配置由服务端读取，复用当前SSH channel.runCommand。5秒心跳；断线abort，读前后及发布前取消门禁；已开始的本地发布事务完成后停止。超时不关闭PTY。
+- 客户端startSync独立于分支查询队列，按session/requestId和target过滤；切换项目不改变当前批次范围。Workspace/SyncPanel显示全部范围、进度、逐repo完整commit、RTC、目录、文件数、备份数、警告/失败，可重试。45秒无进度显示同步错误并保留PTY。
+- 独立只读审查已修复并复查：旧stale锁竞态、分支表达式解析、目录错误中止全批、清理失败误报回滚、恢复补齐阻塞、恢复清单身份以及取消门禁。审查独立4文件26项通过。定向最终6文件41项通过，真实本地SSH同步1项通过（临时仓库及临时端口，验证二进制、映射、重复跳过、认证仅一次）。
+- 最终全量Vitest：86文件通过/10跳过，380项通过/29浏览器默认跳过；日志/tmp/ivacp-sync-final-tests.log。typecheck、全量ESLint、git diff --check通过；/tmp/ivacp-sync-{types,lint,targeted}.log。此前第一轮374项通过已被最终计数覆盖，不混称本轮浏览器默认执行。
+- 独立生产副本/tmp/ivacp-sync-build-h92vmhff，最终npm run build -- --webpack退出0；/tmp/ivacp-sync-final-build.log。最终生产预览http://127.0.0.1:3051（exec37557），终端6场景+看板2场景共8项通过，/tmp/ivacp-sync-final-browser.log。包括管理员/分析员、跨项目同步、失败重试、切换项目不丢同步、超时PTY可用、375/768/1440无溢出、看板卡片和IndexedDB刷新持久化。Gateway/模型/备份均mock，只有独立SSH测试连接了本机临时测试server，没有连接真实业务目标。
+- 最初复制构建副本因.codegraph/daemon.sock失败，改为排除该目录；首次构建shell登录触发宿主只读motd错误，改login:false；两者没有修改业务目录.next。新增浏览器一处输入断言误按整段消息检查，改为拼接逐字符PTY消息后通过。未停止/重启现有业务前端或Gateway；仅停止本轮临时3051预览后运行最终构建并重启该预览。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS、需求实现状态/备份规则/依赖及计划已同步。流程图9/9自动校验通过、0错误0警告，桌面显示检查通过，最终中文PNG人工检查可读；HTML SHA256 7ab942cfc485d384e193bab462cd842b05f5457e5ecb3c1b8482cfa50b41556f。字体子集仅在/tmp和PNG导出中使用，未改系统字体。需求相对链接检查通过。
+- 部署边界：前端与Terminal Gateway必须配套更新；Gateway从本项目根目录运行，服务用户需可写docs/project.json及configuration。本机需要flock；远端需要git/bash/base64，沿用每exec20秒/40MB输出限制，单repo最多10000文件。过大文件/损坏清单会明确失败，不发布半份快照。真实业务SSH认证及实际全项目同步仍待用户环境验收，本轮真实docs/project.json未改写。
+
+## 最新续接：终端同步需求 v0.3（2026-10-29，覆盖 v0.2 分类目录约定）
+
+- 用户最新明确：四类来源文件的目标都为 `<文件名>`。所有匹配文件递归收集后，直接保存到 `configuration/<projectName>/<分支组名>/<文件名>`，不建立json、sdb、.h、xls、scripts或repoName子目录。v0.2中的分类目录与.h隐藏目录解释已废止；历史交接仅作追踪。
+- 更新需求文档为v0.3：复制表、目录树、验收场景和确认项已统一；同步PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS、流程源JSON/HTML和两张PNG/文件SVG。其余已确认范围、SSH本地分支来源、RTC1-数字完整格式、管理员权限和更新策略保持。
+- 同名冲突（包括跨来源目录）仍仅为补充建议：同名同内容合并，异内容报冲突并保留旧分支组快照。
+- 流程图9/9校验通过、0错误0警告；桌面尺寸检查通过；人工检查两张中文PNG内容可读。spec SHA256 156637990ac9804e220862e293e2337936de706ec3b443c176852f04e29f6c82；HTML SHA256 b20f863408f341bfa461740fe28e703cf1e578c4448dceb187c36e0afe38a595。
+- 文档相对链接、SVG及git diff --check通过；自动图检诊断移至/tmp/v03-terminal-sync-flow.visual-check.*。本轮纯文档/图更新，未改应用代码或project.json，未连接远端，未重启服务，未跑应用测试。
+
 ## 最新续接：终端同步需求 v0.2（2026-10-29，用户审核意见已纳入）
 
 - 用户确认：覆盖project.json全部项目；最新commit取SSH服务器本地分支；RTC完整保存RTC1-3103704格式；json/sdb/scripts递归收集且打平；目标configuration/<projectName>/<分支组名>/{json,sdb,.h,xls}，无repoName/scripts层；管理员启动沿用现有登录；提交未变且完整跳过、缺失补齐、变化替换托管快照并移除旧文件。

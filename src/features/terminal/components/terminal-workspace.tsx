@@ -10,6 +10,8 @@ import type {
   TerminalRepoSignalConfig,
   UploadTargetKind,
 } from "@/domain/terminal/types";
+import type { TerminalSyncBranchResult, TerminalSyncProgress, TerminalBranchVhal } from "@/domain/terminal/sync";
+import { SyncPanel } from "./sync-panel";
 import { Button } from "@/shared/ui/button";
 import { TerminalPane, type TerminalPaneHandle } from "./terminal-pane";
 import { RepositoryPanel } from "./repository-panel";
@@ -52,6 +54,12 @@ export function TerminalWorkspace({
   );
   const [state, setState] = useState<ConnectionState>("connecting");
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<TerminalSyncProgress>();
+  const [syncBranches, setSyncBranches] = useState<TerminalSyncBranchResult[]>([]);
+  const [syncError, setSyncError] = useState("");
+  const [branchVersions, setBranchVersions] = useState<Record<string, TerminalBranchVhal | undefined>>({});
+  const syncActive = useRef(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -68,6 +76,9 @@ export function TerminalWorkspace({
   const resizeCleanup = useRef<() => void>(() => {});
   const project = projects.find((p) => p.projectName === projectName);
   const branch = project?.branches.find((b) => b.name === branchName);
+  const versionKey = JSON.stringify([projectName, branchName]);
+  const selectedVhal = Object.prototype.hasOwnProperty.call(branchVersions, versionKey) ? branchVersions[versionKey] : branch?.syncedVhal;
+  const currentVhal = selectedVhal?.targetId === target.id ? selectedVhal : undefined;
   const context = useMemo(
     () => (project && branch ? { project, branch } : undefined),
     [project, branch],
@@ -81,6 +92,10 @@ export function TerminalWorkspace({
   const handleState = useCallback(
     (next: ConnectionState, message?: string) => {
       setState(next);
+      if (next !== "connected" && syncActive.current) {
+        syncActive.current = false; setSyncing(false);
+        setSyncError("同步连接已中断；已发布分支组保留，请重连后同步以核对和补齐。任务可能仍在结束当前本地发布。");
+      }
       onState(next);
       if (message) setError(message);
       if (next === "connected") setError("");
@@ -88,6 +103,27 @@ export function TerminalWorkspace({
     [onState],
   );
   const handleMessage = useCallback((message: ServerTerminalMessage) => {
+    if (message.type === "syncProgress") {
+      setSyncProgress(message.progress);
+      const branch = message.progress.branch;
+      if (branch) {
+        setSyncBranches(current => [...current.filter(b => b.projectName !== branch.projectName || b.branchName !== branch.branchName), branch]);
+        if (branch.status !== "failed") setBranchVersions(current => ({ ...current, [JSON.stringify([branch.projectName, branch.branchName])]: branch.vhal }));
+      }
+      return;
+    }
+    if (message.type === "syncResult") {
+      setSyncProgress(message.report); setSyncBranches(message.report.branches);
+      setBranchVersions(current => {
+        const next = { ...current };
+        for (const branch of message.report.branches) if (branch.status !== "failed") next[JSON.stringify([branch.projectName, branch.branchName])] = branch.vhal;
+        return next;
+      });
+      syncActive.current = false; setSyncing(false); return;
+    }
+    if (message.type === "status" && message.status === "sync_error") {
+      syncActive.current = false; setSyncing(false); setSyncError(message.message); return;
+    }
     if (message.type === "gitStatus") setStatuses(message.statuses);
     if (message.type === "signalConfigFiles") setConfigs(message.configs);
     if (message.type === "status") {
@@ -267,6 +303,16 @@ export function TerminalWorkspace({
           </Button>
         ) : null}
       </div>
+      <p aria-label="当前分支 VHAL 版本" className="break-all border-b border-border px-3 py-2 text-sm text-muted-foreground">
+        当前分支已经配置的最新vhal版本是：{currentVhal?.raw ?? "未提取到"}
+      </p>
+      <SyncPanel connected={state === "connected"} running={syncing} targetName={target.name}
+        counts={{ projects: projects.length, branches: projects.reduce((n, p) => n + p.branches.length, 0), repos: projects.reduce((n, p) => n + p.branches.reduce((n, b) => n + b.repos.length, 0), 0) }}
+        progress={syncProgress} branches={syncBranches} error={syncError}
+        start={() => {
+          if (!pane.current?.startSync()) { setSyncError("同步请求未发送，请确认连接或等待当前同步完成。"); return; }
+          syncActive.current = true; setSyncing(true); setSyncError(""); setSyncProgress(undefined); setSyncBranches([]);
+        }} />
       {error && (
         <p
           role="alert"

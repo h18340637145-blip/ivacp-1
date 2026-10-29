@@ -62,3 +62,6 @@ docs/golden-baseline/eval-report.md
 # Python CAN 工具缓存
 __pycache__/
 *.py[cod]
+
+# Remote terminal synchronized local snapshots
+/configuration/

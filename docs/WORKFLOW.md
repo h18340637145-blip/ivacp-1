@@ -1276,6 +1276,10 @@ KanbanBoard setInterval 触发 runDueAutoCycles()
 
 Android 日志筛选完成后，将同次提取、去重的 BoschVehicleHalHash 完整行保存到本次 `log-versions.json` 的 `boschVehicleHalHashLines` 数组；最多 20 行，缺失时为空。现有 Android 日志输入继续保留这些行。
 
-## 远程终端同步流程（需求确认，尚未实现，2026-10-29）
+## 远程终端同步流程（已实现，2026-10-29）
 
-管理员登录并连接白名单SSH目标后点击同步，遍历project.json全部项目、分支组及仓库；读取各本地branchName的最新commit，提取完整RTC1-数字标识。固定同一commit后递归收集tools/json、tools/sdb、tools/scripts下指定文件，按json/sdb/.h/xls分类打平保存到configuration/<projectName>/<分支组名>/。提交不变且完整则跳过，缺失补齐，变化替换托管快照并移除旧文件。无fetch/pull，无repoName目录层。详细需求与同名冲突补充建议见requirements/terminal-sync-review.md。
+管理员登录并连接白名单SSH目标后点击同步，遍历project.json全部项目、分支组及仓库；固定各本地 branchName 的最新 commit，通过 git log -10 逐条提取最近最多 10 条提交及完整 RTC1-数字标识，更新已有映射并保留历史，文件未变也执行。固定同一commit后递归收集tools/json、tools/sdb、tools/scripts下指定文件，直接以原文件名打平保存到configuration/<projectName>/<分支组名>/，不建立分类子目录。提交不变且完整则跳过，缺失补齐，变化替换托管快照并移除旧文件。无fetch/pull，无repoName目录层。同名异内容先备份再覆盖；type.h 按旧来源 commit、更新前 project.json 的 RTC 与旧文件 VER_PRO_CFG 归档为 bak/commitid_rtcids_vhal-version，保留多轮版本，相同内容不归档；其他文件备份允许同名覆盖。临时目录完整准备后按分支组发布文件与映射，失败保留旧快照。查看逐repo结果和最近一轮configuration/.sync-last.json；再次同步可重试或修复缺失文件。详细依赖及故障恢复见requirements/terminal-sync-review.md第11节。
+
+### 查看当前同步分支的 VHAL 版本（2026-10-29）
+
+管理员点击同步全部项目，分支组完整发布后保存最终 type.h 中的 VER_PRO_CFG，并更新项目/分支选择栏下一行的版本标签。82552236 表示8255平台、22.36版，标签显示完整82552236。切换分支读取各自版本，刷新从本地已发布快照恢复；缺失或格式无效显示未提取到。旧快照不需重新下载所有日志，再次同步可补记版本。

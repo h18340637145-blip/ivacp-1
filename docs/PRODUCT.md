@@ -863,10 +863,18 @@ SOC/SCC 提取之后，从本次规则组配置的 Proto 根目录（`base_paths
 
 `log-versions.json` 同时保存 Android 日志提取中的 `BoschVehicleHalHash` 原始完整行，字段为 `boschVehicleHalHashLines`（字符串数组）。沿用现有去重、最多 20 行、不受时间窗和信号 ID 限制的规则；未找到或无压缩日志时保存空数组。
 
-## 远程终端同步扩展（需求已确认，尚未实现，2026-10-29）
+## 远程终端同步扩展（已实现，2026-10-29）
 
-远程终端拟新增「同步」入口，仅管理员沿用现有登录启动。范围覆盖 docs/project.json 全部项目、全部分支组及 repos；读取 SSH 服务器本地 branchName 分支最新提交，不 fetch/pull。RTC ID 从提交信息提取，完整保存 `RTC1-3103704` 格式及前缀到 repo 的 commid-rtcids-map 数组。
+远程终端新增「同步全部项目」入口，仅管理员沿用现有登录启动。范围覆盖 docs/project.json 全部项目、全部分支组及 repos；读取 SSH 服务器本地 branchName 分支最新提交，不 fetch/pull。从固定分支提交执行 `git log -10`，逐条提取最多 10 条提交的 commit ID 与 RTC ID，更新对应 repo 的映射并保留已有历史；文件未变也更新映射。RTC ID 完整保存 `RTC1-3103704` 格式及前缀到 repo 的 commid-rtcids-map 数组。
 
-tools/json、tools/sdb、tools/scripts 均递归收集符合范围的文件，打平后保存到 `configuration/<projectName>/<分支组名>/{json,sdb,.h,xls}`，不保留源相对层级或 repoName 层。JSON 进 json，SDB 目录普通文件进 sdb，type.h/types.hal 进字面量 .h 目录，所有 .xls 进 xls。提交不变且文件完整则跳过；缺失补齐；提交变化时替换托管快照并移除旧文件。
+tools/json、tools/sdb、tools/scripts 均递归收集符合范围的文件，打平后保存到 `configuration/<projectName>/<分支组名>/<文件名>`，不保留源相对层级或 repoName 层。所有匹配文件直接以原文件名存放在同一个分支组目录内，不建立 json/sdb/.h/xls 分类子目录。提交不变且文件完整则跳过；缺失补齐；提交变化时替换托管快照并移除旧文件。
 
-完整规则、目录配图、JSON 示例和验收条件见 [需求文档 v0.2](requirements/terminal-sync-review.md) 与 [交互流程图](requirements/terminal-sync-flow.html)。同名异内容冲突和分支组完整发布边界仍为补充设计建议。本轮仅更新文档，未实施同步功能。
+完整规则、目录配图、JSON 示例和验收条件见 [需求文档 v0.4](requirements/terminal-sync-review.md) 与 [交互流程图](requirements/terminal-sync-flow.html)。同名同内容合并；异内容按用户最新修改先将旧文件备份到分支组 bak/，再新覆盖，bak 同名允许覆盖。Gateway 复用认证 SSH 执行本地 Git 只读查询，真实管理员方可启动；界面显示进度和逐仓库结果。持久化清单、最近报告及运行依赖见需求第 11 节，真实业务远端和部署待验收。
+
+### 远程终端当前分支 VHAL 标签（2026-10-29）
+
+同步成功后，从当前分支组最终生效的 type.h 提取 VER_PRO_CFG 原始 8 位数字，同时记录平台与主次版本（82552236 → 8255、22.36）。项目/分支选择栏下一行显示「当前分支已经配置的最新vhal版本是：82552236」。版本随 .sync-state.json 和同步报告持久化；切换项目或分支分别显示，刷新后从匹配且完整的本地快照恢复。没有有效版本显示「未提取到」，不显示其他服务器或分支的旧版本；同步失败保留原已发布快照的版本。
+
+### type.h 版本归档（2026-10-29）
+
+同步全部项目时，`type.h` 同名异内容会将旧文件归档为 `configuration/<项目>/<分支组>/bak/commitid_rtcids_vhal-version`（无扩展名），新文件仍为 `type.h`。commit/RTC 使用更新前 `docs/project.json` 中旧文件来源仓库的对应映射，版本读取旧文件的 VER_PRO_CFG；多个 RTC 用下划线连接。例如 `e01858484fb8cf4b08ee83a628972554e6a5b4fc_RTC1-3109902_82552236`。同内容不归档，历史归档保留；同名归档异内容则失败并保留原快照。普通文件仍按原 bak 规则覆盖。缺少 RTC / 有效版本时分别使用 no-rtc / unknown-vhal，缺少旧 commit 身份则明确失败。

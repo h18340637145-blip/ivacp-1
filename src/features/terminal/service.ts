@@ -25,6 +25,7 @@ const projectsSchema = z.object({
       branches: z.array(
         z.object({
           name: z.string(),
+          syncedVhal: z.object({ targetId: z.string(), raw: z.string().regex(/^\d{8}$/), platform: z.string(), version: z.string() }).optional(),
           repos: z.array(
             z.object({
               repoName: z.string(),

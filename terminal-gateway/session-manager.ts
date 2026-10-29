@@ -1,3 +1,6 @@
+import { runTerminalSync } from "../src/server/terminal/sync/runner";
+import { createGitSyncReader } from "../src/server/terminal/sync/remote";
+import type { TerminalSyncProgress } from "../src/domain/terminal/sync";
 import { randomUUID } from "node:crypto";
 import { terminalContextKey } from "../src/domain/terminal/context";
 import { checkCommandAllowed } from "../src/domain/terminal/command-guard";
@@ -24,6 +27,8 @@ export interface TerminalChannel {
 }
 
 interface SessionManagerOptions {
+  canSync?: () => boolean;
+  syncRoot?: string;
   targets: RemoteShellTarget[];
   connectSsh: (target: RemoteShellTarget, size: { cols: number; rows: number }) => Promise<TerminalChannel>;
   runRemoteCommand: (target: RemoteShellTarget, command: string) => Promise<{ stdout: string; stderr: string; code: number | null }>;
@@ -112,6 +117,7 @@ function toSignalConfigFile(filePath: string): TerminalSignalConfigFile | null {
 export class TerminalSessionManager {
   private sessions = new Map<string, { target: RemoteShellTarget; channel: TerminalChannel; commandBuffer: string; inputTail: Promise<void>; refreshTimer?: ReturnType<typeof setTimeout>; refreshing?: boolean; refreshContext?: TerminalProjectContext }>();
   private disposed = false;
+  private syncControllers = new Map<string, AbortController>();
   private targets: Map<string, RemoteShellTarget>;
 
   constructor(private options: SessionManagerOptions) {
@@ -143,6 +149,38 @@ export class TerminalSessionManager {
     connected = true;
     if (initialOutput) this.options.send({ type: "output", sessionId, data: initialOutput });
     return sessionId;
+  }
+
+  async syncProjects(message: Extract<ClientTerminalMessage, { type: "syncProjects" }>): Promise<void> {
+    if (!this.options.canSync?.()) throw new Error("仅已登录管理员可启动同步");
+    const session = this.sessions.get(message.sessionId);
+    if (!session || !session.channel.runCommand) throw new Error("SSH 会话不可用，请重新连接");
+    if (typeof message.requestId !== "string" || !message.requestId || message.requestId.length > 200) throw new Error("同步请求标识无效");
+    if (this.syncControllers.has(message.sessionId)) throw new Error("该会话已有同步任务正在运行");
+    const controller = new AbortController();
+    this.syncControllers.set(message.sessionId, controller);
+    let latest: TerminalSyncProgress | undefined;
+    const sendProgress = (progress: TerminalSyncProgress) => {
+      latest = progress;
+      if (this.sessions.get(message.sessionId) === session)
+        this.options.send({ type: "syncProgress", sessionId: message.sessionId, requestId: message.requestId, progress });
+    };
+    const heartbeat = setInterval(() => { if (latest) sendProgress({ ...latest, branch: undefined }); }, 5000);
+    try {
+      await this.options.audit({ event: "command", sessionId: message.sessionId, targetId: session.target.id, command: "syncProjects: all configured local branches (read-only Git)" });
+      const reader = createGitSyncReader(async command => {
+        controller.signal.throwIfAborted();
+        const result = await session.channel.runCommand!(command);
+        controller.signal.throwIfAborted();
+        return result;
+      });
+      const report = await runTerminalSync({ root: this.options.syncRoot, targetId: session.target.id, reader, signal: controller.signal, progress: sendProgress });
+      if (this.sessions.get(message.sessionId) === session)
+        this.options.send({ type: "syncResult", sessionId: message.sessionId, requestId: message.requestId, report });
+    } finally {
+      clearInterval(heartbeat);
+      this.syncControllers.delete(message.sessionId);
+    }
   }
 
   async input(sessionId: string, data: string): Promise<void> {
@@ -434,6 +472,7 @@ export class TerminalSessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     this.sessions.delete(sessionId);
+    this.syncControllers.get(sessionId)?.abort(new Error("SSH 连接已断开，同步已停止"));
     clearTimeout(session.refreshTimer);
     await this.options.audit({ event: "disconnect", sessionId, targetId: session.target.id, reason });
     this.options.send({ type: "closed", sessionId, reason });

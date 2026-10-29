@@ -249,3 +249,17 @@ describe("terminal protocol correlation", () => {
     );
   });
 });
+
+it("sync requests survive context changes, reject stale/foreign replies, and do not block PTY", () => {
+ const send=vi.fn(),emit=vi.fn();const client=new TerminalClient("t",send,emit);
+ client.receive(JSON.stringify({type:"connected",targetId:"t",sessionId:"s"}));
+ expect(client.startSync()).toBe(true);expect(client.startSync()).toBe(false);
+ const requestId=send.mock.calls[0][0].requestId;
+ client.setContext(context);client.input("echo alive\r");expect(send.mock.calls.at(-1)?.[0].type).toBe("input");
+ const progress={runId:"run",targetId:"t",totalProjects:1,totalBranches:1,totalRepos:1,completedBranches:0,message:"working"};
+ client.receive(JSON.stringify({type:"syncProgress",sessionId:"other",requestId,progress}));
+ client.receive(JSON.stringify({type:"syncProgress",sessionId:"s",requestId:"wrong",progress}));expect(emit).toHaveBeenCalledTimes(1);
+ client.receive(JSON.stringify({type:"syncProgress",sessionId:"s",requestId,progress}));expect(emit).toHaveBeenCalledTimes(2);
+ client.receive(JSON.stringify({type:"status",requestId,status:"error",message:"sync failed"}));
+ expect(client.startSync()).toBe(true);client.dispose();
+});

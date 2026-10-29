@@ -1,0 +1,39 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
+import { generateKeyPairSync } from "node:crypto";
+import { once } from "node:events";
+import { Server } from "ssh2";
+import { expect, it } from "vitest";
+import { connectSsh } from "../terminal-gateway/ssh-connection";
+import { TerminalSessionManager } from "../terminal-gateway/session-manager";
+import type { ServerTerminalMessage } from "@/domain/terminal/types";
+it("real local SSH sync transfers committed binary files and RTC metadata on the same authenticated transport", async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),"sync-real-ssh-"));
+ const repo=path.join(root,"remote"),app=path.join(root,"app");await fs.mkdir(repo);await fs.mkdir(path.join(app,"docs"),{recursive:true});
+ const exec=promisify(execFile),git=(...args:string[])=>exec("git",args,{cwd:repo});
+ await git("init","-b","main");await git("config","user.email","test@example.invalid");await git("config","user.name","test");
+ await fs.mkdir(path.join(repo,"tools/scripts/deep"),{recursive:true});
+ const bytes=Buffer.from([0,255,0,128,5]);await fs.writeFile(path.join(repo,"tools/scripts/deep/a.xls"),bytes);
+ await git("add",".");await git("commit","-m","RTC1-3103704");
+ await fs.writeFile(path.join(repo,"tools/scripts/deep/a.xls"),"uncommitted");
+ await fs.writeFile(path.join(app,"docs/project.json"),JSON.stringify([{projectName:"p",mainPath:root,scriptPath:"unused",branches:[{name:"group",repos:[{repoName:"r",repoPath:"remote",branchName:"main"}]}]}]));
+ const key=generateKeyPairSync("rsa",{modulusLength:2048}).privateKey.export({type:"pkcs1",format:"pem"});let authentications=0;
+ const server=new Server({hostKeys:[key]},connection=>{
+  connection.on("authentication",ctx=>{authentications++;ctx.accept()});
+  connection.on("ready",()=>connection.on("session",accept=>{const session=accept();session.on("pty",accept=>accept?.());session.on("shell",accept=>{const s=accept();s.on("data",(data:Buffer)=>s.write(data))});
+   session.on("exec",(accept,_reject,info)=>{const stream=accept(),child=spawn("bash",["-c",info.command]);child.stdout.on("data",d=>stream.write(d));child.stderr.on("data",d=>stream.stderr.write(d));child.on("close",code=>{stream.exit(code??1);stream.end()});stream.on("close",()=>{if(child.exitCode===null)child.kill()})});
+  }));
+ });server.listen(0,"127.0.0.1");await once(server,"listening");
+ const target={id:"local",name:"local",description:"",environment:"test",riskLevel:"normal" as const,guardMode:"soft" as const,host:"127.0.0.1",port:(server.address() as {port:number}).port,username:"test",password:"test"};
+ const events:ServerTerminalMessage[]=[];const manager=new TerminalSessionManager({targets:[target],connectSsh,runRemoteCommand:async()=>{throw new Error("must reuse")},uploadRemoteFile:async()=>{},send:m=>events.push(m),audit:async()=>{},canSync:()=>true,syncRoot:app});
+ try{
+  const sessionId=await manager.connect({type:"connect",targetId:target.id,cols:80,rows:24});await manager.syncProjects({type:"syncProjects",sessionId,requestId:"sync-1"});
+  expect(await fs.readFile(path.join(app,"configuration/p/group/a.xls"))).toEqual(bytes);
+  const saved=JSON.parse(await fs.readFile(path.join(app,"docs/project.json"),"utf8"));expect(saved[0].branches[0].repos[0]["commid-rtcids-map"][0].rtcids).toEqual(["RTC1-3103704"]);
+  await manager.syncProjects({type:"syncProjects",sessionId,requestId:"sync-2"});
+  const done=events.filter((e):e is Extract<ServerTerminalMessage,{type:"syncResult"}>=>e.type==="syncResult");expect(done.at(-1)?.report.branches[0].status).toBe("unchanged");expect(authentications).toBe(1);
+ }finally{manager.disconnectAll("test_done");await new Promise<void>(resolve=>server.close(()=>resolve()));await fs.rm(root,{recursive:true,force:true})}
+},15000);

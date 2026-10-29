@@ -11,19 +11,203 @@
             "repoName": "vs",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_vehicle_main_dev"
+            "branchName": "rb-chery-idcpro_vehicle_main_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "f0172547bb42103b6eee5aa4c1037a93538b388a",
+                "rtcids": [
+                  "RTC1-3103704"
+                ]
+              },
+              {
+                "commitid": "e32cb674cc121776dafafddca3fede1650e8b5d8",
+                "rtcids": [
+                  "RTC1-3103254"
+                ]
+              },
+              {
+                "commitid": "b0b0ee2831becaba6df2f2d537452e4378a7ce12",
+                "rtcids": [
+                  "RTC1-3098708"
+                ]
+              },
+              {
+                "commitid": "0c7f2e36f87b157ae848bb42d0cfad07273f88cc",
+                "rtcids": [
+                  "RTC1-3096634"
+                ]
+              },
+              {
+                "commitid": "605e413d1001f46d276873bea46b924051e3d93d",
+                "rtcids": [
+                  "RTC1-3080928"
+                ]
+              },
+              {
+                "commitid": "715dbb93b8715cae111f64f647d934ad7690eac9",
+                "rtcids": [
+                  "RTC1-3079919"
+                ]
+              },
+              {
+                "commitid": "5a19715f29e0a9319a204ae4e564e980b939fe6e",
+                "rtcids": [
+                  "RTC1-3075210"
+                ]
+              },
+              {
+                "commitid": "e5cede1184816b80e56e5893018be1580eae3333",
+                "rtcids": [
+                  "RTC1-3073133"
+                ]
+              },
+              {
+                "commitid": "7ac3454d8eb79c17a3eb78d5abaf7d56bc7dcbb9",
+                "rtcids": [
+                  "RTC1-3057076"
+                ]
+              },
+              {
+                "commitid": "8c221f20064635e1220ab6361785cce586204348",
+                "rtcids": [
+                  "RTC1-3052498"
+                ]
+              }
+            ]
           },
           {
             "repoName": "api-public",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_hqx4560-es11_main_dev"
+            "branchName": "rb-chery-idcpro_hqx4560-es11_main_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "7655704c6f53b8ffff00bca131bc57bffdba764c",
+                "rtcids": [
+                  "RTC1-3103704"
+                ]
+              },
+              {
+                "commitid": "7cd3e04bf69b56d29e61989279451fa96c82c622",
+                "rtcids": [
+                  "RTC1-3103254"
+                ]
+              },
+              {
+                "commitid": "6f45b0aa6a17e499d7f67d02c45a4042b4e79d8f",
+                "rtcids": [
+                  "RTC1-3098708"
+                ]
+              },
+              {
+                "commitid": "f99df7dbc84c3952d6266f9dad1d6f36cb2e6e6a",
+                "rtcids": []
+              },
+              {
+                "commitid": "7adaeae210c84b1a7d8b4536a705b588c2c2c104",
+                "rtcids": [
+                  "RTC1-3080928"
+                ]
+              },
+              {
+                "commitid": "a30f542163f2e4e73f3289a1d0dc6514d49f64e3",
+                "rtcids": [
+                  "RTC1-3075210"
+                ]
+              },
+              {
+                "commitid": "625412e74b014d24c39c082753728e8cacd78426",
+                "rtcids": [
+                  "RTC1-3073133"
+                ]
+              },
+              {
+                "commitid": "1cb0dc147574932dd061c50529fbb7a054256f03",
+                "rtcids": [
+                  "RTC1-00000"
+                ]
+              },
+              {
+                "commitid": "ab5d630f124c3ed2a598ea66a02fc170e31f2f6c",
+                "rtcids": [
+                  "RTC1-3057076"
+                ]
+              },
+              {
+                "commitid": "1e60638854209211003737376a81778a8d8845da",
+                "rtcids": [
+                  "RTC1-3045782"
+                ]
+              }
+            ]
           },
           {
             "repoName": "automotive-custom",
             "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
             "origin": "caf",
-            "branchName": "rb-chery-idcpro_vehicle_main_dev"
+            "branchName": "rb-chery-idcpro_vehicle_main_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "e01858484fb8cf4b08ee83a628972554e6a5b4fc",
+                "rtcids": [
+                  "RTC1-3109902"
+                ]
+              },
+              {
+                "commitid": "f693ae214081071e7f3c8e66431010d18882d817",
+                "rtcids": [
+                  "RTC1-3103704"
+                ]
+              },
+              {
+                "commitid": "f2ffa97b62625ff4664f5398cf1a8ffdadea4c85",
+                "rtcids": [
+                  "RTC1-3103254"
+                ]
+              },
+              {
+                "commitid": "6a5d61bdeb81b1a4a2e98fbd6316c87dc9564136",
+                "rtcids": [
+                  "RTC1-3098708"
+                ]
+              },
+              {
+                "commitid": "3b9616c394fdc227ba75533c51136a1bb9ba76f6",
+                "rtcids": [
+                  "RTC1-3080928"
+                ]
+              },
+              {
+                "commitid": "1e0338a860f673abd0c2ed75749d287575c5fd5b",
+                "rtcids": [
+                  "RTC1-3079919"
+                ]
+              },
+              {
+                "commitid": "917ebf3d157a4001e33a3b0977b009d3441b8b3a",
+                "rtcids": [
+                  "RTC1-3075210"
+                ]
+              },
+              {
+                "commitid": "ba119b94b3ffbac686d00052029d2a17551a5445",
+                "rtcids": [
+                  "RTC1-3073133"
+                ]
+              },
+              {
+                "commitid": "7d9c6826271be87ec7e3ac6e7ab8ef9f8c7ba852",
+                "rtcids": [
+                  "RTC1-3057076"
+                ]
+              },
+              {
+                "commitid": "c74b14b49bcf03f305d0452f4a47fdb464e533d1",
+                "rtcids": [
+                  "RTC1-3052498"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -34,19 +218,205 @@
             "repoName": "vs",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_vehicle_es11-ip9_release"
+            "branchName": "rb-chery-idcpro_vehicle_es11-ip9_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "fb2fd0655cb417b462840d867c995fd4e08b23db",
+                "rtcids": [
+                  "RTC1-3103709"
+                ]
+              },
+              {
+                "commitid": "acf02ab042f15f45e4305af9260552947cb569fa",
+                "rtcids": [
+                  "RTC1-3097238"
+                ]
+              },
+              {
+                "commitid": "3fd262cf445ae1ad7e466a032cbc3a342086c9cb",
+                "rtcids": [
+                  "RTC1-3083779"
+                ]
+              },
+              {
+                "commitid": "fbaaf133cad65272e4fc6fcb9ccbf0ad39fe82f0",
+                "rtcids": [
+                  "RTC1-3076629"
+                ]
+              },
+              {
+                "commitid": "12c9ed62e2d94d47ea19d3cc5e06e442f78fe771",
+                "rtcids": [
+                  "RTC1-3063108"
+                ]
+              },
+              {
+                "commitid": "684a6fa8d0d3f8d325b24dd52b79018cef8892e7",
+                "rtcids": [
+                  "RTC1-3054096"
+                ]
+              },
+              {
+                "commitid": "d6f9143cb141173a5c2ac4440720145978e1a671",
+                "rtcids": [
+                  "RTC1-3047118"
+                ]
+              },
+              {
+                "commitid": "061e410e42fe3d7d27b87e236e4da041302b0e3e",
+                "rtcids": [
+                  "RTC1-3044562"
+                ]
+              },
+              {
+                "commitid": "233fef1d91e9bb0839f658177ca7d1f251fffa39",
+                "rtcids": [
+                  "RTC1-3035536"
+                ]
+              },
+              {
+                "commitid": "b05a4681e062114437f2d7d41d955275c5f158c9",
+                "rtcids": [
+                  "RTC1-3027373"
+                ]
+              }
+            ]
           },
           {
             "repoName": "api-public",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_hqx4560-es11_ip9_release"
+            "branchName": "rb-chery-idcpro_hqx4560-es11_ip9_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "6122bf7ffa705e099a0cc87b2d7f0387e189ff16",
+                "rtcids": [
+                  "RTC1-3103709"
+                ]
+              },
+              {
+                "commitid": "63674c49aabd2554dd334b8674016b15f5329731",
+                "rtcids": [
+                  "RTC1-3083779"
+                ]
+              },
+              {
+                "commitid": "3ea618e11d3443efb974326df818f3362c5dbad7",
+                "rtcids": [
+                  "RTC1-3076629"
+                ]
+              },
+              {
+                "commitid": "800c80cd7000e18ff70cfcf437a675740f64be2b",
+                "rtcids": [
+                  "RTC1-2943232"
+                ]
+              },
+              {
+                "commitid": "8da3e260229039351f06e76ffb729b1a37fe89c1",
+                "rtcids": [
+                  "RTC1-3063108"
+                ]
+              },
+              {
+                "commitid": "b1e548695046b1c3979de1a60318734d4d519e94",
+                "rtcids": [
+                  "RTC1-00000"
+                ]
+              },
+              {
+                "commitid": "4f15943fbd585b59b0df995f5159fe325a96c2a8",
+                "rtcids": [
+                  "RTC1-3054096"
+                ]
+              },
+              {
+                "commitid": "0748d703ee81f1854d96d8b48fc81271f061a14f",
+                "rtcids": [
+                  "RTC1-3047118"
+                ]
+              },
+              {
+                "commitid": "e8ae064db78ad5e4c3d2ed695b8e8430df708f8a",
+                "rtcids": [
+                  "RTC1-3044562"
+                ]
+              },
+              {
+                "commitid": "35ef34065be4c748076e29b9e0875b6571afc080",
+                "rtcids": [
+                  "RTC1-3035536"
+                ]
+              }
+            ]
           },
           {
             "repoName": "automotive-custom",
             "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
             "origin": "caf",
-            "branchName": "rb-chery-idcpro_vehicle_es11-ip9_release"
+            "branchName": "rb-chery-idcpro_vehicle_es11-ip9_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "0a1bae70db54560e0666c65f80d388c5d59f4cc0",
+                "rtcids": [
+                  "RTC1-3103709"
+                ]
+              },
+              {
+                "commitid": "fdcb096dae39873f281d6c23f9f31d0f76d5df9f",
+                "rtcids": [
+                  "RTC1-3097238"
+                ]
+              },
+              {
+                "commitid": "15924b2c507b4d4bbb8293d2132b03233ae07906",
+                "rtcids": [
+                  "RTC1-3083779"
+                ]
+              },
+              {
+                "commitid": "0b20b00bf0c57654eac5ba127c6bb80e2d463511",
+                "rtcids": [
+                  "RTC1-3076629"
+                ]
+              },
+              {
+                "commitid": "cc0264d0df268819bb9001af74f8f960ba0a7d0b",
+                "rtcids": [
+                  "RTC1-3063108"
+                ]
+              },
+              {
+                "commitid": "90239eb84041c3cc0717c621662b9cc304268b25",
+                "rtcids": [
+                  "RTC1-3054096"
+                ]
+              },
+              {
+                "commitid": "29b89a0835653b28a3db2e129b9b4b5b89dab0c2",
+                "rtcids": [
+                  "RTC1-3047118"
+                ]
+              },
+              {
+                "commitid": "7388597ace44396822bf6e591f0d8fb2be780104",
+                "rtcids": [
+                  "RTC1-3044562"
+                ]
+              },
+              {
+                "commitid": "b828721143201bc00ff09642b55f37916e3b1e03",
+                "rtcids": [
+                  "RTC1-3035536"
+                ]
+              },
+              {
+                "commitid": "aa710aa4b1724a8b154e1c3e35e9261e878e18fa",
+                "rtcids": [
+                  "RTC1-3027373"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -57,19 +427,205 @@
             "repoName": "vs",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_vehicle_es11-main_release1"
+            "branchName": "rb-chery-idcpro_vehicle_es11-main_release1",
+            "commid-rtcids-map": [
+              {
+                "commitid": "f84ad4deab67d2df56b67739f4b6cdaeafb7c155",
+                "rtcids": [
+                  "RTC1-3004799"
+                ]
+              },
+              {
+                "commitid": "47a6895fef66f539813b38bb437b05c9b911212d",
+                "rtcids": [
+                  "RTC1-2973633"
+                ]
+              },
+              {
+                "commitid": "cb3c21ad6c0e3009348128e62ed3f605e7b4b546",
+                "rtcids": [
+                  "RTC1-2968388"
+                ]
+              },
+              {
+                "commitid": "ebbe542aeac31a5702a093db322eb9843238c112",
+                "rtcids": [
+                  "RTC1-2941715"
+                ]
+              },
+              {
+                "commitid": "dbc3df4ee41700c964ac58aa01cbb7a61a38a94e",
+                "rtcids": [
+                  "RTC1-2922243"
+                ]
+              },
+              {
+                "commitid": "e0c46aba88b4867880b703972b14e89e4dc05e8a",
+                "rtcids": [
+                  "RTC1-2877247"
+                ]
+              },
+              {
+                "commitid": "889bd4a9a9ea065fdfab1224097f89677676e148",
+                "rtcids": [
+                  "RTC1-2874799"
+                ]
+              },
+              {
+                "commitid": "d0051e35f9df146165e0b5ae6143eb2d5f4b2b83",
+                "rtcids": [
+                  "RTC1-2858040"
+                ]
+              },
+              {
+                "commitid": "a4ab7b631c9613fd8b24c3767ce3dd513df2b4ed",
+                "rtcids": [
+                  "RTC1-2847103"
+                ]
+              },
+              {
+                "commitid": "46f63645978b6b3c09d704cb791a0c5dc4f506eb",
+                "rtcids": [
+                  "RTC1-2842426"
+                ]
+              }
+            ]
           },
           {
             "repoName": "api-public",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_hqx4560-es11_main_release1"
+            "branchName": "rb-chery-idcpro_hqx4560-es11_main_release1",
+            "commid-rtcids-map": [
+              {
+                "commitid": "d021d43195049f82dfd099404de67f777305873f",
+                "rtcids": [
+                  "RTC1-3004799"
+                ]
+              },
+              {
+                "commitid": "d9c04e69fdad20923df42a445dc3110149cd09b0",
+                "rtcids": [
+                  "RTC1-2973633"
+                ]
+              },
+              {
+                "commitid": "6b4dbd0a490ad859e62939e5a47f0acec2d2e95c",
+                "rtcids": [
+                  "RTC1-2968388"
+                ]
+              },
+              {
+                "commitid": "87b75adc48cd90f2058f76b08f410bb64000b999",
+                "rtcids": [
+                  "RTC1-00000"
+                ]
+              },
+              {
+                "commitid": "156477514ca40241e097548580d4c160b6d75a53",
+                "rtcids": [
+                  "RTC1-2941715"
+                ]
+              },
+              {
+                "commitid": "e8f1413d26b560276900cf87288c770185dff03d",
+                "rtcids": [
+                  "RTC1-2922243"
+                ]
+              },
+              {
+                "commitid": "ebd95f0b9398e3588f140d41c90f54e89c4e3b15",
+                "rtcids": [
+                  "RTC1-2877247"
+                ]
+              },
+              {
+                "commitid": "801dcc128e2f63abf4a9d14a645d3abf4547823c",
+                "rtcids": [
+                  "RTC1-2858040"
+                ]
+              },
+              {
+                "commitid": "51f5f981b0d7e1ac9f0476c440f2ad5b81471e3e",
+                "rtcids": [
+                  "RTC1-2847103"
+                ]
+              },
+              {
+                "commitid": "2190f8734e0224511b61c9232a0e6fb51104a473",
+                "rtcids": [
+                  "RTC1-2842426"
+                ]
+              }
+            ]
           },
           {
             "repoName": "automotive-custom",
             "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
             "origin": "caf",
-            "branchName": "rb-chery-idcpro_vehicle_es11-main_release1"
+            "branchName": "rb-chery-idcpro_vehicle_es11-main_release1",
+            "commid-rtcids-map": [
+              {
+                "commitid": "1eecf6469ba1ae702b0693cba3cf5017f338075f",
+                "rtcids": [
+                  "RTC1-3004799"
+                ]
+              },
+              {
+                "commitid": "99478323b40eab1e6cc0e5a1f6d35cb5f4fd9fa2",
+                "rtcids": [
+                  "RTC1-2973633"
+                ]
+              },
+              {
+                "commitid": "fa008d0a617f0be099db67f8873e64831e79436f",
+                "rtcids": [
+                  "RTC1-2968388"
+                ]
+              },
+              {
+                "commitid": "9b07948c2f2aebb9598aeedba52bf679f300f981",
+                "rtcids": [
+                  "RTC1-2941715"
+                ]
+              },
+              {
+                "commitid": "cb754f62c6e4d0df2554d2a60a1ef992036e21ef",
+                "rtcids": [
+                  "RTC1-2922243"
+                ]
+              },
+              {
+                "commitid": "bfc47f6edfed97a42b99460bee1f65cbc9577b76",
+                "rtcids": [
+                  "RTC1-2877247"
+                ]
+              },
+              {
+                "commitid": "09cd94c73f15bcb94a52c625ff916617a9d0c0cf",
+                "rtcids": [
+                  "RTC1-2874799"
+                ]
+              },
+              {
+                "commitid": "d1f3e876b605df9d5e6db1642e66e0653a87ae99",
+                "rtcids": [
+                  "RTC1-2858040"
+                ]
+              },
+              {
+                "commitid": "316bfd600c7ff9bcbd4380137cf408387c22b5d0",
+                "rtcids": [
+                  "RTC1-2847103"
+                ]
+              },
+              {
+                "commitid": "52b2581bed666988aedb3eed3151bf916ae9ae82",
+                "rtcids": [
+                  "RTC1-2842426"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -80,19 +636,205 @@
             "repoName": "vs",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_vehicle_es11-t1x-sop_release"
+            "branchName": "rb-chery-idcpro_vehicle_es11-t1x-sop_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "a0ffcea6b5db76730bde833e742ba01192befa6a",
+                "rtcids": [
+                  "RTC1-3103705"
+                ]
+              },
+              {
+                "commitid": "a79b8b7d03f04e7f225f575f8e4a8ebc35addfbd",
+                "rtcids": [
+                  "RTC1-3083794"
+                ]
+              },
+              {
+                "commitid": "834f0c20903260b493b90f0cfbd0d04d8d0ccceb",
+                "rtcids": [
+                  "RTC1-3081304"
+                ]
+              },
+              {
+                "commitid": "0c4e8abe8fa47a85459cc933faa7db30a8dc91dc",
+                "rtcids": [
+                  "RTC1-3065598"
+                ]
+              },
+              {
+                "commitid": "c545730b481db4a0ca7a8ae756e9df5c86d2f777",
+                "rtcids": [
+                  "RTC1-3056952"
+                ]
+              },
+              {
+                "commitid": "d5adfed5958db2aa2f5319af1ccc15b88615616e",
+                "rtcids": [
+                  "RTC1-3045033"
+                ]
+              },
+              {
+                "commitid": "7240b365959fad2fce5898dca92223ab056df496",
+                "rtcids": [
+                  "RTC1-3040613"
+                ]
+              },
+              {
+                "commitid": "a4459606b01899693cee037f3850442b2b89fc6a",
+                "rtcids": [
+                  "RTC1-3026493"
+                ]
+              },
+              {
+                "commitid": "6c219bcace056b4d0c39d437915c12bdee0d5a28",
+                "rtcids": [
+                  "RTC1-3024028"
+                ]
+              },
+              {
+                "commitid": "041dfb4a3bfe01524f1f60fb9a028b2a8fd45772",
+                "rtcids": [
+                  "RTC1-3017470"
+                ]
+              }
+            ]
           },
           {
             "repoName": "api-public",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_hqx4560-es11_t1x-sop_release"
+            "branchName": "rb-chery-idcpro_hqx4560-es11_t1x-sop_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "fac839aa301465758dff144ba2c5108c6182a92b",
+                "rtcids": [
+                  "RTC1-3103705"
+                ]
+              },
+              {
+                "commitid": "98a6b059e7240df6ad6777d836e1cf11ff73a444",
+                "rtcids": [
+                  "RTC1-3083794"
+                ]
+              },
+              {
+                "commitid": "d8e068705194ed9d7a68cc70d5b55a7fa0d6bf15",
+                "rtcids": [
+                  "RTC1-3081304"
+                ]
+              },
+              {
+                "commitid": "3790a4dec3ada0170bec58cb481f8faa7b1f13dd",
+                "rtcids": [
+                  "RTC1-3065598"
+                ]
+              },
+              {
+                "commitid": "3c1bdac318f350fc9cdf812174d1bfa8f1ce67b0",
+                "rtcids": [
+                  "RTC1-00000"
+                ]
+              },
+              {
+                "commitid": "7e982b01b1ea0bfbdff03a06bc9322a6a73356ef",
+                "rtcids": [
+                  "RTC1-3056952"
+                ]
+              },
+              {
+                "commitid": "fa11bc1e3cbfb7c42c07ecacf32b8a54b47ce541",
+                "rtcids": [
+                  "RTC1-3045033"
+                ]
+              },
+              {
+                "commitid": "5a19cba82bb3814d302ea9503bc624ca6e2ebf0c",
+                "rtcids": [
+                  "RTC1-3040613"
+                ]
+              },
+              {
+                "commitid": "c98428841c917d2336826f9db503ef5455b6cb5d",
+                "rtcids": [
+                  "RTC1-3026493"
+                ]
+              },
+              {
+                "commitid": "a1e3805a5bdd03e235b183257fdbc8b52e21d1e5",
+                "rtcids": [
+                  "RTC1-3024028"
+                ]
+              }
+            ]
           },
           {
             "repoName": "automotive-custom",
             "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
             "origin": "caf",
-            "branchName": "rb-chery-idcpro_vehicle_es11-t1x-sop_release"
+            "branchName": "rb-chery-idcpro_vehicle_es11-t1x-sop_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "82c3bd19de7003f4f2de20cbf6a9a8be6ccf7de1",
+                "rtcids": [
+                  "RTC1-3103705"
+                ]
+              },
+              {
+                "commitid": "bc705e935775cb39f70dcc1eedb1c25024fd8839",
+                "rtcids": [
+                  "RTC1-3083794"
+                ]
+              },
+              {
+                "commitid": "3519f43967554b3bfacfb9c2044398ec811ebc40",
+                "rtcids": [
+                  "RTC1-3081304"
+                ]
+              },
+              {
+                "commitid": "43734bf6192a42a6cc6f6ab258a8bc2474457315",
+                "rtcids": [
+                  "RTC1-3065598"
+                ]
+              },
+              {
+                "commitid": "c2315ca29430fd0d77656a63b8b3003c9d560232",
+                "rtcids": [
+                  "RTC1-3056952"
+                ]
+              },
+              {
+                "commitid": "2285ee37f48a9268b0ace182c1571f9c0aac8c88",
+                "rtcids": [
+                  "RTC1-3045033"
+                ]
+              },
+              {
+                "commitid": "9c2157b82bf6c686ce5bb8f5f3db9fe834bbbded",
+                "rtcids": [
+                  "RTC1-3040613"
+                ]
+              },
+              {
+                "commitid": "dd6c428631d740389d1dfbfd5e77c1dfdb35f240",
+                "rtcids": [
+                  "RTC1-3026493"
+                ]
+              },
+              {
+                "commitid": "de51537cabb404272158ac72d38c1420af87b112",
+                "rtcids": [
+                  "RTC1-3024028"
+                ]
+              },
+              {
+                "commitid": "e26b466169cc1330955a749e37062561c95eecf2",
+                "rtcids": [
+                  "RTC1-3017470"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -103,19 +845,205 @@
             "repoName": "vs",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/vs",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_vehicle_es11_d01p-int-sop_release"
+            "branchName": "rb-chery-idcpro_vehicle_es11_d01p-int-sop_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "2b472e68e2f28822bc454fe59bb1d0ce4abfae4f",
+                "rtcids": [
+                  "RTC1-3083772"
+                ]
+              },
+              {
+                "commitid": "ec1cb8f82aee93cb2d1b8c997382aadea581c125",
+                "rtcids": [
+                  "RTC1-3021281"
+                ]
+              },
+              {
+                "commitid": "324437d4b5adc7fe211eb8bae74045bdd978879e",
+                "rtcids": [
+                  "RTC1-2915210"
+                ]
+              },
+              {
+                "commitid": "532c09ee9b8fc614318c6967fecb1acc757b73af",
+                "rtcids": [
+                  "RTC1-2858040"
+                ]
+              },
+              {
+                "commitid": "493506ef1b32b1d48d7a7cb3d663745a3722dce9",
+                "rtcids": [
+                  "RTC1-2847103"
+                ]
+              },
+              {
+                "commitid": "de4cbdd13dc14d96a5b37c3fbe1d4ff7d1163ea8",
+                "rtcids": [
+                  "RTC1-2842426"
+                ]
+              },
+              {
+                "commitid": "c36106b4f98a504452bfe111c5966b1c343b80c3",
+                "rtcids": [
+                  "RTC1-2837669"
+                ]
+              },
+              {
+                "commitid": "87762aa7635aa553e62f80d43ea2e80dbd48a498",
+                "rtcids": [
+                  "RTC1-2835870"
+                ]
+              },
+              {
+                "commitid": "1bb51f7bceac84e481beb8ab31887fcffc08a942",
+                "rtcids": [
+                  "RTC1-2833975"
+                ]
+              },
+              {
+                "commitid": "7d50e6554bbd38b06b5d4d4470204c651208e039",
+                "rtcids": [
+                  "RTC1-2833975"
+                ]
+              }
+            ]
           },
           {
             "repoName": "api-public",
             "repoPath": "qnx/vendor/bosch/chery/idcpro/api/protobuf",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idcpro_hqx4560-es11_t1x-sop_release"
+            "branchName": "rb-chery-idcpro_hqx4560-es11_t1x-sop_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "fac839aa301465758dff144ba2c5108c6182a92b",
+                "rtcids": [
+                  "RTC1-3103705"
+                ]
+              },
+              {
+                "commitid": "98a6b059e7240df6ad6777d836e1cf11ff73a444",
+                "rtcids": [
+                  "RTC1-3083794"
+                ]
+              },
+              {
+                "commitid": "d8e068705194ed9d7a68cc70d5b55a7fa0d6bf15",
+                "rtcids": [
+                  "RTC1-3081304"
+                ]
+              },
+              {
+                "commitid": "3790a4dec3ada0170bec58cb481f8faa7b1f13dd",
+                "rtcids": [
+                  "RTC1-3065598"
+                ]
+              },
+              {
+                "commitid": "3c1bdac318f350fc9cdf812174d1bfa8f1ce67b0",
+                "rtcids": [
+                  "RTC1-00000"
+                ]
+              },
+              {
+                "commitid": "7e982b01b1ea0bfbdff03a06bc9322a6a73356ef",
+                "rtcids": [
+                  "RTC1-3056952"
+                ]
+              },
+              {
+                "commitid": "fa11bc1e3cbfb7c42c07ecacf32b8a54b47ce541",
+                "rtcids": [
+                  "RTC1-3045033"
+                ]
+              },
+              {
+                "commitid": "5a19cba82bb3814d302ea9503bc624ca6e2ebf0c",
+                "rtcids": [
+                  "RTC1-3040613"
+                ]
+              },
+              {
+                "commitid": "c98428841c917d2336826f9db503ef5455b6cb5d",
+                "rtcids": [
+                  "RTC1-3026493"
+                ]
+              },
+              {
+                "commitid": "a1e3805a5bdd03e235b183257fdbc8b52e21d1e5",
+                "rtcids": [
+                  "RTC1-3024028"
+                ]
+              }
+            ]
           },
           {
             "repoName": "automotive-custom",
             "repoPath": "qcom_la/lagvm/LINUX/android/vendor/bosch/chery/idcpro/hal/automotive-custom/vehicle/2.0",
             "origin": "caf",
-            "branchName": "rb-chery-idcpro_vehicle_es11_d01p-int-sop_release"
+            "branchName": "rb-chery-idcpro_vehicle_es11_d01p-int-sop_release",
+            "commid-rtcids-map": [
+              {
+                "commitid": "43294f95cffc2c8fd4394960961cd793fc57c257",
+                "rtcids": [
+                  "RTC1-3083772"
+                ]
+              },
+              {
+                "commitid": "414f14394e99f7fad4ad59d99872cb164d53ad1e",
+                "rtcids": [
+                  "RTC1-3021281"
+                ]
+              },
+              {
+                "commitid": "5a32109b232e8ebf3e2d5bd43a9305366aac8334",
+                "rtcids": [
+                  "RTC1-2915210"
+                ]
+              },
+              {
+                "commitid": "fbddecb03d60a52034b1bd87a1bd5b3f0a195c6e",
+                "rtcids": [
+                  "RTC1-2858040"
+                ]
+              },
+              {
+                "commitid": "7b25931d9beefd216d456dcb97223ccae4a518d8",
+                "rtcids": [
+                  "RTC1-2847103"
+                ]
+              },
+              {
+                "commitid": "96cda92032022305118e093c1224d03d90b850b9",
+                "rtcids": [
+                  "RTC1-2842426"
+                ]
+              },
+              {
+                "commitid": "5dcd4dafb902a5da4dadd074cc55da02e36ef5bf",
+                "rtcids": [
+                  "RTC1-2837669"
+                ]
+              },
+              {
+                "commitid": "23edb273891ef09ab9632ca44cf0cfaa7fc9297a",
+                "rtcids": [
+                  "RTC1-2835870"
+                ]
+              },
+              {
+                "commitid": "aa7ff41e519da7e67b8cc3e45bc3cdfa95a84d87",
+                "rtcids": [
+                  "RTC1-2833975"
+                ]
+              },
+              {
+                "commitid": "c8f37802ef4a028ea1c450ab8d1ac8faade36cd8",
+                "rtcids": [
+                  "RTC1-2824946"
+                ]
+              }
+            ]
           }
         ]
       }
@@ -133,25 +1061,265 @@
             "repoName": "vs",
             "repoPath": "/qnx/vendor/chery/idc/vs",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev"
+            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "d435f0d97c2fe328d7937ff36d2a2ed1fadbdfab",
+                "rtcids": [
+                  "RTC1-3052932"
+                ]
+              },
+              {
+                "commitid": "26b4e832c3bbd4caac9f5e5d3fce87265e518ccf",
+                "rtcids": [
+                  "RTC1-3040598"
+                ]
+              },
+              {
+                "commitid": "9d7f74e3a25550be5ebbfbdccc6070736880f1b7",
+                "rtcids": [
+                  "RTC1-3040598"
+                ]
+              },
+              {
+                "commitid": "199471f75a56c9649b9e9e0132c711c6bec8a43b",
+                "rtcids": [
+                  "RTC1-3023779"
+                ]
+              },
+              {
+                "commitid": "d5ccabee62fb9a384b776d8d413d1d7f65355649",
+                "rtcids": [
+                  "RTC1-3003400"
+                ]
+              },
+              {
+                "commitid": "e63255bda03f33262122423203938c4705d5b90f",
+                "rtcids": [
+                  "RTC1-2967688"
+                ]
+              },
+              {
+                "commitid": "b51bc7a8366173c46ce7c2f5982dfcddaf0a42c4",
+                "rtcids": [
+                  "RTC1-2967688"
+                ]
+              },
+              {
+                "commitid": "6ae40819bc1689ccfdc0eefd96f8f27391a2737e",
+                "rtcids": []
+              },
+              {
+                "commitid": "d1aebaea0b32664dd1fea06888d4704b1285ad6e",
+                "rtcids": [
+                  "RTC1-2941494"
+                ]
+              },
+              {
+                "commitid": "eaf268708020ae30f31e51e5f7c1d920f65a82a4",
+                "rtcids": [
+                  "RTC1-2941494"
+                ]
+              }
+            ]
           },
           {
             "repoName": "api-public",
             "repoPath": "qnx/vendor/chery/idc/api/protobuf",
             "origin": "taiji_qnx",
-            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev"
+            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "07856cca3cc83faf5e653a2971265d5d4897472d",
+                "rtcids": [
+                  "RTC1-3040598"
+                ]
+              },
+              {
+                "commitid": "87c604a2997d8da375fc61c5a27b8fe10f171723",
+                "rtcids": [
+                  "RTC1-3023779"
+                ]
+              },
+              {
+                "commitid": "87246f34761f2727c844a6bfc20f6b32c695fcd6",
+                "rtcids": [
+                  "RTC1-3003400"
+                ]
+              },
+              {
+                "commitid": "245f1970662ec5fd6924dbfea04240bcd3f7963d",
+                "rtcids": [
+                  "RTC1-2967688"
+                ]
+              },
+              {
+                "commitid": "b6ed8a40cbe52c75700dbd237918dd402b65174b",
+                "rtcids": [
+                  "RTC1-2967688"
+                ]
+              },
+              {
+                "commitid": "fe005ebdf2afa495135f067e67b0ac8ad8e4e487",
+                "rtcids": []
+              },
+              {
+                "commitid": "0d2757272876ea6d7c091a4027fc2ac2d8d20f7a",
+                "rtcids": [
+                  "RTC1-2941494"
+                ]
+              },
+              {
+                "commitid": "11a18d3c16c06831716b4887a346cc8d13b505d5",
+                "rtcids": [
+                  "RTC1-2941494"
+                ]
+              },
+              {
+                "commitid": "7a7904bec66ae25ef2538a22282e441ffc76c498",
+                "rtcids": [
+                  "RTC1-2900430"
+                ]
+              },
+              {
+                "commitid": "f11fe58163c0147bdfb9a471a3774a04b987f0ca",
+                "rtcids": [
+                  "RTC1-2896890"
+                ]
+              }
+            ]
           },
           {
             "repoName": "automotive",
             "repoPath": "LINUX/android/vendor/bosch/hal/automotive/vehicle",
             "origin": "caf",
-            "branchName": "rb-chery-idc-common_hqx121c1_main_dev"
+            "branchName": "rb-chery-idc-common_hqx121c1_main_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "0190cda46b2cd13b6031196aa2eff05c5ccbb46c",
+                "rtcids": [
+                  "RTC1-3040598"
+                ]
+              },
+              {
+                "commitid": "e6bc69b055397515a1673b8052dc6a7f6cf07e9b",
+                "rtcids": [
+                  "RTC1-3023779"
+                ]
+              },
+              {
+                "commitid": "b4f2a056e49f285710e6c0296f21e7ee28f7434c",
+                "rtcids": [
+                  "RTC1-3003400"
+                ]
+              },
+              {
+                "commitid": "51037b68add9b9cb5498ab99adb2c74047c10449",
+                "rtcids": [
+                  "RTC1-2967688"
+                ]
+              },
+              {
+                "commitid": "2432d0f15df180feaa4d69c81c017688ed74ab26",
+                "rtcids": [
+                  "RTC1-2967688"
+                ]
+              },
+              {
+                "commitid": "22179151a8b6b9edc4ce43e6bb22eeaceab7cb80",
+                "rtcids": []
+              },
+              {
+                "commitid": "9d76a3f50dc84d25152304eae1afff96019d151e",
+                "rtcids": [
+                  "RTC1-2941494"
+                ]
+              },
+              {
+                "commitid": "dc697de0d2124f45d0df44add46bdbdf6c655549",
+                "rtcids": [
+                  "RTC1-2941494"
+                ]
+              },
+              {
+                "commitid": "76d3f5bbbe37ad67ce1e1faeb1c7e73dc5f76b77",
+                "rtcids": [
+                  "RTC1-2900430"
+                ]
+              },
+              {
+                "commitid": "08ad371ab2eb23b9b06b1ccf27d1f83815b3118e",
+                "rtcids": [
+                  "RTC1-2896890"
+                ]
+              }
+            ]
           },
           {
             "repoName": "hardware-interfaces",
             "repoPath": "LINUX/android/hardware/interfaces/automotive/vehicle/2.0",
             "origin": "caf",
-            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev"
+            "branchName": "rb-chery-idc_hqx121c1_pcs04_main_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "c60a4941bef572c43c516c56ee24503f35ec2efb",
+                "rtcids": [
+                  "RTC1-2958050"
+                ]
+              },
+              {
+                "commitid": "80149d28440ee5b024f2c8796bc6553561ba1557",
+                "rtcids": [
+                  "RTC1-3040598"
+                ]
+              },
+              {
+                "commitid": "edef3b1d7b2ed787472139911a97b3510cb23f1a",
+                "rtcids": [
+                  "RTC1-3023779"
+                ]
+              },
+              {
+                "commitid": "a52e99cd51406c1a82c06fe2fe30b526e9ab2908",
+                "rtcids": [
+                  "RTC1-3003400"
+                ]
+              },
+              {
+                "commitid": "eedc77092b4ffc4faba1471871f47dcba1f35192",
+                "rtcids": [
+                  "RTC1-2967688"
+                ]
+              },
+              {
+                "commitid": "bc329115f1d86f12e10f15e0d55da0b81bbf0c6d",
+                "rtcids": [
+                  "RTC1-2967688"
+                ]
+              },
+              {
+                "commitid": "04264b551a79c109fb1a0982dca9cdc49f186b83",
+                "rtcids": []
+              },
+              {
+                "commitid": "bf50c4869ad5817db62b39c5e83723df7097eb12",
+                "rtcids": [
+                  "RTC1-2958050"
+                ]
+              },
+              {
+                "commitid": "814cee55af181585a4578897ab5ef1621cbe6fa0",
+                "rtcids": [
+                  "RTC1-2956127"
+                ]
+              },
+              {
+                "commitid": "013f8cc00a4b357f1fa7999157602d9eb0792b71",
+                "rtcids": [
+                  "RTC1-2941494"
+                ]
+              }
+            ]
           }
         ]
       }
@@ -169,13 +1337,137 @@
             "repoName": "vehicle",
             "repoPath": "LINUX/android/vendor/geely/hardware/interfaces/automotive",
             "origin": "geelyidc30_android",
-            "branchName": "rb-geely-idc30_a6-main_vehicle_dev"
+            "branchName": "rb-geely-idc30_a6-main_vehicle_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "b58be6831d36116ef7caa9e6621f6d759385afa1",
+                "rtcids": [
+                  "RTC1-3080367"
+                ]
+              },
+              {
+                "commitid": "aaa1d4ef4e436e5dc9a405bfc712e92a21291ba7",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "f35d8dad2d79739bba4e2867fbacce60e07c0d7d",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "dca460d4183b2f15b562f565837e32016ef9d147",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "5a124c7f0a7c283ceabfb4ddf610c1e9ff866173",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "f17f2bf56a39f83d7f89f639cea3531a5df24e00",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "7e102c79325dea0cef046cbabea847058bba81c0",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "88a447337d9c6cffa27480078a1dbedcbba568db",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "78c6227150792a9118c213e010959457b8c87560",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "0b63c52aaf5df41bdf2ff164b5ab06134d414d1c",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              }
+            ]
           },
           {
             "repoName": "system",
             "repoPath": "LINUX/android/vendor/geely/system/vehicle",
             "origin": "geelyidc30_android",
-            "branchName": "rb-geely-idc30_a6-main_vehicle_dev"
+            "branchName": "rb-geely-idc30_a6-main_vehicle_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "9299bc5fe6e01424e9df7cfc1f12d5b9c7d61bd2",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "5a5436fb3c3efe144a1cf88018ee978b47effeac",
+                "rtcids": [
+                  "RTC1-2982156"
+                ]
+              },
+              {
+                "commitid": "ad5bb20218646cafa8fe4096d6bb770bfc8e0860",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "d0adb81f36f3c87a39b1f3a9c0a552490c12c771",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "b96dab3a41b974514523d6ecb3d4353349cdadd5",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "f561a34e9b7408d04420f087edc0aff63575edee",
+                "rtcids": [
+                  "RTC1-2971658"
+                ]
+              },
+              {
+                "commitid": "1c991317b7d6b22333fc4b7cbc72bec3c9622058",
+                "rtcids": [
+                  "RTC1-2970676"
+                ]
+              },
+              {
+                "commitid": "0fe3f5d0fcd697236f660822a78383e291346680",
+                "rtcids": [
+                  "RTC1-2967671"
+                ]
+              },
+              {
+                "commitid": "41bd4577d3be47ad8652a21b4a81fd6124da3099",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "b71750d5d4c884963038cc960b3f1f94c3c95917",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -186,13 +1478,137 @@
             "repoName": "vehicle",
             "repoPath": "LINUX/android/vendor/geely/hardware/interfaces/automotive",
             "origin": "geelyidc30_android",
-            "branchName": "rb-geely-idc30_koi2_main_vehicle_dev"
+            "branchName": "rb-geely-idc30_koi2_main_vehicle_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "2f15adc29bd884b42aa3a606918cd8fa8916ce18",
+                "rtcids": [
+                  "RTC1-3095740"
+                ]
+              },
+              {
+                "commitid": "3373617a5661800a67674e28394eba270487c96f",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "47ad90651ddf3a8664fa452e45974eb3be31a8ef",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "0c1b0cd23f435da23842fda2a42d04022bf4f4bd",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "5b85d851ef2ca87aa4ecfca841210c55c7362bf4",
+                "rtcids": [
+                  "RTC1-3080339"
+                ]
+              },
+              {
+                "commitid": "647970753c4e14e1832973ac5afcd800cdef2e99",
+                "rtcids": [
+                  "RTC1-000000"
+                ]
+              },
+              {
+                "commitid": "17634ea358ff9e8d9a81f8b152382af53ce435cf",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "4f9275c08785a28ab85a15d96db2fd1bab2f61a2",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "c11940c789f20f159acd6adf96124e8f54d02b97",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "80b71acb5c66476166b445024f8b5541b5ef7490",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              }
+            ]
           },
           {
             "repoName": "system",
             "repoPath": "LINUX/android/vendor/geely/system/vehicle",
             "origin": "geelyidc30_android",
-            "branchName": "rb-geely-idc30_koi2_main_vehicle_dev"
+            "branchName": "rb-geely-idc30_koi2_main_vehicle_dev",
+            "commid-rtcids-map": [
+              {
+                "commitid": "5f82a2b41ca770fc44459c4610a28460a1161b5d",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "ec5af7e1895883467057c9569bd6ee65c5ccb6f4",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "efc7a9d0fae8f50637dbd83f1ae6a493014d8013",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "758d2d0ca431f2a9b3acf67654f3e48d64309145",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "0338b06d6ca164d463e328ca8add8faa4bdb6ac0",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "6e124e262d59f85abec5e682bc775e37a201f039",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "58789092cbf4900a1a5fb19fc1c29e84b480e88a",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "85fdef4827c33fe6ed0824c6ffc5c39ff04f7e94",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "cec99880e4ac1322e863d9b625ccbcfff50f9976",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              },
+              {
+                "commitid": "70216229c8594b54586339fa03cdd3e246eda449",
+                "rtcids": [
+                  "RTC1-0000000"
+                ]
+              }
+            ]
           }
         ]
       }
