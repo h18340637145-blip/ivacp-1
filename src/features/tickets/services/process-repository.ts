@@ -70,6 +70,8 @@ export async function finishProcessAttempt(task: ProcessTask, data: ProcessRespo
     const result: ProcessResult = { id: newId(), source: task.source, ticketKey: task.ticketKey, ruleGroupId: task.ruleGroupId,
       processTaskId: task.id, analysisRunId: data.analysisRunId, analysisGroupName: data.analysisGroupName, snapshotId: task.snapshotId, assignmentId: task.assignmentId,
       replyText: data.replyText, model: data.model, chartImage: data.chartImage, signalSummary: data.signalSummary,
+      versionVhalCheck: data.versionVhalCheck,
+      configurationResolution: data.configurationResolution,
       reviewEvidence: data.reviewEvidence, traceData: data.traceData, ticks: data.ticks, artifactRef: data.artifactRef,
       analysisReceipt: data.analysisReceipt, tokenUsage: data.tokenUsage, reviewStatus: "pending", commentStatus: "not_started", transitionStatus: "not_selected",
       ...completeHandoverFields(data.handoverAt ? new Date(data.handoverAt) : undefined, now), createdAt: now };

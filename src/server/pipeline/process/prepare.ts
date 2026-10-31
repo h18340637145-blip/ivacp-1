@@ -1,3 +1,4 @@
+import { configurationFor } from "./effective-context";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { JiraAttachment } from "@/server/jira/types";
@@ -70,8 +71,8 @@ export async function prepareIssueData(ctx: ProcessContext): Promise<PreparedIss
 
 /** 读取车型对应的信号 JSON 配置（每个文件截取 20k）与 proto 文件 */
 export async function loadModelConfig(ctx: ProcessContext): Promise<ModelConfigData> {
-  const { basePaths, modelToFiles } = ctx.request;
-  const { carModel, logger } = ctx;
+  const { basePaths, modelToFiles, carModel } = configurationFor(ctx);
+  const { logger } = ctx;
   let jsonContent = "";
   let parsedConfigItems: ModelSignalConfigEntry[] = [];
   let protoContent = "";

@@ -916,12 +916,16 @@ sequenceDiagram
 
 ### 同步 VHAL 标签更新（2026-10-29）
 
+2026-10-31 更新：每次同步将最终生效的 type.h 同时保存为 `<完整commitid>_<RTC列表>_<8位VHAL编码>`（无扩展名），并按用户确认保留同内容 `type.h` 兼容副本。身份来自实际来源仓库的当前固定提交；提交或 RTC 变化时即使内容相同也更新名称，旧命名文件保留到 bak。清单新增可选 headerFile 并校验两个文件，旧快照下次同步自动补齐；同名异内容拒绝发布。详情见 [同步需求 v0.5](requirements/terminal-sync-review.md#62-当前-typeh-按提交身份命名2026-10-31)。
+
 ```mermaid
 sequenceDiagram
   participant S as 同步任务
   participant F as 分支组本地快照
   participant UI as 终端选择栏
-  S->>F: 文件打平完成后读取最终type.h
+  S->>F: 文件打平后发布当前commit_RTC_VHAL命名文件与type.h兼容副本
+  Note over S,F: 旧命名文件移入bak；两个文件随清单原子发布
+  S->>F: 读取最终type.h兼容副本
   F-->>S: VER_PRO_CFG原始值/平台/主次版本
   S->>F: 保存.sync-state.json的vhal
   S-->>UI: 同步结果携带分支vhal
@@ -931,3 +935,78 @@ sequenceDiagram
     F-->>UI: syncedVhal（按目标服务器过滤）
   end
 ```
+
+## Pipeline 版本与 VHAL 检查（已实现，2026-10-30）
+
+2026-10-31 更新：来源 commit 前缀命中后，以 RTC 完整匹配关联同项目、同一 branches 条目中唯一的 `vs` 仓库提交，再使用 VS commit 搜索版本归档。多 RTC 归并同一 VS commit 后继续；多个不同 VS commit 或多个 VS 仓库条目记歧义。部分 RTC 未匹配时留档提示；来源提交与 VS 提交分别保存在结构化结果与详情证据，旧结果兼容。规则与验收见 [RTC 关联 VS 提交需求](requirements/pipeline-vhal-vs-rtc-review.md)。
+
+已确认覆盖所有共享流水线来源（普通 Jira、Bosch Jira、飞书及共享的单票/批量/周期入口）。证据整理后先由 AI 比对 SOC/SCC，版本不一致立即保存结论并停止后续分析；再按 Android hash 后最新编译日期选择完整短 hash（如 `6a5d61b`），追溯提交并同时搜索分支组根目录和 `bak/`。`82552235` 对应 `V2.2.35`。
+
+车型以当前工单确认的 DBC 为准，保留 D01_OS_APA、D01_HW、T1L_FL1 等车型组成部分；Excel 查 Vehicle property ID、MCU UP、IVI DOWN（通常 I/S/T 列），Project（通常 E 列）按 `/` 分割后匹配完整车型。仅非空待查信号列表全部确认缺少配置且无大小写差异豁免时提前结束；部分缺少仍继续 Step4/5。详情、DBC 映射和验收场景见 [需求审核稿 v0.4](requirements/pipeline-version-vhal-review.md)。已接入共享编排、完整结果持久化、刷新恢复、历史及详情展示；特殊表语义等剩余边界按未知提示继续。SOC/SCC unknown、hash/版本/Excel 无法定位或读取均不阻断；同 commit 跨分支组、短 hash 冲突、最新日期并列不同 hash 时，将全部候选与冲突原因写入持久化日志作为提示，继续分析，不强选唯一版本。信号区分大小写（A 与 a 不同），不自动映射别名；仅大小写不匹配时留档提示并继续，即使只有一个待查信号也不因此停止。
+
+```mermaid
+sequenceDiagram
+  participant P as 共享编排
+  participant C as 版本与VHAL检查
+  participant A as AI Chat
+  participant F as 日志与配置文件
+  participant S as 正常结果保存
+  P->>C: 证据整理完成，版本配对与Step2信号
+  C->>A: 逐对比较SOC/SCC
+  alt 版本不一致
+    C-->>P: mismatch及持久化证据
+    P->>S: 保存完整响应，跳过Step4/5
+  else 一致或未知
+    C->>F: 最新编译日期 hash 匹配来源 commit 及 RTC
+    F-->>C: 同项目、同分支组的 VS 仓库 RTC 关联候选
+    C->>C: 去重并检查 VS commit 唯一性
+    C->>F: 以 VS commit 定位归档、版本及 Excel
+    C-->>P: 检查结果、提示、来源候选
+    alt 全部信号确认缺少且无大小写差异豁免
+      P->>S: 固定结论与完整响应，跳过Step4/5
+    else 部分缺少、未知、冲突或大小写差异
+      P->>P: 将摘要加入Step4/5证据并继续
+      P->>S: 保存最终完整响应
+    end
+  end
+  S-->>P: 先产物、后成功指标，允许恢复
+```
+
+## 飞书筛选超时恢复（2026-10-30）
+
+```mermaid
+sequenceDiagram
+  participant UI as 筛选操作
+  participant DB as IndexedDB
+  participant API as 飞书筛选API
+  participant CLI as CLI包装器与原生进程
+  UI->>DB: 创建运行，启动90秒截止
+  UI->>API: MQL查询
+  API->>CLI: 单次30秒截止
+  alt CLI超时
+    API->>CLI: 终止整个进程组，必要时强制终止
+    API-->>UI: 失败审计与可重试原因
+  else 前端请求仍未结束
+    UI->>UI: 截止即退出等待，不依赖底层取消回调
+    UI->>DB: 标记expired，保留原归属/结果/历史
+  end
+  UI->>UI: 恢复筛选按钮
+  opt 旧页面/返回窗口/刷新
+    UI->>DB: 每15秒及focus恢复过期运行
+  end
+  Note over UI,DB: 迟到响应不得改写新运行，Jira沿用10分钟截止
+```
+
+## 日志自动匹配基础配置（已实现，2026-10-31）
+
+[需求 v1.0](requirements/pipeline-auto-config-review.md) 已按最终确认实现：默认在下载解压后、Step2 前提取 SOC / SCC，并以 project.json 分支及可用 Android hash 消歧；车型完整匹配当前规则组 `aliases` 后，使用所属车型 JSON / 全部 DBC / Proto 清单。自动成功时冻结分支当前配置，配置文件、同步清单、DBC 解析任一失败均整套回退用户默认配置，不混合来源或强选候选。
+
+新增规则组车型别名输入，贯通备份、模板和请求。回退也冻结可用用户文件并保持缺失原能力；运行目录、原始车型、runId 和恢复签名不变。JSON / Proto / DBC / 当前配置 VHAL 使用同一有效配置；明确日志身份冲突时，VHAL 检查记未知而不能用冲突上下文触发全部缺少提前结束。SOC/SCC 提取警告同样触发配置回退，原版本不一致停止规则保留。
+
+本次运行的 `effective-config-resolution.json`、`effective-config-check.md` 与可选 configurationResolution 响应保存原始配置、全部候选、实际配置及文件摘要，内容冻结在 run/effective-config/。IndexedDB、重跑历史、飞书完整响应恢复及详情展示保存同一份决定；旧结果不补造字段，无数据库索引升级。问题历史 VHAL 与分支当前配置仍分别记录，历史整套配套未验证。
+
+同步已增加 api-public 固定提交根文件 com.bosch.cm.platform.vehicle.proto，原名发布至对应 configuration 项目 / 分支组，沿用 blob 校验、补齐、普通 bak、删除及原子发布门禁。没有自动发起远程同步或真实工单分析；部署 / 真实目标验收见交接记录。
+
+## VHAL 属性名称列匹配修复（2026-10-31）
+
+共享信号检查增加按表头定位的 Vehicle property ID 名称列（通常 I 列），与 MCU UP / IVI DOWN 一起做大小写敏感的精确匹配，再检查命中行 Project 的完整车型。读取器保留只有属性名、没有上/下行 CAN 信号的行；旧表没有属性列仍兼容原两列。证据保存 column=Vehicle property ID，不做模糊或后缀猜测，不改变大小写差异 / unknown 继续以及全部确认缺少才停止的规则。7147061892 的四个属性在实际 VHAL 2.2.36 中均可匹配 T1J_FL3；未自动重跑或改写旧结果。

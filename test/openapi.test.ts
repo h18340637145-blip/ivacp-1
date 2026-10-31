@@ -2,6 +2,18 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, it } from "vitest";
 import { openApiSpec } from "@/server/openapi/spec";
+import type { ApiObject } from "@/server/openapi/types";
+
+it("车型文件请求和模板规格公开可选的精确车型别名", () => {
+  for (const [schemaName, field] of [["IssueProcessRequest", "modelToFiles"], ["RuleGroupTemplate", "model_to_files"]] as const) {
+    const schema = openApiSpec.components.schemas[schemaName];
+    const owner = schemaName === "RuleGroupTemplate" ? (schema.properties as ApiObject).config as ApiObject : schema;
+    const mapping = (owner.properties as Record<string, ApiObject>)[field];
+    const modelFile = mapping.additionalProperties as ApiObject;
+    expect((modelFile.properties as ApiObject).aliases).toMatchObject({ type: "array", items: { type: "string" } });
+    expect(modelFile.required ?? []).not.toContain("aliases");
+  }
+});
 function implementedRoutes(directory: string, prefix = "/api"): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const file = path.join(directory, entry.name);

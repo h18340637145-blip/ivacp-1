@@ -1,3 +1,4 @@
+import { configurationFor } from "./effective-context";
 import { buildEvidencePacket, type EvidencePacket } from "@/domain/analysis/evidence-packet";
 import { reviewEvidenceFromEvidencePacket } from "@/domain/analysis/review-sample";
 import type { ReviewEvidence } from "@/domain/entities";
@@ -13,6 +14,8 @@ import type { ProcessContext } from "@/server/pipeline/process/context";
 import { buildSignalsJson, type SignalMatchResult } from "@/server/pipeline/process/signals-stage";
 
 export interface EvidenceBundle {
+  versionVhalCheck?: import("@/domain/analysis/version-vhal").VersionVhalCheck;
+  logVersions: import("../log-versions").LogVersions[];
   canPlotResult: PlotResult;
   extractMarkdown: string;
   androidLog: string;
@@ -41,7 +44,8 @@ export async function collectEvidence(
     parsingStarted: number | null;
   },
 ): Promise<EvidenceBundle> {
-  const { logger, metrics, logRoot, issueKey, ruleGroupId, groupDirName, carModel } = ctx;
+  const { logger, metrics, logRoot, issueKey, ruleGroupId, groupDirName } = ctx;
+  const { carModel, basePaths } = configurationFor(ctx);
   const { signals, extractDir } = args;
 
   const canPlotResult = await awaitCanSignalExtraction(args.plotPromise, logger, logRoot);
@@ -64,12 +68,12 @@ export async function collectEvidence(
   let qnxLog = "";
   let versionFooter = "";
   const hasExtractedLogs = Boolean(args.classified.latestZip && extractDir);
-  const logVersions = hasExtractedLogs
+  const logVersions = ctx.logVersions ?? (hasExtractedLogs
     ? await extractLogVersions(extractDir, message => logger.log("VERSION_EXTRACT", message))
-    : [];
+    : []);
   logger.log("VERSION_EXTRACT", `日志软件版本提取完成：Buildinfo=${logVersions.length}，SCC=${logVersions.reduce((sum, record) => sum + record.sccVersions.length, 0)}`);
   // Read the rule group's current configuration only after SOC/SCC extraction.
-  const vhal = await extractVhalVersion(ctx.request?.basePaths?.proto_dir);
+  const vhal = await extractVhalVersion(basePaths?.proto_dir);
   logger.log("VERSION_EXTRACT", vhal.status === "ok"
     ? `当前配置 VHAL版本：${vhal.version}，VER_PRO_CFG=${vhal.raw}，来源：${vhal.file}`
     : vhal.status === "unavailable" ? `VHAL版本提取失败：${vhal.file}：${vhal.error}` : "未配置 Proto 根目录，跳过 VHAL版本提取");
@@ -140,6 +144,7 @@ export async function collectEvidence(
   }
 
   return {
+    logVersions,
     canPlotResult,
     extractMarkdown,
     androidLog,

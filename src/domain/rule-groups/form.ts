@@ -24,6 +24,8 @@ export const RULE_GROUP_PROMPT_LABEL: Record<RuleGroupPromptKey, string> = {
 export interface ModelRow {
   rowId: string;
   modelName: string;
+  /** 逗号、分号或换行分隔；缺省兼容旧表单。 */
+  aliases?: string;
   json: string;
   /** 逗号分隔的 DBC 文件列表 */
   dbc: string;
@@ -70,6 +72,7 @@ export function ruleGroupToForm(group: RuleGroup, createRowId: () => string): Ru
   const modelRows = Object.entries(group.model_to_files ?? {}).map(([modelName, config]) => ({
     rowId: createRowId(),
     modelName,
+    aliases: asText(config?.aliases),
     json: asText((config as Partial<ModelFileConfig> | undefined)?.json),
     dbc: asText((config as Partial<ModelFileConfig> | undefined)?.dbc),
     proto: asText((config as Partial<ModelFileConfig> | undefined)?.proto),
@@ -106,7 +109,9 @@ export function formToRuleGroupInput(values: RuleGroupFormValues, isBosch: boole
   for (const row of values.modelRows) {
     const modelName = row.modelName.trim();
     if (!modelName) continue;
+    const aliases = [...new Set((row.aliases ?? "").split(/[,，;；\r\n]+/).map(item => item.trim()).filter(Boolean))];
     model_to_files[modelName] = {
+      ...(aliases.length ? { aliases } : {}),
       json: row.json.trim(),
       dbc: row.dbc.split(",").map((item) => item.trim()).filter(Boolean),
       proto: row.proto.trim(),

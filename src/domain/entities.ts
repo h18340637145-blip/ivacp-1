@@ -54,6 +54,8 @@ export const PROCESS_STAGE_LABEL: Record<ProcessStage, string> = {
 // ─── 规则组 ──────────────────────────────────────────────────────────────────
 
 export interface ModelFileConfig {
+  /** 显式配置的车型别名，按原文完整匹配；缺省时不推断。 */
+  aliases?: string[];
   json: string;
   dbc: string[];
   proto: string;
@@ -240,6 +242,8 @@ export type SignalTraceData = Record<string, { x: string[]; y: number[] }>;
 export type SignalTicks = Record<string, { labels: string[]; ticks: number[] }>;
 
 export interface ProcessResult {
+  versionVhalCheck?: import("@/domain/analysis/version-vhal").VersionVhalCheck;
+  configurationResolution?: import("@/domain/analysis/effective-configuration").ConfigurationResolution;
   id: string;
   source: TicketSource;
   ticketKey: string;
@@ -305,6 +309,8 @@ export interface ProcessResult {
 
 /** 重新分析时旧结果归档为历史（旧 issueAnalysisHistories + meegleAnalysisHistories） */
 export interface AnalysisHistory {
+  versionVhalCheck?: import("@/domain/analysis/version-vhal").VersionVhalCheck;
+  configurationResolution?: import("@/domain/analysis/effective-configuration").ConfigurationResolution;
   id: string;
   source: TicketSource;
   ticketKey: string;

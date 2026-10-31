@@ -2,6 +2,7 @@ import { REJECT_REASON_CODES } from "@/domain/analysis/reject-reasons";
 import { z } from "zod";
 import type { ProcessRequest } from "@/server/pipeline/types";
 const modelFile = z.object({
+  aliases: z.array(z.string()).optional(),
   json: z.union([z.string(), z.array(z.string())]).transform((value) => Array.isArray(value) ? JSON.stringify(value) : value),
   dbc: z.union([z.string(), z.array(z.string())]).transform((value) => {
     if (Array.isArray(value)) return value;

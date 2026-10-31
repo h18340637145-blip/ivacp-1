@@ -1,3 +1,5 @@
+import { configurationFixture } from "./helpers/configuration-fixture";
+import { versionVhalFixture, versionVhalVsFixture } from "./helpers/version-vhal-fixture";
 import "fake-indexeddb/auto";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import type { RuleGroup, TicketSnapshot } from "@/domain/entities";
@@ -15,6 +17,17 @@ beforeEach(async () => { await db.open(); await Promise.all(db.tables.map((table
 afterEach(() => vi.unstubAllGlobals());
 
 describe("统一分析生命周期", () => {
+  it.each([versionVhalFixture, versionVhalVsFixture])("persists checks in IndexedDB and retains them when archiving a rerun: %s", async makeCheck => {
+    const attempt = await beginProcessAttempt(snapshot, group, false);
+    const check = makeCheck();
+    const result = await finishProcessAttempt(attempt.task, {replyText:"检查结论",issueKey:"TEST-1",model:"test",versionVhalCheck:check,configurationResolution:configurationFixture()});
+    db.close(); await db.open();
+    expect((await db.processResults.get(result!.id))?.versionVhalCheck).toEqual(check);
+    expect((await db.processResults.get(result!.id))?.configurationResolution).toEqual(configurationFixture());
+    await beginProcessAttempt(snapshot,group,true);
+    expect((await db.analysisHistories.toArray())[0].versionVhalCheck).toEqual(check);
+    expect((await db.analysisHistories.toArray())[0].configurationResolution).toEqual(configurationFixture());
+  });
   it("新运行完成后旧 Jira 响应不能成为最新结果", async () => {
     const old = await beginProcessAttempt(snapshot, group, false);
     await db.processTasks.update(old.task.id, { createdAt: new Date(Date.now() - 3 * 3600_000) });

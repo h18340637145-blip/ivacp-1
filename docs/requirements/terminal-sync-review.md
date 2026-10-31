@@ -1,6 +1,8 @@
 # 远程终端：提交映射与配置文件同步需求
 
-版本：v0.4 · 日期：2026-10-29 · 状态：已实现，已完成隔离验证，真实业务远端待验收。
+版本：v0.6，含当前 type.h 身份命名与 api-public 根 Proto 同步 · 日期：2026-10-31。
+
+> 当前 type.h 身份命名等 v0.5 行为已实现并完成隔离验证；第 12 节 api-public 根 Proto 同步已接入固定提交读取与快照发布。真实业务远端验收仍独立记录。
 
 本文已纳入用户确认的同步范围、提交来源、RTC 格式、目录结构、权限及文件更新策略。剩余设计建议单独标注。同步扩展复用现有终端与登录，文件和映射保存在 IVACP 本机；不会自动触发分析流水线。
 
@@ -70,7 +72,7 @@ project.json 数组
 
 ## 4. 使用流程与图解
 
-[打开可缩放的同步流程图](./terminal-sync-flow.html)。流程图展示基础同步流程；v0.4 最近 10 条映射与 type.h 版本归档以第 5、6 节为准；确认项汇总见第 10 节。
+[打开可缩放的同步流程图](./terminal-sync-flow.html)。流程图展示基础同步流程；最近 10 条映射、type.h 版本归档和当前身份命名以第 5、6 节为准；确认项汇总见第 10 节。
 
 ![同步流程图](./assets/terminal-sync-flow.png)
 
@@ -141,7 +143,7 @@ project.json 数组
 
 **三类来源目录均递归搜索，不保留任何源相对层级。** 所有 repo 的文件直接合并到当前分支组目录中，不按来源、扩展名或 repo 再建子目录。scripts 中仅收集原需求指定的 type.h、types.hal、.xls，不额外增加 .xlsx 或其他脚本。
 
-JSON、SDB 目录文件、type.h、types.hal 和 .xls 文件都直接以原文件名保存在同一个分支组目录中。不会建立 json、sdb、.h、xls、scripts 或 repoName 子目录。
+JSON、SDB 目录文件、types.hal 和 .xls 文件直接以原文件名保存；type.h 同时发布当前身份命名文件和 type.h 兼容副本，见第 6.2 节。所有文件都位于同一个分支组目录。不会建立 json、sdb、.h、xls、scripts 或 repoName 子目录。
 
 
 已确认目录示例：
@@ -153,7 +155,8 @@ configuration/
       ├─ config_A.json            ← 原 tools/json/a/config_A.json
       ├─ config_B.json            ← 原 tools/json/b/deep/config_B.json
       ├─ vehicle.dbc              ← 原 tools/sdb/sub/vehicle.dbc
-      ├─ type.h
+      ├─ <commitid>_<RTC列表>_<VHAL编码>  ← 当前版本文件，无扩展名
+      ├─ type.h                  ← 同内容兼容副本
       ├─ types.hal
       ├─ VHAL_SIGNAL_CHECKLIST_s.xls
       └─ .sync-state.json         ← 分支组发布清单，记录各 repo 及文件来源
@@ -171,12 +174,41 @@ configuration/
 
 ### type.h 的版本归档
 
-`type.h` 内容相同不归档；内容不同时，在发布新文件前将旧文件重命名归档到 `bak/commitid_rtcids_vhal-version`（无扩展名）。例如 `bak/e01858484fb8cf4b08ee83a628972554e6a5b4fc_RTC1-3109902_82552236`。新文件继续使用 `type.h`。
+`type.h` 内容相同不归档；内容不同时，在发布新文件前将旧文件重命名归档到 `bak/commitid_rtcids_vhal-version`（无扩展名）。例如 `bak/e01858484fb8cf4b08ee83a628972554e6a5b4fc_RTC1-3109902_82552236`。新文件同时以当前提交身份命名，并保留同内容 `type.h` 兼容副本（2026-10-31 用户确认）。
 
 - commit 来自旧快照最终生效的文件来源仓库；RTC 使用本轮合并前 `project.json` 中该 commit 的映射，不使用新提交命名旧文件。没有旧清单时，使用对应仓库原映射最后一项。
 - `vhal-version` 从旧文件 `VER_PRO_CFG` 提取原始 8 位值；多个 RTC 用下划线连接。没有 RTC 使用 `no-rtc`；无法解析版本使用 `unknown-vhal`，缺少有效旧 commit 身份则失败并保留旧文件。
 - 历史归档随快照保留，后续同步不删除。归档名已存在且内容不同则报告失败，保留原快照；同内容可复用。同批次多个来源覆盖也保留来源身份。
 - 暂存目录中完成归档和新文件准备，文件与映射发布失败时恢复原快照；普通文件继续使用 `bak/<文件名>` 规则。
+
+### 6.2 当前 type.h 按提交身份命名（2026-10-31）
+
+每次同步以最终生效的 `type.h` 来源仓库的当前固定 commit、该 commit 的 RTC 列表、文件内 `VER_PRO_CFG` 原始 8 位编码，生成无扩展名版本文件：
+
+```text
+configuration/<项目>/<分支组>/<完整commitid>_<RTC列表>_<8位VHAL编码>
+例如：a0ffcea6b5db76730bde833e742ba01192befa6a_RTC1-3103705_82552236
+```
+
+用户已选择**保留同内容 type.h 兼容副本**，供当前分析与 VHAL 标签读取；两个文件均纳入发布清单和完整性校验，不使用符号链接。命名身份来自实际提供最终文件内容的仓库，不固定假定某个仓库，也不以其他仓库的 commit 命名。
+
+- 多 RTC 去重后按顺序用 `_` 连接；无 RTC 使用 `no-rtc`；无法解析 VHAL 使用 `unknown-vhal`，沿用既有归档约定。当前 Git 历史含该 commit 的 RTC 记录时，以该记录为准。
+- 即使文件内容相同，只要当前 commit 或其 RTC 列表变化，也更新当前版本文件名。完全未变化且两个文件完整则跳过；缺失任一副本时补齐。
+- 文件名变化或远端不再提供 type.h 时，将上一份已发布的命名文件移入 `bak/`，保留其发布时身份。即使内容相同，也保留该提交身份记录。旧 type.h 内容变化时按第 6.1 节保留原有归档规则。
+- 当前版本文件或历史归档同名且同内容可复用；远端普通文件若占用当前或上一份版本文件名，则作为命名冲突失败；同名异内容也失败，不覆盖冲突文件，不发布该分支组的新映射或半份文件。
+- `.sync-state.json` 新增可选 `headerFile` 指向当前命名文件，`files` 同时保存该文件与兼容副本的 blob ID；来源记录继续保留远端原始路径。旧清单在下次同步时补充命名文件，无须变更提交或人工迁移。
+- 命名、备份、清单和映射沿用暂存与原子发布流程，取消或失败保留原快照；VHAL 标签、固定 type.h 读取及 Pipeline 的 VS commit 版本定位继续可用。
+
+```mermaid
+flowchart LR
+  A[固定仓库当前提交并下载最终type.h] --> B[当前commit + RTC + VHAL编码]
+  B --> C[生成当前身份命名文件]
+  C --> D[保留同内容type.h兼容副本]
+  D --> E[旧命名文件移入bak，检查同名冲突]
+  E --> F[完整性校验并原子发布文件、清单与映射]
+```
+
+验收：首次发布、重复同步、同内容新 commit、同 commit RTC 修正、多来源最终胜出、无 RTC / 无有效版本、旧快照升级、任一副本缺失、版本文件 / 归档冲突、远端删除、取消 / 失败恢复，以及终端标签刷新和固定 type.h 的分析读取，均须覆盖。
 
 ## 7. 文件更新与失败处理（已实现）
 
@@ -244,3 +276,17 @@ configuration/
 ## 12. 当前分支 VHAL 标签（2026-10-29）
 
 同步后从打平目录最终生效的 type.h 提取 VER_PRO_CFG，如82552236。保存原始值、8255平台、22.36版至分支清单及报告；项目/分支选择栏下一行显示「当前分支已经配置的最新vhal版本是：82552236」。切换项目/分支与服务器分别隔离，页面刷新从已发布且校验通过的本地快照恢复；没有有效版本时显示未提取到。旧快照再次同步补记版本，提交未变时无需重复传输文件；同步失败不会用失败候选版本覆盖旧快照标签。
+
+## 12. api-public 根 Proto 同步增量（已实现）
+
+配合 [日志自动匹配基础配置需求 v1.0](pipeline-auto-config-review.md)，用户明确要求补齐 Proto 同步：
+
+- 仅对当前配置中 `repoName=api-public` 的仓库增加源文件 `com.bosch.cm.platform.vehicle.proto`。
+- 远端逻辑位置为 `<mainPath>/<repoPath>/com.bosch.cm.platform.vehicle.proto`，即仓库根路径；不是 tools/scripts，不使用项目 scriptPath，也不递归扫描所有 .proto。
+- 沿用各仓库 branchName 固定提交和 Git blob 读取，取得该提交中的根文件；不读取未提交工作区，不 fetch / pull / checkout。
+- 保存为 `configuration/<projectName>/<branchGroupName>/com.bosch.cm.platform.vehicle.proto`，保持原名，不增加来源仓库层级或 commit 前缀。
+- 纳入同一轮暂存、来源清单、blob 校验和原子发布；文件内容未变可跳过，缺失可补齐，变更按普通文件 bak 规则处理。复制或校验失败不发布该分支组半份配置。
+- 源文件不存在明确提示，不制造文件；源文件删除沿用托管文件移除规则，不把旧文件作为当前提交内容。没有 api-public 的分支组不跨项目 / 分支借用文件。
+- 不自动改写规则组的 proto 文件名；自动匹配仍须按匹配车型声明的完整 JSON / DBC / Proto 清单校验，缺文件整体回退用户配置。
+
+验收须覆盖：固定提交根文件与脏工作区区分、非 api-public 不复制、原名和来源校验、重复同步、缺失补齐、变更 bak、源缺失 / 删除、传输失败及发布回滚。分析流水线不因需要 Proto 自动发起远端同步。

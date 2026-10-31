@@ -19,7 +19,7 @@ async function fixture() {
 it("syncs every project; skips complete snapshots; repairs missing files; replaces and removes managed files on changed commits", async () => {
  const f = await fixture(); const run = () => runTerminalSync({ root: f.root, targetId: "t", reader: f.reader });
  expect((await run()).branches.map(b => b.status)).toEqual(["updated", "updated"]);
- expect(await fs.readdir(f.output)).toEqual([".sync-state.json", "any.json", "type.h"]);
+ expect(await fs.readdir(f.output)).toEqual([".sync-state.json", "a".repeat(40)+"_RTC1-3103704_unknown-vhal", "any.json", "type.h"]);
  expect((await run()).branches[0].status).toBe("unchanged"); expect(f.reader.readFile).toHaveBeenCalledTimes(4);
  await fs.unlink(path.join(f.output, "type.h")); expect((await run()).branches[0].status).toBe("repaired");
  await fs.writeFile(path.join(f.output,"unmanaged.txt"), "keep");
@@ -131,7 +131,7 @@ it("merges all recent commits and corrects RTC mappings even when files are unch
  const snapshot = f.reader.snapshot;
  const history = [{ commitid: "a".repeat(40), rtcids: ["RTC1-42", "RTC1-43"] }, { commitid: "b".repeat(40), rtcids: [] }];
  f.reader.snapshot = async (...args) => ({ ...await snapshot(...args), history });
- expect((await run()).branches[0].status).toBe("unchanged");
+ expect((await run()).branches[0].status).toBe("updated");
  const saved = JSON.parse(await fs.readFile(path.join(f.root, "docs/project.json"), "utf8"));
  expect(saved[0].branches[0].repos[0]["commid-rtcids-map"]).toEqual(history);
  expect(saved[1].branches[0].repos[0]["commid-rtcids-map"]).toEqual(history);
@@ -154,21 +154,21 @@ it("archives changed type.h with the pre-sync mapping and old header version", a
  expect(await fs.readFile(archive, "utf8")).toBe(old);
  expect(await fs.readFile(path.join(f.output, "type.h"), "utf8")).toContain("82552237");
  expect((await run()).branches[0].status).toBe("unchanged");
- expect(await fs.readdir(path.join(f.output, "bak"))).toEqual([path.basename(archive)]);
+ expect(await fs.readdir(path.join(f.output, "bak"))).toEqual(["a".repeat(40)+"_RTC1-3103704_82552236",path.basename(archive)]);
 });
 
 
-it("keeps old header archives across later syncs and does not archive identical content", async () => {
+it("keeps named header identities across later syncs including identical content", async () => {
  const f = await fixture();
  const run = () => runTerminalSync({ root: f.root, targetId: "t", reader: f.reader });
  const header = (version: string) => f.makeFile("type.h", `#define VER_PRO_CFG "${version}"`);
  f.set("a".repeat(40), [header("82552236")]); await run();
  f.set("b".repeat(40), [header("82552236")]); await run();
- expect(await fs.stat(path.join(f.output, "bak")).catch(() => null)).toBeNull();
+ expect(await fs.readFile(path.join(f.output,"bak","a".repeat(40)+"_RTC1-3103704_82552236"),"utf8")).toContain("82552236");
  f.set("c".repeat(40), [header("82552237")]); await run();
  f.set("d".repeat(40), [header("82552238")]); await run();
  expect(await fs.readdir(path.join(f.output, "bak"))).toEqual([
-   "b".repeat(40) + "_RTC1-3103704_82552236", "c".repeat(40) + "_RTC1-3103704_82552237",
+   "a".repeat(40) + "_RTC1-3103704_82552236", "b".repeat(40) + "_RTC1-3103704_82552236", "c".repeat(40) + "_RTC1-3103704_82552237",
  ]);
 });
 
@@ -204,4 +204,86 @@ it("leaves the old snapshot and config intact if type.h archive name is already 
  // The independent second project can still succeed.
  const saved = JSON.parse(await fs.readFile(path.join(f.root, "docs/project.json"), "utf8"));
  expect(saved[0]).toEqual(JSON.parse(before)[0]);
+});
+
+it("publishes the current header by commit, RTC list and VHAL code while keeping type.h compatible", async () => {
+ const { extractVhalVersion } = await import("@/server/pipeline/vhal-version");
+ const f=await fixture();const content='#define VER_PRO_CFG "82552236"';
+ f.set("a".repeat(40),[f.makeFile("type.h",content)]);
+ f.reader.snapshot=async()=>({commitid:"a".repeat(40),rtcids:["RTC1-42","RTC1-43","RTC1-42"],files:[f.makeFile("type.h",content)],warnings:[]});
+ const run=()=>runTerminalSync({root:f.root,targetId:"t",reader:f.reader});
+ expect((await run()).branches[0].status).toBe("updated");
+ const name="a".repeat(40)+"_RTC1-42_RTC1-43_82552236";
+ expect(await fs.readFile(path.join(f.output,name),"utf8")).toBe(content);
+ expect(await extractVhalVersion(f.output)).toMatchObject({status:"ok",raw:"82552236"});
+ const manifest=JSON.parse(await fs.readFile(path.join(f.output,".sync-state.json"),"utf8"));
+ expect(manifest.headerFile).toBe(name);expect(manifest.files).toContainEqual({name,oid:gitBlobId(Buffer.from(content))});
+ expect((await run()).branches[0].status).toBe("unchanged");
+ await fs.rm(path.join(f.output,name));expect((await run()).branches[0].status).toBe("repaired");
+ expect(await fs.readFile(path.join(f.output,name),"utf8")).toBe(content);
+});
+it("renames current header on commit-only changes and archives the previous named copy",async()=>{
+ const f=await fixture();const content='#define VER_PRO_CFG "82552236"';
+ const run=()=>runTerminalSync({root:f.root,targetId:"t",reader:f.reader});
+ f.set("a".repeat(40),[f.makeFile("type.h",content)]);await run();
+ const old="a".repeat(40)+"_RTC1-3103704_82552236";
+ f.set("b".repeat(40));expect((await run()).branches[0].status).toBe("updated");
+ expect(await fs.readFile(path.join(f.output,"b".repeat(40)+"_RTC1-3103704_82552236"),"utf8")).toBe(content);
+ expect(await fs.stat(path.join(f.output,old)).catch(()=>null)).toBeNull();
+ expect(await fs.readFile(path.join(f.output,"bak",old),"utf8")).toBe(content);
+ expect(await fs.readFile(path.join(f.output,"type.h"),"utf8")).toBe(content);
+});
+it("updates the current name when Git history corrects RTC without a commit or content change",async()=>{
+ const f=await fixture();const content='#define VER_PRO_CFG "82552236"';
+ f.set("a".repeat(40),[f.makeFile("type.h",content)]);
+ const run=()=>runTerminalSync({root:f.root,targetId:"t",reader:f.reader});await run();
+ const snapshot=f.reader.snapshot;
+ f.reader.snapshot=async(...args)=>({...await snapshot(...args),history:[{commitid:"a".repeat(40),rtcids:["RTC1-99"]}]});
+ await run();expect(await fs.readFile(path.join(f.output,"a".repeat(40)+"_RTC1-99_82552236"),"utf8")).toBe(content);
+});
+it("refuses a conflicting current identity file without publishing mappings or replacing type.h",async()=>{
+ const f=await fixture();const run=()=>runTerminalSync({root:f.root,targetId:"t",reader:f.reader});
+ f.set("a".repeat(40),[f.makeFile("type.h",'#define VER_PRO_CFG "82552236"')]);await run();
+ const before=await fs.readFile(path.join(f.root,"docs/project.json"),"utf8");
+ const next="b".repeat(40)+"_RTC1-3103704_82552237";await fs.writeFile(path.join(f.output,next),"conflict");
+ f.set("b".repeat(40),[f.makeFile("type.h",'#define VER_PRO_CFG "82552237"')]);
+ expect((await run()).branches[0].status).toBe("failed");
+ expect(await fs.readFile(path.join(f.output,"type.h"),"utf8")).toContain("82552236");
+ expect(await fs.readFile(path.join(f.output,next),"utf8")).toBe("conflict");
+ expect(JSON.parse(await fs.readFile(path.join(f.root,"docs/project.json"),"utf8"))[0]).toEqual(JSON.parse(before)[0]);
+});
+it("upgrades legacy snapshots even when the commit is unchanged and preserves VHAL restoration",async()=>{
+ const {loadTerminalProjects}=await import("@/server/terminal/projects");
+ const f=await fixture();f.set("a".repeat(40),[f.makeFile("type.h",'#define VER_PRO_CFG "82552236"')]);
+ const run=()=>runTerminalSync({root:f.root,targetId:"t",reader:f.reader});await run();
+ const file=path.join(f.output,".sync-state.json"),manifest=JSON.parse(await fs.readFile(file,"utf8"));
+ if(manifest.headerFile)await fs.rm(path.join(f.output,manifest.headerFile));
+ manifest.files=manifest.files.filter((item:{name:string})=>item.name=== "type.h");delete manifest.headerFile;
+ await fs.writeFile(file,JSON.stringify(manifest));
+ expect((await run()).branches[0].status).toBe("repaired");
+ expect(JSON.parse(await fs.readFile(file,"utf8")).headerFile).toBe("a".repeat(40)+"_RTC1-3103704_82552236");
+ expect((await loadTerminalProjects(f.root))[0].branches[0].syncedVhal?.raw).toBe("82552236");
+});
+it("names the final winning repository header and preserves its identity when removed",async()=>{
+ const f=await fixture();const file=path.join(f.root,"docs/project.json"),config=JSON.parse(await fs.readFile(file,"utf8"));
+ for(const project of config)project.branches[0].repos.push({repoName:"other",repoPath:"other",branchName:"local"});
+ await fs.writeFile(file,JSON.stringify(config));let removed=false;
+ f.reader.snapshot=async(_project,repo)=>({commitid:(repo.repoName==="r"?"a":"b").repeat(40),rtcids:repo.repoName==="r"?["RTC1-1"]:[],files:removed?[]:[f.makeFile("type.h",'#define VER_PRO_CFG "82552236"')],warnings:[]});
+ const run=()=>runTerminalSync({root:f.root,targetId:"t",reader:f.reader});await run();
+ const name="b".repeat(40)+"_no-rtc_82552236";
+ expect(await fs.readFile(path.join(f.output,name),"utf8")).toContain("82552236");
+ expect(await fs.stat(path.join(f.output,"a".repeat(40)+"_RTC1-1_82552236")).catch(()=>null)).toBeNull();
+ removed=true;await run();expect(await fs.stat(path.join(f.output,"type.h")).catch(()=>null)).toBeNull();
+ expect(await fs.stat(path.join(f.output,name)).catch(()=>null)).toBeNull();
+ expect(await fs.readFile(path.join(f.output,"bak",name),"utf8")).toContain("82552236");
+});
+it("refuses a remote file occupying the previous header identity instead of publishing a missing file",async()=>{
+ const f=await fixture();const old='#define VER_PRO_CFG "82552236"';
+ const run=()=>runTerminalSync({root:f.root,targetId:"t",reader:f.reader});
+ f.set("a".repeat(40),[f.makeFile("type.h",old)]);await run();
+ const previous="a".repeat(40)+"_RTC1-3103704_82552236";
+ f.set("b".repeat(40),[f.makeFile("type.h",'#define VER_PRO_CFG "82552237"'),f.makeFile(previous,old,`tools/sdb/${previous}`)]);
+ expect((await run()).branches[0].status).toBe("failed");
+ expect(await fs.readFile(path.join(f.output,previous),"utf8")).toBe(old);
+ expect(await fs.readFile(path.join(f.output,"type.h"),"utf8")).toBe(old);
 });

@@ -47,6 +47,8 @@ export function createAnalysisHistory(
     sourceSnapshotId: result.snapshotId,
     sourceProcessTaskId: task.id,
     sourceResultId: result.id,
+    versionVhalCheck: result.versionVhalCheck,
+    configurationResolution: result.configurationResolution,
     replyText: result.replyText,
     reviewStatus: result.reviewStatus,
     aiConclusionTime: result.aiConclusionTime,

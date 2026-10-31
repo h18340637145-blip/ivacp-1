@@ -1,0 +1,4 @@
+import type {ConfigurationResolution} from "@/domain/analysis/effective-configuration";
+export function configurationFixture(mode:"auto"|"manual"="auto"):ConfigurationResolution {
+ return {schemaVersion:1,mode,reason:mode==="auto"?"已按日志唯一匹配当前分支配置":"未取得 SOC/SCC，整体回退用户配置",requested:{carModel:"T1J-FL3-8255",basePaths:{json_dir:"/manual",dbc_dir:"/manual",proto_dir:"/manual"}},evidence:{ticketModel:"T1JFL3",logModels:["T1JFL3"],socVersions:["branch_2026.44.5"]},candidates:[{projectName:"chery-8255",branchGroupName:"t1x-sop"}],actual:{carModel:"T1J-FL3-8255",...(mode==="auto"?{projectName:"chery-8255",branchGroupName:"t1x-sop",directory:"configuration/chery-8255/t1x-sop",manifestFingerprint:"frozen-current"}:{}),files:[{kind:"json",source:"/configuration/config.json",snapshot:"/run/effective-config/json/config.json",sha256:"a".repeat(64)}]},warnings:[],summary:mode==="auto"?"自动基础配置：chery-8255 / t1x-sop；T1J-FL3-8255；已冻结分支当前配置":"用户默认基础配置：SOC/SCC缺失，整体回退"};
+}

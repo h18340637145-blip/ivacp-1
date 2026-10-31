@@ -104,6 +104,8 @@ export async function recoverMeegleRun(
       ticks: saved?.ticks,
       chartImage,
       signalSummary: saved?.signalSummary ?? signalSummary,
+      versionVhalCheck: saved?.versionVhalCheck,
+      configurationResolution: saved?.configurationResolution,
       reviewEvidence: saved?.reviewEvidence ?? (evidencePacket
         ? reviewEvidenceFromEvidencePacket(evidencePacket)
         : { carModel, props: [], signalTokens: [], propertyIds: [] }),

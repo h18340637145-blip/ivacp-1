@@ -135,6 +135,8 @@ export async function analyzeMeegleWorkItem(
     elapsedMs: result.elapsedMs || 0,
     chartImage: result.chartImage,
     signalSummary: result.signalSummary,
+    versionVhalCheck: result.versionVhalCheck,
+    configurationResolution: result.configurationResolution,
     traceData: result.traceData,
     ticks: result.ticks,
     artifactRef: result.artifactRef,

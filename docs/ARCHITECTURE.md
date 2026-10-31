@@ -1502,6 +1502,8 @@ SessionManager 的自动 Git 刷新按会话延迟 1.2 秒合并；刷新执行�
 
 ### 同步分支 VHAL 元数据与展示（2026-10-29）
 
+2026-10-31 更新：每次同步将最终生效的 type.h 同时保存为 `<完整commitid>_<RTC列表>_<8位VHAL编码>`（无扩展名），并按用户确认保留同内容 `type.h` 兼容副本。身份来自实际来源仓库的当前固定提交；提交或 RTC 变化时即使内容相同也更新名称，旧命名文件保留到 bak。清单新增可选 headerFile 并校验两个文件，旧快照下次同步自动补齐；同名异内容拒绝发布。详情见 [同步需求 v0.5](requirements/terminal-sync-review.md#62-当前-typeh-按提交身份命名2026-10-31)。
+
 sync/vhal.ts 复用流水线 parseVhalVersion 解析器，从最终打平后的 type.h 读取版本。runner 的清单及 TerminalSyncBranchResult 新增可选 vhal（targetId/raw/platform/version），旧完整快照再次同步时补记元数据。loadTerminalProjects 返回每分支 syncedVhal，恢复前验证 configurationKey、type.h 普通文件与 manifest blob ID；不跟随符号链接。客户端按项目+分支缓存同步回传，按目标服务器ID过滤；service配置schema保留syncedVhal。Workspace在选择栏下展示原始版本，缺失/无效不保留上次版本。无需IndexedDB迁移。
 
 ### 最近提交映射与 type.h 归档（2026-10-29）
@@ -1509,3 +1511,33 @@ sync/vhal.ts 复用流水线 parseVhalVersion 解析器，从最终打平后的 
 remote.ts 固定本地分支 commit 后执行 `git log -10 -z --format=%H%x00%B`，以 NUL 分隔逐条提交，保留完整正文供 RTC 提取；文件仍从固定分支尖端读取。SyncSnapshot 可选 history 承载最近最多 10 条映射；storage 按 commit 合并、更新 RTC 并保留旧历史。清单 repos 保存 history 用于中断恢复，兼容旧清单；文件完整跳过时仍刷新映射与清单历史。
 
 runner 根据旧清单最终 type.h 来源定位仓库及旧 commit，合并映射前查找 project.json 对应 RTC，并解析旧文件版本，在暂存目录内归档到 bak/commitid_rtcids_vhal-version 后写入新 type.h。无旧清单时使用对应仓库原映射末项；同批次覆盖跟踪当前文件来源。归档不作为托管源文件删除，异内容归档名冲突阻止发布。文件、归档与 JSON 沿用原发布及回滚流程，不改变浏览器存储或数据库结构。
+
+## Pipeline 版本与 VHAL 检查设计范围（已实现，2026-10-30）
+
+2026-10-31 更新：来源 commit 前缀命中后，以 RTC 完整匹配关联同项目、同一 branches 条目中唯一的 `vs` 仓库提交，再使用 VS commit 搜索版本归档。多 RTC 归并同一 VS commit 后继续；多个不同 VS commit 或多个 VS 仓库条目记歧义。部分 RTC 未匹配时留档提示；来源提交与 VS 提交分别保存在结构化结果与详情证据，旧结果兼容。规则与验收见 [RTC 关联 VS 提交需求](requirements/pipeline-vhal-vs-rtc-review.md)。
+
+已确认覆盖所有共享流水线来源（普通 Jira、Bosch Jira、飞书及共享的单票/批量/周期入口）。证据整理后先由 AI 比对 SOC/SCC，版本不一致立即保存结论并停止后续分析；再按 Android hash 后最新编译日期选择完整短 hash（如 `6a5d61b`），追溯提交并同时搜索分支组根目录和 `bak/`。`82552235` 对应 `V2.2.35`。
+
+车型以当前工单确认的 DBC 为准，保留 D01_OS_APA、D01_HW、T1L_FL1 等车型组成部分；Excel 查 Vehicle property ID、MCU UP、IVI DOWN（通常 I/S/T 列），Project（通常 E 列）按 `/` 分割后匹配完整车型。仅非空待查信号列表全部确认缺少配置且无大小写差异豁免时提前结束；部分缺少仍继续 Step4/5。详情、DBC 映射和验收场景见 [需求审核稿 v0.4](requirements/pipeline-version-vhal-review.md)。已接入共享编排、完整结果持久化、刷新恢复、历史及详情展示；特殊表语义等剩余边界按未知提示继续。SOC/SCC unknown、hash/版本/Excel 无法定位或读取均不阻断；同 commit 跨分支组、短 hash 冲突、最新日期并列不同 hash 时，将全部候选与冲突原因写入持久化日志作为提示，继续分析，不强选唯一版本。信号区分大小写（A 与 a 不同），不自动映射别名；仅大小写不匹配时留档提示并继续，即使只有一个待查信号也不因此停止。
+
+在共享 collectEvidence 后、Step4 前接入，沿用 run 审计与正常结果保存/恢复路径；问题所属版本与当前分析配置版本分别留档。结构化结果使用可选 versionVhalCheck，沿用 IndexedDB 与镜像的现有 JSON 载荷，无索引/schema 升级；不自动切换 JSON/DBC/Proto，也不读取无提交证明的当前 type.h。
+
+## 飞书筛选截止与CLI进程清理（2026-10-30）
+
+`server/meegle/cli-command.ts`以spawn启动CLI，标准输入关闭；Unix使用独立进程组，30秒超时先TERM、250毫秒后KILL整个包装器/原生进程组。应用等待有明确截止，不依赖孙进程何时关闭管道；限制输出大小、按UTF-8解码并保留结构化认证错误。
+
+客户端筛选对整个异步操作设置90秒飞书截止（Jira10分钟），取消信号即使被fetch/正文读取忽略也能使调用方结束。每个关键异步边界检查取消，落盘仍受原最新运行事务门禁保护。状态查询纯函数派生过期态，不在Dexie liveQuery中写库；持久化恢复由现有筛选hook启动、15秒周期与focus事件驱动，清理计时器和监听器。
+
+## 日志自动匹配基础配置（已实现，2026-10-31）
+
+[需求 v1.0](requirements/pipeline-auto-config-review.md) 已按最终确认实现：默认在下载解压后、Step2 前提取 SOC / SCC，并以 project.json 分支及可用 Android hash 消歧；车型完整匹配当前规则组 `aliases` 后，使用所属车型 JSON / 全部 DBC / Proto 清单。自动成功时冻结分支当前配置，配置文件、同步清单、DBC 解析任一失败均整套回退用户默认配置，不混合来源或强选候选。
+
+新增规则组车型别名输入，贯通备份、模板和请求。回退也冻结可用用户文件并保持缺失原能力；运行目录、原始车型、runId 和恢复签名不变。JSON / Proto / DBC / 当前配置 VHAL 使用同一有效配置；明确日志身份冲突时，VHAL 检查记未知而不能用冲突上下文触发全部缺少提前结束。SOC/SCC 提取警告同样触发配置回退，原版本不一致停止规则保留。
+
+本次运行的 `effective-config-resolution.json`、`effective-config-check.md` 与可选 configurationResolution 响应保存原始配置、全部候选、实际配置及文件摘要，内容冻结在 run/effective-config/。IndexedDB、重跑历史、飞书完整响应恢复及详情展示保存同一份决定；旧结果不补造字段，无数据库索引升级。问题历史 VHAL 与分支当前配置仍分别记录，历史整套配套未验证。
+
+同步已增加 api-public 固定提交根文件 com.bosch.cm.platform.vehicle.proto，原名发布至对应 configuration 项目 / 分支组，沿用 blob 校验、补齐、普通 bak、删除及原子发布门禁。没有自动发起远程同步或真实工单分析；部署 / 真实目标验收见交接记录。
+
+## VHAL 属性名称列匹配修复（2026-10-31）
+
+共享信号检查增加按表头定位的 Vehicle property ID 名称列（通常 I 列），与 MCU UP / IVI DOWN 一起做大小写敏感的精确匹配，再检查命中行 Project 的完整车型。读取器保留只有属性名、没有上/下行 CAN 信号的行；旧表没有属性列仍兼容原两列。证据保存 column=Vehicle property ID，不做模糊或后缀猜测，不改变大小写差异 / unknown 继续以及全部确认缺少才停止的规则。7147061892 的四个属性在实际 VHAL 2.2.36 中均可匹配 T1J_FL3；未自动重跑或改写旧结果。

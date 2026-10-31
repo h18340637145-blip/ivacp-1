@@ -1,3 +1,5 @@
+import { configurationFixture } from "./helpers/configuration-fixture";
+import { versionVhalFixture } from "./helpers/version-vhal-fixture";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -15,7 +17,7 @@ async function context(): Promise<ProcessContext> {
  const logRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ivacp-finish-")); directories.push(logRoot);
  return { request: { runId: "confirmed-run" }, issueKey: "meegle-1", ruleGroupId: "g", groupDirName: "g", carModel: "", summary: "问题", issueScene: undefined, logRoot, startTime: Date.now(), stages: {}, artifactRef: "signed", analysisReceipt: "receipt", metrics: createPipelineMetrics({ issueKey: "meegle-1", ruleGroupId: "g", ruleGroupName: "g", summary: "问题", carModel: "", attachRoot: logRoot, logRoot }), logger: { log: vi.fn(), flush: vi.fn(async () => undefined) } } as unknown as ProcessContext;
 }
-const evidence = { canPlotResult: { image: "", summary: "信号摘要", error: "", trace_data: { State: { x: ["2026-10-27 09:00:00"], y: [1] } }, ticks: { State: { ticks: [1], labels: ["有效"] } } }, reviewEvidence: { props: [], signalTokens: [], propertyIds: [] } } as unknown as EvidenceBundle;
+const evidence = { versionVhalCheck: versionVhalFixture(), canPlotResult: { image: "", summary: "信号摘要", error: "", trace_data: { State: { x: ["2026-10-27 09:00:00"], y: [1] } }, ticks: { State: { ticks: [1], labels: ["有效"] } } }, reviewEvidence: { props: [], signalTokens: [], propertyIds: [] } } as unknown as EvidenceBundle;
 describe("success recovery gate", () => {
  it("persists the complete early-success response behind the same success gate", async () => {
   const ctx = await context(); ctx.stages.GENERATING_REPLY = "完成";
@@ -33,10 +35,10 @@ describe("success recovery gate", () => {
   await expect(fs.access(path.join(ctx.logRoot, "pipeline-metrics.json"))).rejects.toThrow();
  });
  it("saves complete recoverable response before marking the run successful", async () => {
-  const ctx = await context();
+  const ctx = await context(); ctx.configurationResolution=configurationFixture();
   await finishSuccess(ctx, { reply: "结论", classified: { mode: "can_only", reason: "" }, evidence, aiStages: { requirements: "需求" } });
   const stored = JSON.parse(await fs.readFile(path.join(ctx.logRoot, "process-response.json"), "utf8"));
-  expect(stored).toMatchObject({ issueKey: "meegle-1", replyText: "结论", traceData: evidence.canPlotResult.trace_data, ticks: evidence.canPlotResult.ticks });
+  expect(stored).toMatchObject({ issueKey: "meegle-1", replyText: "结论", versionVhalCheck: evidence.versionVhalCheck,configurationResolution:configurationFixture(), traceData: evidence.canPlotResult.trace_data, ticks: evidence.canPlotResult.ticks });
   expect(stored.artifactRef).toBeUndefined(); expect(stored.analysisReceipt).toBeUndefined();
   expect(JSON.parse(await fs.readFile(path.join(ctx.logRoot, "pipeline-metrics.json"), "utf8"))).toMatchObject({ status: "success", responseArtifactVersion: 1 });
  });

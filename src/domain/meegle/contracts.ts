@@ -11,6 +11,8 @@ export interface MeegleContextResponse {
 }
 
 export interface MeegleAnalyzeResponse {
+  versionVhalCheck?: import("@/domain/analysis/version-vhal").VersionVhalCheck;
+  configurationResolution?: import("@/domain/analysis/effective-configuration").ConfigurationResolution;
   replyText: string;
   model: string;
   workItemId: string;

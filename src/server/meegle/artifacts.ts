@@ -6,7 +6,7 @@ import { meegleLogBase } from "@/server/meegle/config";
 
 const MAX_ARTIFACT_BYTES = 512 * 1024;
 /** 白名单：仅允许读取分析过程的日志与中间产物 */
-const ARTIFACT_FILE_PATTERN = /^(?:log-versions\.json|pipeline\.log|stages\.json|pipeline-metrics\.json|step[^/]*\.md|extract\.md|signals[^/]*\.json|evidence-[^/]*\.json|final_reply[^/]*\.md|can_signal_summary\.txt|can_trace_extracted_result\.txt)$/;
+const ARTIFACT_FILE_PATTERN = /^(?:effective-config-resolution\.json|effective-config-check\.md|soc-scc-version-check\.json|vhal-version-resolution\.json|vhal-signal-config-check\.json|version-vhal-check\.md|log-versions\.json|pipeline\.log|stages\.json|pipeline-metrics\.json|step[^/]*\.md|extract\.md|signals[^/]*\.json|evidence-[^/]*\.json|final_reply[^/]*\.md|can_signal_summary\.txt|can_trace_extracted_result\.txt)$/;
 
 export type MeegleArtifactResult =
   | { files: string[] }

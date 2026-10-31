@@ -1,3 +1,4 @@
+import { configurationFor } from "./effective-context";
 import path from "node:path";
 import { MAX_CAN_CHARS } from "@/server/pipeline/constants";
 import { readTextFile } from "@/server/pipeline/log-extract";
@@ -204,8 +205,8 @@ export function startCanSignalPlot(
   canTracePath: string,
   signals: SignalMatchResult,
 ): Promise<PlotResult> | null {
-  const { logger, metrics, logRoot, carModel } = ctx;
-  const { basePaths, modelToFiles } = ctx.request;
+  const { logger, metrics, logRoot } = ctx;
+  const { basePaths, modelToFiles, carModel } = configurationFor(ctx);
   const { extractedSignalMatches, signalMatches } = signals;
   if (!(canTracePath && isSupportedCanTrace(canTracePath) && extractedSignalMatches.length > 0)) return null;
 

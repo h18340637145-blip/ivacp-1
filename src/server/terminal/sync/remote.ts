@@ -12,6 +12,7 @@ export interface SyncReader {
 export type SyncCommand = (command: string) => Promise<{ stdout: string; stderr: string; code: number | null }>;
 const quote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
 const shellPath = (value: string) => value.startsWith("~/") ? `~/${quote(value.slice(2))}` : value === "~" ? "~" : quote(value);
+const ROOT_PROTO = "com.bosch.cm.platform.vehicle.proto";
 const validOid = (value: string) => /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value);
 export function extractRtcIds(message: string): string[] {
   return [...new Set([...message.matchAll(/(?<![\p{L}\p{N}_-])RTC1-\d+(?![\p{L}\p{N}_-])/gu)].map(match => match[0]))];
@@ -33,7 +34,9 @@ export function createGitSyncReader(run: SyncCommand): SyncReader {
       if (!repo.repoPath || repo.repoPath.split(/[\\/]/).includes("..") || /[\0\r\n]/.test(repo.repoPath + project.mainPath + repo.branchName)) throw new Error("仓库路径或分支配置无效");
       const repoDir = `${project.mainPath.replace(/\/+$/, "")}/${repo.repoPath.replace(/^\/+/, "")}`;
       const ref = `refs/heads/${repo.branchName}^{commit}`;
-      const stdout = await execute(`cd ${shellPath(repoDir)} && git check-ref-format ${quote(`refs/heads/${repo.branchName}`)} && c=$(git rev-parse --verify ${quote(ref)}) && printf '%s\\0' "$c" && git log -10 -z --format=%H%x00%B "$c" && printf '\\0' && git ls-tree -r -z "$c" -- tools/json tools/sdb tools/scripts`);
+      const includeProto = repo.repoName === "api-public";
+      const protoPath = includeProto ? ` ${quote(ROOT_PROTO)}` : "";
+      const stdout = await execute(`cd ${shellPath(repoDir)} && git check-ref-format ${quote(`refs/heads/${repo.branchName}`)} && c=$(git rev-parse --verify ${quote(ref)}) && printf '%s\\0' "$c" && git log -10 -z --format=%H%x00%B "$c" && printf '\\0' && git ls-tree -r -z "$c" -- tools/json tools/sdb tools/scripts${protoPath}`);
       const parts = stdout.split("\0");
       const commitid = parts.shift() ?? "";
       if (!validOid(commitid)) throw new Error("远端 Git 提交响应格式无效");
@@ -56,7 +59,8 @@ export function createGitSyncReader(run: SyncCommand): SyncReader {
         const name = path.posix.basename(source);
         const category = source.startsWith("tools/json/") && name.endsWith(".json") ? "json"
           : source.startsWith("tools/sdb/") ? "sdb"
-          : source.startsWith("tools/scripts/") && (name === "type.h" || name === "types.hal" || name.endsWith(".xls")) ? "scripts" : "";
+          : source.startsWith("tools/scripts/") && (name === "type.h" || name === "types.hal" || name.endsWith(".xls")) ? "scripts"
+          : includeProto && source === ROOT_PROTO ? "proto" : "";
         if (!category) continue;
         assertFileName(name);
         files.push({ name, source, oid, repoDir }); found.add(category);
@@ -65,6 +69,7 @@ export function createGitSyncReader(run: SyncCommand): SyncReader {
       files.sort((a, b) => a.source < b.source ? -1 : a.source > b.source ? 1 : 0);
       const rtcids = history[0].rtcids;
       const warnings = ["json", "sdb", "scripts"].filter(dir => !found.has(dir)).map(dir => `tools/${dir} 未找到匹配的已提交普通文件`);
+      if (includeProto && !found.has("proto")) warnings.push(`${ROOT_PROTO} 未找到匹配的已提交普通文件`);
       if (!rtcids.length) warnings.push("提交中未识别 RTC ID");
       return { commitid, rtcids, history, files, warnings };
     },

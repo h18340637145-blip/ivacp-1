@@ -31,7 +31,7 @@ describe.skipIf(!baseURL)("规则组看板浏览器验收", () => {
         request.onerror = () => reject(request.error);
       });
       try {
-        return await new Promise<Array<{ id: string; name: string; sortOrder: number; jql: string; meegleMql?: string; jiraProvider?: string; model_to_files: Record<string, { dbc: string[] }>; prompts: Record<string, string> }>>((resolve, reject) => {
+        return await new Promise<Array<{ id: string; name: string; sortOrder: number; jql: string; meegleMql?: string; jiraProvider?: string; model_to_files: Record<string, { dbc: string[]; aliases?: string[] }>; prompts: Record<string, string> }>>((resolve, reject) => {
           const request = database.transaction("ruleGroups").objectStore("ruleGroups").getAll();
           request.onsuccess = () => resolve(request.result);
           request.onerror = () => reject(request.error);
@@ -50,6 +50,7 @@ describe.skipIf(!baseURL)("规则组看板浏览器验收", () => {
     await page.getByLabel("JSON 根目录", { exact: true }).fill("/test/json");
     await page.getByRole("button", { name: "添加车型", exact: true }).click();
     await page.getByLabel("车型名称", { exact: true }).fill("D01");
+    await page.getByLabel("车型别名", { exact: true }).fill(" D01_ALIAS，d01_alias;D01_ALIAS\nD01_FL ");
     await page.getByLabel("DBC 文件（逗号分隔）", { exact: true }).fill("a.dbc, b.dbc");
     await page.getByText("分析提示词（6 项）", { exact: true }).click();
     await page.getByLabel("一致性分析", { exact: true }).fill("请依据证据分析");
@@ -57,10 +58,12 @@ describe.skipIf(!baseURL)("规则组看板浏览器验收", () => {
     await page.getByRole("heading", { name: "奇瑞测试组", exact: true }).waitFor();
     const [created] = await rows();
     expect(created.model_to_files.D01.dbc).toEqual(["a.dbc", "b.dbc"]);
+    expect(created.model_to_files.D01.aliases).toEqual(["D01_ALIAS", "d01_alias", "D01_FL"]);
     expect(created.prompts.CONSISTENCY_SYSTEM).toBe("请依据证据分析");
     await page.reload();
     await page.getByRole("heading", { name: "奇瑞测试组", exact: true }).waitFor();
     await page.getByRole("button", { name: "编辑配置", exact: true }).click();
+    expect(await page.getByLabel("车型别名", { exact: true }).inputValue()).toBe("D01_ALIAS, d01_alias, D01_FL");
     await page.getByLabel("规则组名称", { exact: false }).fill("奇瑞已编辑");
     await page.getByRole("button", { name: "保存规则组", exact: true }).click();
     await page.getByRole("heading", { name: "奇瑞已编辑", exact: true }).waitFor();
@@ -92,12 +95,14 @@ describe.skipIf(!baseURL)("规则组看板浏览器验收", () => {
     const download = await downloadPromise;
     const exported = JSON.parse(await readFile((await download.path())!, "utf8"));
     expect(exported.ruleGroups).toHaveLength(2);
+    expect(exported.ruleGroups.find((row: { id: string }) => row.id === created.id).model_to_files.D01.aliases).toEqual(["D01_ALIAS", "d01_alias", "D01_FL"]);
     exported.ruleGroups.find((row: { id: string }) => row.id === created.id).name = "合并导入组";
     await page.getByRole("button", { name: "导入", exact: true }).click();
     await page.getByLabel("规则组文件", { exact: true }).setInputFiles({ name: "groups.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(exported)) });
     await page.getByText("已校验 2 个规则组", { exact: true }).waitFor();
     await page.getByRole("button", { name: "确认合并导入", exact: true }).click();
     await page.getByRole("heading", { name: "合并导入组", exact: true }).waitFor();
+    expect((await rows()).find(row => row.id === created.id)?.model_to_files.D01.aliases).toEqual(["D01_ALIAS", "d01_alias", "D01_FL"]);
     expect(await page.locator("article h2").allTextContents()).toEqual(["Bosch 测试组", "合并导入组"]);
 
     await page.getByRole("button", { name: "导入", exact: true }).click();

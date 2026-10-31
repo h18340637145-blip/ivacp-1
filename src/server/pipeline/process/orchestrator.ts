@@ -1,3 +1,5 @@
+import { selectEffectiveConfiguration } from "./effective-configuration";
+import { extractLogVersions } from "../log-versions";
 import { HttpError } from "@/server/http/route";
 import { fetchMeegleHandoverAt } from "@/server/handover/handover";
 import { randomUUID } from "node:crypto";
@@ -17,6 +19,8 @@ import { finishMeegleMissingAttachments, finishRejected, finishWithoutAttachment
 import { downloadAndExtractAttachments } from "./fetch-attachments";
 import { runRequirementStep, runSignalExtractStep, matchSignalsToConfig, readCanTracePreview, startCanSignalPlot } from "./signals-stage";
 import { buildUpperBundle, runUpperSummaryStep, runAndroidQnxStep } from "./log-summary-stage";
+import { parseStep2SignalTokens } from "../signals";
+import { runVersionVhalCheck } from "./version-vhal-stage";
 import { collectEvidence } from "./evidence-stage";
 import { runFinalConclusion, refineFinalReply } from "./conclusion-stage";
 import { appendBoschMainVersion } from "./version-extract";
@@ -67,7 +71,6 @@ async function runStages(ctx: ProcessContext, signal?: AbortSignal): Promise<Pro
   check();
   const preparingStarted = Date.now();
   const prepared = await prepareIssueData(ctx);
-  const config = await loadModelConfig(ctx);
   check();
   const staged = await stageCommentAttachments(ctx, prepared.liveAttachments);
   const classified = classifyAttachments(staged.attachments);
@@ -88,6 +91,13 @@ async function runStages(ctx: ProcessContext, signal?: AbortSignal): Promise<Pro
   if (classified.mode === "no_attachments") return finishWithoutAttachments(ctx, commentsText);
 
   const downloaded = await downloadAndExtractAttachments(ctx, classified, staged.attachments, staged.stagedPaths);
+  ctx.logVersionWarnings = [];
+  ctx.logVersions = classified.latestZip && downloaded.extractDir
+    ? await extractLogVersions(downloaded.extractDir, message => { ctx.logVersionWarnings!.push(message); ctx.logger.log("VERSION_EXTRACT", message); }) : [];
+  check();
+  await selectEffectiveConfiguration(ctx, { records: ctx.logVersions, extractDir: downloaded.extractDir, warnings: ctx.logVersionWarnings });
+  check();
+  const config = await loadModelConfig(ctx);
   const aiStages: Record<string, string> = {};
   check();
   const aiRequirements = await runRequirementStep(ctx, commentsText, aiStages);
@@ -106,6 +116,15 @@ async function runStages(ctx: ProcessContext, signal?: AbortSignal): Promise<Pro
     check();
     const evidence = await collectEvidence(ctx, { classified, plotPromise, signals, commentsText, extractDir: downloaded.extractDir, ...preview });
     check();
+    const versionCheck = await runVersionVhalCheck(ctx, { records: evidence.logVersions, extractDir: downloaded.extractDir, tokens: parseStep2SignalTokens(aiSignals, true) });
+    evidence.versionVhalCheck = versionCheck;
+    check();
+    if (versionCheck.stopReason) return finishSuccess(ctx, { reply: versionCheck.summary, classified, evidence, aiStages });
+    // Both model stages receive the exact persisted check summary, including uncertainty warnings.
+    const configurationSummary = ctx.configurationResolution?.summary ?? "";
+    evidence.androidLog += `\n\n${configurationSummary}\n\n${versionCheck.summary}`;
+    evidence.evidencePacketText += `\n\n${configurationSummary}\n\n${versionCheck.summary}`;
+    await saveStepLog(ctx.logRoot, "step4_android_qnx_input.md", ["<Android日志筛选结果>", evidence.androidLog, "</Android日志筛选结果>", "<QNX日志筛选结果>", evidence.qnxLog || "空", "</QNX日志筛选结果>"].join("\n"));
     const aiAndroidQnxSummary = await runAndroidQnxStep(ctx, evidence.androidLog, evidence.qnxLog, aiStages);
     check();
     let reply = await runFinalConclusion(ctx, { classified, commentsText, aiRequirements, aiSignals, aiUpperSummary, aiAndroidQnxSummary, upperBundle, canTraceText: preview.canTraceText, signals, evidence });

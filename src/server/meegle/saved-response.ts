@@ -1,8 +1,13 @@
+import { configurationResolutionSchema } from "@/domain/analysis/effective-configuration";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 
+import { versionVhalCheckSchema } from "@/domain/analysis/version-vhal";
+
 const responseSchema = z.object({
+  configurationResolution: configurationResolutionSchema.optional(),
+  versionVhalCheck: versionVhalCheckSchema.optional(),
   issueKey: z.string(), replyText: z.string().min(1), model: z.string(), mode: z.string().optional(), elapsedMs: z.number().finite().optional(),
   stages: z.record(z.string(), z.string()).default({}), tokenUsage: z.number().finite().nonnegative().optional(), signalSummary: z.string().optional(),
   traceData: z.record(z.string(), z.object({ x: z.array(z.string()), y: z.array(z.number().finite()) })).optional(),

@@ -1,11 +1,9 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { executeMeegle } from "./cli-command";
 
 export function formatMeegleCliError(error: unknown): string {
   const fallback = "飞书 MQL 查询失败，请检查服务端日志";
   if (!error || typeof error !== "object") return fallback;
+  if ((error as { code?: unknown }).code === "MEEGLE_CLI_TIMEOUT") return "飞书 CLI 请求超时，已停止本次查询，请重新筛选；若持续超时，请检查飞书 CLI 登录状态与网络";
   const stderr = (error as { stderr?: unknown }).stderr;
   if (typeof stderr !== "string") return fallback;
   try {
@@ -54,21 +52,11 @@ export interface MeegleRoleOperateInput {
 }
 
 export async function runMeegleJson<T>(args: string[], timeout = 30_000): Promise<T> {
-  const { stdout } = await execFileAsync("meegle", [...args, "--format", "json"], {
-    encoding: "utf8",
-    timeout,
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  return JSON.parse(stdout) as T;
+  return JSON.parse(await executeMeegle([...args, "--format", "json"], timeout)) as T;
 }
 
 export async function runMeegle(args: string[], timeout = 30_000): Promise<string> {
-  const { stdout } = await execFileAsync("meegle", args, {
-    encoding: "utf8",
-    timeout,
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  return stdout;
+  return executeMeegle(args, timeout);
 }
 
 export async function getMeegleWorkItem(projectKey: string, workItemId: string): Promise<Record<string, unknown>> {

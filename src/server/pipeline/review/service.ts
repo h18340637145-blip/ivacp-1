@@ -54,6 +54,8 @@ const REVIEW_SYSTEM_PROMPT = `你是一个 Jira 车控问题分析结论的质�
 
 const LOG_BASE = path.join(process.cwd(), "log");
 const REVIEW_LOG_FILES = [
+  "version-vhal-check.md",
+  "effective-config-check.md",
   "evidence-packet.json",
   "can_signal_summary.txt",
   "input_comments.txt",

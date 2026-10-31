@@ -1,5 +1,6 @@
 import { parseVhalVersion } from "../../pipeline/vhal-version";
 import { readSyncedHeader } from "./vhal";
+import { currentHeaderName, currentRtcids, retireNamedHeader, writeNamedHeader } from "./header-identity";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
@@ -7,7 +8,7 @@ import type { TerminalProject, TerminalBranchConfig } from "../../../domain/term
 import type { TerminalSyncBranchResult, TerminalSyncProgress, TerminalSyncReport, TerminalBranchVhal } from "../../../domain/terminal/sync";
 import { assertFileName, gitBlobId, type SyncCommit, type SyncReader, type SyncSnapshot } from "./remote";
 import { acquireSyncLock, assertNoLinks, atomicJson, branchKey, exists, prepareMappings, readProjects, realDirectory } from "./storage";
-interface Manifest { vhal?: TerminalBranchVhal; schemaVersion: 1; targetId: string; fingerprint: string; configurationKey: string; files: Array<{ name: string; oid: string }>; repos: Array<{ repoName: string; repoPath: string; branchName: string; latestSyncedCommitId: string; rtcids: string[]; history?: SyncCommit[] }>; sources: Array<{ repoName: string; source: string; name: string; oid: string }>; syncedAt: string }
+interface Manifest { headerFile?: string; vhal?: TerminalBranchVhal; schemaVersion: 1; targetId: string; fingerprint: string; configurationKey: string; files: Array<{ name: string; oid: string }>; repos: Array<{ repoName: string; repoPath: string; branchName: string; latestSyncedCommitId: string; rtcids: string[]; history?: SyncCommit[] }>; sources: Array<{ repoName: string; source: string; name: string; oid: string }>; syncedAt: string }
 export interface TerminalSyncOptions { root?: string; targetId: string; reader: SyncReader; signal?: AbortSignal; progress?: (progress: TerminalSyncProgress) => void }
 const fail = (error: unknown) => error instanceof Error ? error.message : String(error);
 async function manifestAt(dir: string): Promise<Manifest | undefined> {
@@ -20,6 +21,10 @@ async function manifestAt(dir: string): Promise<Manifest | undefined> {
     if (!repo || typeof repo.repoName !== "string" || typeof repo.repoPath !== "string" || typeof repo.branchName !== "string" || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(repo.latestSyncedCommitId) || !Array.isArray(repo.rtcids) || repo.rtcids.some(id => typeof id !== "string" || !/^RTC1-\d+$/.test(id))) throw new Error("本地同步清单仓库记录无效");
   }
   for (const f of m.files) { assertFileName(f.name); if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(f.oid)) throw new Error("本地清单blob ID无效"); }
+  if (m.headerFile !== undefined) {
+    assertFileName(m.headerFile);
+    if (!m.files.some(f => f.name === m.headerFile)) throw new Error("当前 type.h 版本文件不在同步清单中");
+  }
   return m;
 }
 async function matches(file: string, oid: string): Promise<boolean> {
@@ -89,12 +94,16 @@ async function syncBranch(options: TerminalSyncOptions, configFile: string, proj
     if (await exists(directory)) { await realDirectory(directory); await assertNoLinks(directory); }
     const prior = await manifestAt(directory);
     const sources = snapshots.flatMap((snapshot, i) => snapshot.files.map(file => ({ repoName: branch.repos[i].repoName, source: file.source, name: file.name, oid: file.oid })));
-    const fingerprint = createHash("sha256").update(JSON.stringify([options.targetId, branchKey(project, branch), snapshots.map(s => s.commitid), sources])).digest("hex");
+    const fingerprint = createHash("sha256").update(JSON.stringify([options.targetId, branchKey(project, branch), snapshots.map(s => [s.commitid, currentRtcids(s)]), sources])).digest("hex");
     const winners = new Map<string, { name: string; oid: string }>();
     for (const f of sources) { assertFileName(f.name); winners.set(f.name, { name: f.name, oid: f.oid }); }
-    result.fileCount = winners.size;
+    result.fileCount = winners.size + (winners.has("type.h") ? 1 : 0);
     let complete = prior?.fingerprint === fingerprint;
     if (complete) for (const f of winners.values()) if (!await matches(path.join(directory, f.name), f.oid)) { complete = false; break; }
+    if (complete && winners.has("type.h")) {
+      const named = prior?.files.find(f => f.name === prior.headerFile);
+      complete = !!named && named.oid === winners.get("type.h")!.oid && await matches(path.join(directory, named.name), named.oid);
+    }
     if (complete) {
       options.signal?.throwIfAborted();
       const mappings = await prepareMappings(configFile, project, branch, snapshots);
@@ -151,10 +160,23 @@ async function syncBranch(options: TerminalSyncOptions, configFile: string, proj
         if (file.name === "type.h") { headerOwner = index; headerCommit = snapshot.commitid; headerFromCurrentBatch = true; }
         processed.add(file.name);
       }
+      let headerFile: string | undefined;
+      if (winners.has("type.h")) {
+        headerFile = currentHeaderName(snapshots[headerOwner], await fs.readFile(path.join(stage, "type.h"), "utf8"));
+        if (winners.has(headerFile)) throw new Error(`type.h 版本文件名与远程文件重名：${headerFile}`);
+        await writeNamedHeader(stage, headerFile);
+        processed.add(headerFile);
+        winners.set(headerFile, { name: headerFile, oid: winners.get("type.h")!.oid });
+      }
+      if (prior?.headerFile && prior.headerFile !== headerFile && winners.has(prior.headerFile)) {
+        throw new Error(`旧 type.h 版本文件名与远程文件重名：${prior.headerFile}`);
+      }
+      result.backupCount += await retireNamedHeader(stage, prior?.headerFile, headerFile);
       for (const old of prior?.files ?? []) if (!processed.has(old.name)) await fs.rm(path.join(stage, old.name), { force: true });
       const manifest: Manifest = { schemaVersion: 1, targetId: options.targetId, fingerprint, configurationKey: branchKey(project, branch), files: [...winners.values()], sources,
         repos: branch.repos.map((repo, i) => ({ repoName: repo.repoName, repoPath: repo.repoPath, branchName: repo.branchName, latestSyncedCommitId: snapshots[i].commitid, rtcids: snapshots[i].rtcids, history: snapshots[i].history })), syncedAt: new Date().toISOString() };
       manifest.vhal = winners.has("type.h") ? await readSyncedHeader(stage, options.targetId) : undefined;
+      manifest.headerFile = headerFile;
       await atomicJson(path.join(stage, ".sync-state.json"), manifest);
       const mappings = await prepareMappings(configFile, project, branch, snapshots);
       options.signal?.throwIfAborted();

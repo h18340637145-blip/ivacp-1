@@ -17,9 +17,13 @@ it("real local SSH sync transfers committed binary files and RTC metadata on the
  await git("init","-b","main");await git("config","user.email","test@example.invalid");await git("config","user.name","test");
  await fs.mkdir(path.join(repo,"tools/scripts/deep"),{recursive:true});
  const bytes=Buffer.from([0,255,0,128,5]);await fs.writeFile(path.join(repo,"tools/scripts/deep/a.xls"),bytes);
+ const proto="com.bosch.cm.platform.vehicle.proto";await fs.writeFile(path.join(repo,proto),"committed-proto");
+ const header='#define VER_PRO_CFG "82552236"';await fs.writeFile(path.join(repo,"tools/scripts/deep/type.h"),header);
  await git("add",".");await git("commit","-m","RTC1-3103704");
+ const commitid=(await git("rev-parse","HEAD")).stdout.trim();
  await fs.writeFile(path.join(repo,"tools/scripts/deep/a.xls"),"uncommitted");
- await fs.writeFile(path.join(app,"docs/project.json"),JSON.stringify([{projectName:"p",mainPath:root,scriptPath:"unused",branches:[{name:"group",repos:[{repoName:"r",repoPath:"remote",branchName:"main"}]}]}]));
+ await fs.writeFile(path.join(repo,proto),"uncommitted-proto");
+ await fs.writeFile(path.join(app,"docs/project.json"),JSON.stringify([{projectName:"p",mainPath:root,scriptPath:"unused",branches:[{name:"group",repos:[{repoName:"api-public",repoPath:"remote",branchName:"main"}]}]}]));
  const key=generateKeyPairSync("rsa",{modulusLength:2048}).privateKey.export({type:"pkcs1",format:"pem"});let authentications=0;
  const server=new Server({hostKeys:[key]},connection=>{
   connection.on("authentication",ctx=>{authentications++;ctx.accept()});
@@ -32,8 +36,19 @@ it("real local SSH sync transfers committed binary files and RTC metadata on the
  try{
   const sessionId=await manager.connect({type:"connect",targetId:target.id,cols:80,rows:24});await manager.syncProjects({type:"syncProjects",sessionId,requestId:"sync-1"});
   expect(await fs.readFile(path.join(app,"configuration/p/group/a.xls"))).toEqual(bytes);
+  expect(await fs.readFile(path.join(app,"configuration/p/group",proto),"utf8")).toBe("committed-proto");
+  const directory=path.join(app,"configuration/p/group"),headerName=`${commitid}_RTC1-3103704_82552236`;
+  expect(await fs.readFile(path.join(directory,headerName),"utf8")).toBe(header);
+  expect(await fs.readFile(path.join(directory,"type.h"),"utf8")).toBe(header);
   const saved=JSON.parse(await fs.readFile(path.join(app,"docs/project.json"),"utf8"));expect(saved[0].branches[0].repos[0]["commid-rtcids-map"][0].rtcids).toEqual(["RTC1-3103704"]);
   await manager.syncProjects({type:"syncProjects",sessionId,requestId:"sync-2"});
   const done=events.filter((e):e is Extract<ServerTerminalMessage,{type:"syncResult"}>=>e.type==="syncResult");expect(done.at(-1)?.report.branches[0].status).toBe("unchanged");expect(authentications).toBe(1);
+  await git("commit","--allow-empty","-m","RTC1-99");
+  const nextCommit=(await git("rev-parse","HEAD")).stdout.trim();
+  await manager.syncProjects({type:"syncProjects",sessionId,requestId:"sync-3"});
+  expect(await fs.readFile(path.join(directory,`${nextCommit}_RTC1-99_82552236`),"utf8")).toBe(header);
+  expect(await fs.readFile(path.join(directory,"bak",headerName),"utf8")).toBe(header);
+  expect(await fs.stat(path.join(directory,headerName)).catch(()=>null)).toBeNull();
+  expect(authentications).toBe(1);
  }finally{manager.disconnectAll("test_done");await new Promise<void>(resolve=>server.close(()=>resolve()));await fs.rm(root,{recursive:true,force:true})}
 },15000);

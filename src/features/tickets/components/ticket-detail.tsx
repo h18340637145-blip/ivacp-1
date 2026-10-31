@@ -1,4 +1,5 @@
 "use client";
+import { ConfigurationPanel } from "./configuration-panel";
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
@@ -18,6 +19,7 @@ import { ticketHref, useProcessAction } from "../use-process-action";
 import { CanSignalChart } from "./can-signal-chart-client";
 import { ReviewPanel } from "./review-panel";
 import { BackfillDialog } from "./backfill-dialog";
+import { VersionVhalPanel } from "./version-vhal-panel";
 import { ArtifactsPanel } from "./artifacts-panel";
 import { IssueSceneBadge } from "./issue-scene-badge";
 import { AssigneeDialog } from "./assignee-dialog";
@@ -59,9 +61,11 @@ export function TicketDetail({ source, ticketKey }: { source: TicketSource; tick
           <TabsContent value="conclusion">{result ? <Card><CardHeader><CardTitle>分析结论</CardTitle><StatusBadge status={result.commentStatus === "not_started" ? "pending" : result.commentStatus === "succeeded" ? "succeeded" : result.commentStatus === "failed" ? "failed" : "running"} label={result.commentStatus === "succeeded" ? "已回填" : "尚未回填"} /></CardHeader><CardContent><pre className="whitespace-pre-wrap break-words font-sans text-sm leading-7">{result.replyText}</pre></CardContent></Card> : <EmptyState title={running ? "正在生成分析结论" : "尚无分析结果"} description="开始分析后，结论与处理状态会保存到当前浏览器。" />}</TabsContent>
           <TabsContent value="signals">{result ? <CanSignalChart artifactKey={source === "meegle" ? `meegle-${ticketKey}` : ticketKey} traceData={result.traceData} ticks={result.ticks} chartImagePath={result.chartImage} signalSummary={result.signalSummary} /> : <EmptyState title="暂无信号数据" />}</TabsContent>
           <TabsContent value="context"><TicketContextPanel key={snapshot.id} snapshot={snapshot} /></TabsContent>
-          <TabsContent value="history"><div className="space-y-3">{context.histories.length ? context.histories.map((history) => <Card key={history.id}><CardHeader><CardTitle>{formatDateTime(history.resultCreatedAt)}</CardTitle><StatusBadge status={history.reviewStatus} /></CardHeader><CardContent><pre className="whitespace-pre-wrap break-words text-sm leading-relaxed">{history.replyText}</pre>{history.manualCorrectResult ? <p className="mt-3 whitespace-pre-wrap text-sm text-primary">人工正确结论：{history.manualCorrectResult}</p> : null}</CardContent></Card>) : <EmptyState title="暂无历史分析" description="重新分析前会归档当前结果。" />}</div></TabsContent>
+          <TabsContent value="history"><div className="space-y-3">{context.histories.length ? context.histories.map((history) => <Card key={history.id}><CardHeader><CardTitle>{formatDateTime(history.resultCreatedAt)}</CardTitle><StatusBadge status={history.reviewStatus} /></CardHeader><CardContent><pre className="whitespace-pre-wrap break-words text-sm leading-relaxed">{history.replyText}</pre><ConfigurationPanel resolution={history.configurationResolution} /><VersionVhalPanel check={history.versionVhalCheck} />{history.manualCorrectResult ? <p className="mt-3 whitespace-pre-wrap text-sm text-primary">人工正确结论：{history.manualCorrectResult}</p> : null}</CardContent></Card>) : <EmptyState title="暂无历史分析" description="重新分析前会归档当前结果。" />}</div></TabsContent>
           <TabsContent value="artifacts"><ArtifactsPanel key={result?.id} artifactRef={result?.artifactRef} /></TabsContent>
         </Tabs>
+        <ConfigurationPanel resolution={result?.configurationResolution} />
+        <VersionVhalPanel check={result?.versionVhalCheck} />
       </div>
       {result ? <div className="space-y-4"><ReviewPanel key={result.id} result={result} snapshot={snapshot} groupName={group?.name} validations={context.validations} />{result.commentError || result.transitionError ? <Callout tone="danger">{result.commentError || result.transitionError}</Callout> : null}</div> : null}
     </div>

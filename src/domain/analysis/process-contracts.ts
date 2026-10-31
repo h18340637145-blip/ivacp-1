@@ -52,6 +52,8 @@ export interface ProcessRequest {
 }
 
 export interface ProcessResponse {
+  versionVhalCheck?: import("@/domain/analysis/version-vhal").VersionVhalCheck;
+  configurationResolution?: import("@/domain/analysis/effective-configuration").ConfigurationResolution;
   /** 服务端确认的独立运行目录身份，旧响应可能没有。 */
   analysisRunId?: string;
   /** 分析时日志使用的规则组目录名，不随配置改名改变。 */

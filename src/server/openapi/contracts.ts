@@ -22,7 +22,7 @@ export const annotationInputSchema: ApiObject = {
 export const saveAnnotationSchema = object({ itemId: { type: "string", description: "来源:processResult.id，例如 jira:result-id" }, annotation: { $ref: "#/components/schemas/AnnotationInput" } }, ["itemId", "annotation"]);
 
 const templateConfig = object({ jql: text, meegleMql: text, jiraProvider: { type: "string", enum: ["default", "bosch"] }, expand: text,
-  base_paths: object({ json_dir: text, dbc_dir: text, proto_dir: text }), model_to_files: { type: "object", additionalProperties: object({ json: { oneOf: [text, { type: "array", items: text }] }, dbc: { oneOf: [text, { type: "array", items: text }] }, proto: text }) },
+  base_paths: object({ json_dir: text, dbc_dir: text, proto_dir: text }), model_to_files: { type: "object", additionalProperties: object({ aliases: { type: "array", items: text, description: "显式车型别名，完整匹配且区分大小写；缺省时不按车型键推断。跨车型重复别名将导致自动配置回退。" }, json: { oneOf: [text, { type: "array", items: text }] }, dbc: { oneOf: [text, { type: "array", items: text }] }, proto: text }) },
   prompts: object(Object.fromEntries(["REQUIREMENT_EXTRACT_SYSTEM", "EXTRACT_SIGNALS_SYSTEM", "LOG_SUMMARY_SYSTEM", "ANDROID_QNX_LOG_SUMMARY_SYSTEM", "CONSISTENCY_SYSTEM", "COMPARE_CANTRACE"].map(key => [key, text]))),
 });
 templateConfig.description = "至少配置一个非空JQL或meegleMql；本机文件路径和提示词会发布给团队，不包含票据和凭据。";

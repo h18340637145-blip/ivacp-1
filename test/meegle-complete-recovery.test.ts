@@ -1,3 +1,5 @@
+import { configurationFixture } from "./helpers/configuration-fixture";
+import { versionVhalFixture, versionVhalVsFixture } from "./helpers/version-vhal-fixture";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -33,4 +35,10 @@ it("新版本success marker没有完整响应文件时不可恢复", async () =>
 it("其他工单或内容不匹配的响应不能恢复到当前run", async () => {
   const f = await fixture(); await fs.writeFile(path.join(f.dir, "process-response.json"), JSON.stringify({ ...f.data, issueKey: "meegle-100" }));
   expect(await recoverMeegleRun(f.identity, { logBase: f.logBase, fetchHandoverAt: async () => undefined })).toEqual({ recoverable: false });
+});
+
+it.each([versionVhalFixture, versionVhalVsFixture])("recovers structured version checks from the same successful run: %s", async makeCheck=>{
+ const f=await fixture(); const check=makeCheck();
+ await fs.writeFile(path.join(f.dir,"process-response.json"),JSON.stringify({...f.data,versionVhalCheck:check,configurationResolution:configurationFixture()}));
+ expect(await recoverMeegleRun(f.identity,{logBase:f.logBase,fetchHandoverAt:async()=>undefined})).toMatchObject({versionVhalCheck:check,configurationResolution:configurationFixture()});
 });

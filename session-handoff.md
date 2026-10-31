@@ -1,3 +1,160 @@
+## 最新续接：VHAL Vehicle property ID 列精确匹配修复（2026-10-31）
+
+- 用户确认工单 7147061892 的四个名称存在于 VHAL 2.2.36，并授权修改。根因是旧检查仅查 MCU UP / IVI DOWN，四个名称实际位于 Vehicle property ID 列；CAN 列另有大小写和后缀不同的名字。
+- 本轮业务仅改三处：Python OOXML 读取器按表头取得可选 property 列并保留属性独占行；workbook Zod 行 schema 保留 optional propertyId；signals 的共享 rowCells 同时用于三列命中证据与同行 Project 判定，避免只改状态不改证据。
+- 保留旧无属性列 Excel / 旧 SignalRow 兼容；精确区分大小写、不做前缀或后缀猜测、车型按完整 Project token 匹配，merged/ALL/空白不确定仍 unknown。case-only 差异提示继续、全部确认缺少才停止等规则不变。
+- TDD：新增四个真实名称、跨车型重复属性、车型不符、前缀与大小写差异、unknown Project；真实 OOXML 的 I / AA 移动表头、属性独占行、完整阶段结果保存，以及无 Vehicle property ID 表头旧表。先红 5 项后相关 4 文件 49 项通过；只读独立审查通过。
+- 实际 Excel 只读验证：14 个业务表、3289 行，无读取提示；ISS_SWITCH_STS_463H_463 → SETTINGS I566；ICC_ISSFCTCMD_539H_539 → SETTINGS I553；FLZCU_9_POWERMODE_49D → HVAC I74 / I286；FLZCU_9_FUELVEHPOWERMODE_49D → DrivingInfo I34。四项均可在含 T1J_FL3 的命中行确认为 configured，stop=false，证据 column=Vehicle property ID。
+- 新结果沿用原 versionVhalCheck/hits 结构，无索引/数据库或响应结构迁移。恢复/历史夹具加入属性命中证据，浏览器增加 Vehicle property ID 列名展示断言；没有改写旧运行结果或发起真实重分析。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS/PIPELINE_GUIDE 与需求稿 v0.4 / OpenAPI 已同步扩展的列范围。保留所有前轮未提交改动及真实 project.json / configuration 内容，不提交混合修改。
+- 最终全量 Vitest：95 文件通过、13 文件跳过，489 项通过、42 项条件跳过（MySQL禁用，Python Anaconda，4 workers）。全量typecheck、ESLint、git diff --check、需求链接与Harness说明检查通过。独立副本 `/tmp/ivacp-vhal-property-7n6t1vlk` 构建退出0，生产预览127.0.0.1:3046（exec16855），隔离浏览器2文件4场景全部通过，含 Vehicle property ID 证据列显示、刷新/历史及看板持久化。日志 `/tmp/ivacp-vhal-property-{red,targeted,real,all-tests,types,lint,build,browser}.log`。
+- 未停止/重启用户前端或 Gateway，未调用真实模型、远程同步、工单回填或重跑；旧分析的 signal_missing 不自动回写，新分析才能生成新判定。
+
+## 最新续接：日志自动配置、规则组别名与 Proto 同步已实现（2026-10-31）
+
+- 用户最终明确“使用分支当前配置，按照需求开发”，需求稿更新 `docs/requirements/pipeline-auto-config-review.md` v1.0；同步需求 v0.6 含 api-public 根 Proto。自动模式默认开启，不要求旧组先加开关；无别名或无可靠日志信息则整体使用用户默认配置。
+- ModelFileConfig 增加可选 aliases 数组；规则组每车型中文别名输入支持常见逗号/分号/换行、去重保留大小写。完整匹配，不猜分隔符/平台后缀，不建外部别名库；贯通表单、IndexedDB、导入导出、模板、process请求与OpenAPI，旧记录无别名兼容回退。
+- api-public 同步从固定 branchName 提交读取仓库根 com.bosch.cm.platform.vehicle.proto，沿用 Git blob、来源清单、普通bak、补齐/删除、暂存发布与回滚；其他repo和其他proto不扩大。真实临时 Git / 本地 SSH 定向4文件30项通过，含已提交内容与脏工作区区分、源缺失、传输校验和发布失败回滚，未连接真实业务远端。
+- 新 effective-configuration/effective-context：解压后、Step2前一次性提取SOC/SCC；完整别名确定当前组车型，SOC对应project.json分支，必要时Android最新hash交叉消歧。多cycle、hash、标题/规则组明确冲突，缺文件/解析失败/提取警告/清单无效均整体回退，不混合来源、不强选。
+- 自动验证 manifest 身份、字段类型和全部文件blob，配置JSON数组/Proto Property_ID及实际cantools DBC解析通过后冻结分支当前文件。每次冻结用 run/effective-config/<UUID>/{json,dbc,proto}，兼容无runId复用logRoot且不删除旧快照。手动回退冻结可用用户文件、保留缺失原能力，不借自动文件；无可冻结内容时保留原流程并明确记录。
+- 用户原始request、ctx.carModel、run目录、工单归属、artifactRef和恢复凭据不改；后续JSON/Proto、DBC、当前VHAL与Excel车型使用configurationFor实际上下文。旧标题检测子串命中不是明确身份冲突；补红绿回归后完整别名可正确自动选型，原运行身份仍保持。
+- 可选 configurationResolution 贯通正常成功响应、Meegle兼容入口/保存恢复、IndexedDB结果与重跑历史；effective-config-resolution.json 与 effective-config-check.md 保存原始配置/完整SOC-SCC原文来源/全部候选/实际文件与SHA256/manifest来源仓库commit/headerFile。详情展示实际配置与原因，展开完整证据；旧结果不补造字段，无数据库索引升级。复核读取配置摘要，不把配置元数据当信号证据。
+- 独立规格和质量审查均已复查通过：修复SOC/hash冲突仍用另一分支Excel提前停、逗号JSON冻结后下游丢文件、手动部分文件不冻结、SCC提取警告未传选择器、Proto文件名前后空格、审计配对/来源缺失、重复旧logRoot目录冲突、坏manifest产生不可恢复响应及manual展示口径等；均有定向回归。明确身份冲突时VHAL状态unknown，不触发“全部缺少”提前结束；原SOC/SCC确认不一致停止规则保留。
+- 最终全量 Vitest 95 文件通过、13 文件跳过；483 项通过、42 项条件跳过（MySQL禁用，Python Anaconda）。默认满并发首轮有CLI 300ms启动用例在满载下未写pid、及一项旧证据fixture无request崩溃；后者已兼容修复，全量限制4worker后通过，不更改CLI业务代码/超时。
+- 全量typecheck和ESLint、git diff --check、需求相对链接/代码块/Harness入口检查通过；首次独立副本 `/tmp/ivacp-auto-config-final-qi9ukb7o` 构建退出0，3044（exec90842），隔离生产浏览器3文件11场景通过：别名保存/刷新/导出导入、默认回退与自动配置证据、重跑历史、终端和看板持久化。加入旧子串检测兼容回归后的最终副本 `/tmp/ivacp-auto-config-verified-0dsdvmtk` 构建退出0，预览127.0.0.1:3045（exec43365）；最终生产浏览器3文件11场景全部通过，日志 `/tmp/ivacp-auto-config-verified-browser.log`。确认首轮测试结束后已停止本轮3044预览，仅保留最终3045；未停止任何用户服务。
+- 审批服务曾因额度不足未执行一轮全量测试；用户两次“继续”后于14:32正常重试审批并全量通过，没有绕过审批，也不把该轮未执行当测试结果。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS/PIPELINE_GUIDE、需求与OpenAPI已同步；计划 `docs/superpowers/plans/2026-10-31-auto-config.md`。未改真实configuration/project.json、历史工单、参考app，未提交已有混合改动，未启动真实工单/模型/远程同步，未重启用户前端或Gateway。
+- 需前端与Terminal Gateway更新后才能在现有业务服务使用新功能；旧规则组需配置显式别名，Proto需新同步实际落盘。真实外部业务端到端验收未执行；本机模拟/临时Git/SSH与浏览器结果不是业务远端验收。
+- 日志 `/tmp/ivacp-auto-config-{red,order-red,integrated,freeze-red,freeze-green,review-red,review-green,legacy-red,legacy-green,manifest-red,manifest-green,substring-red,substring-green,lifecycle,final-tests,final-types,final-lint,build,browser,verified-build}.log`。
+
+## 最新续接：车型按规则组别名完整匹配确认（2026-10-31）
+
+- 用户消除 R1：规则组提供车型别名，提取车型按别名完整匹配，无匹配则使用用户默认路径配置分析；需求稿更新 v0.3，仍仅文档。
+- 别名绑定当前规则组的车型条目，命中后使用该条目 JSON / 全部 DBC / Proto，不将别名当文件名或目录名，不建规则组外的别名库。明确不做包含/前缀/模糊匹配，不自动删除分隔符、平台后缀或折叠大小写。
+- 同别名跨不同车型、工单与日志命中不同车型均按既有冲突策略整体回退；同车型重复别名不制造歧义。旧规则组无别名信息也回退，不以当前车型键猜测命中。默认路径指请求中原用户 basePaths/modelToFiles 及原默认处理上下文，不是自动目录 default.json。
+- 当前 model-files schema 无别名字段，文档明确未来实施须贯通规则组表单/存储/请求/备份等配置链路，本轮不宣称已有实现。唯一剩余产品边界为 R2：分支当前快照还是严格历史整套配套。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS/PIPELINE_GUIDE 与同步需求引用同步 v0.3；需求版本、别名完整匹配、默认路径回退语义、剩余版本策略、相对链接、代码块配对及 git diff --check 检查通过。
+- 未修改业务代码、规则组、project.json、configuration、工单数据或服务；未运行应用测试/构建/真实同步与分析。
+
+## 最新续接：日志自动配置需求消歧及 Proto 同步范围确认（2026-10-31）
+
+- 用户明确本轮继续完善需求；仅文档，未实现自动配置或 Proto 同步。`docs/requirements/pipeline-auto-config-review.md` 更新至 v0.2。
+- 已确认自动模式默认开启（旧组缺新增字段也按默认开启），SOC/SCC 无法取得足够身份时启用完整用户配置；同时选择目录、配置车型和明确文件集合。
+- 车型名称及对应 JSON / 全部 DBC / Proto 继续取当前规则组 modelToFiles；不另建独立车型别名库或自动文件清单，不按目录猜 IC2 / FUEL 组合，不借用其他规则组配置。
+- 已确认身份冲突、解析失败、文件不齐均保留证据并整套回退用户配置、继续现有能力；不混合自动/手动来源、不强选候选，标题或规则组本次工单车型与日志明确冲突也回退。
+- Proto 来源确定为 repoName=api-public 的 `<mainPath>/<repoPath>/com.bosch.cm.platform.vehicle.proto`。继承现有同步固定 branchName 提交、Git blob 读取与原子发布，原名保存至对应 configuration 项目/分支组目录；纳入来源与校验、补齐/普通 bak/缺失删除/失败恢复，不扩大为所有 .proto 或读取脏工作区。`terminal-sync-review.md` 保留 v0.5 已实现基线，新增 v0.6 待实现第12节。
+- 需求第11节改为确认表与剩余边界：R1 现有规则组无独立别名字段，T1JFL3 与 T1J-FL3-8255 等键的具体等价规则未明确；R2 分支当前配置或严格历史整套配套。自动方案缺类别配置也归入文件不齐并回退，JSON/DBC须非空、Proto须有文件名且所有文件可读，不新增手动分析阻断。本轮不把旧建议当成全部获批。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS/PIPELINE_GUIDE 同步已确认规则与尚未实现标识。已确认规则与剩余边界、Proto源路径、相对链接、代码块配对及 git diff --check 检查通过。
+- 未修改业务代码、project.json、configuration、模型输入、工单或用户服务；未运行应用测试、构建、真实同步或真实分析。
+
+## 最新续接：日志自动匹配基础配置需求审核稿（2026-10-31）
+
+- 用户希望保留前台 CAN 配置与车型文件，下载日志后按 SOC / SCC 识别项目、分支、车型，自动选择 configuration 对应目录；要求先讨论并输出需求文档，本轮仅文档。
+- 新增 `docs/requirements/pipeline-auto-config-review.md` v0.1：可行性、当前时序、7147061892 真实映射与文件核对、候选/别名/文件清单、整体回退建议、配置冻结、原运行身份与实际配置身份区分、持久化/前台反馈、异常和验收，附 Mermaid 流程。
+- 当前 loadModelConfig 在下载前，SOC/SCC 在 collectEvidence（Step2/绘图后）提取；新方案须将原始版本提取与有效配置选择前置到解压后、Step2前，所有后续读取统一使用实际配置。既有 AI SOC/SCC 比对与停止语义不变。
+- 本例 SOC 去除构建版本后，当前 project.json 同时匹配 chery-8255/t1x-sop 与 chery-8255/d01p-int-sop 的 api-public 分支（共享仓库分支），因此不能仅凭 SOC 唯一定位。Android hash 82c3bd1 仅命中 t1x-sop，可用于消歧；SCC 的 T1JFL3 需显式别名映射到 T1J_FL3。候选 JSON / 两个 DBC 存在，但该目录（含 bak）没有 .proto；types.hal 的 VehicleProperty 与现有 Proto 的 Property_ID 解析器不兼容，不能直接替代。
+- 目录当前 headerFile 为 d8c312…_RTC1-3112209_82552238，而本例日志 VHAL 为 2.2.36。强调“分支当前配置”和“历史版本配套”不同，现有 bak 无法证明历史完整配置。建议首期按分支当前快照，历史重建另议。
+- 待审核 A–H：自动开关默认与按组范围、只换目录或选整套文件、车型别名与 DBC 组合、Proto 必需性和缺失来源、冲突/失败整体回退、分支当前或历史严格配套、配置冻结与保留 run 身份、共享 SOC 分支的消歧策略。所有建议尚未实施或当作用户确认。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS 增加待审核入口，PIPELINE_GUIDE 加入提案链接并保留当前行为说明。相对链接、代码块配对、真实 SOC 双候选与 hash 唯一消歧、候选文件/Proto 缺失、当前 VHAL 编码及 git diff --check 均已核对。
+- 未修改业务代码、真实配置、project.json、工单结果或用户服务，未运行真实模型、同步、分析、应用测试或构建。
+
+## 最新续接：同步当前 type.h 按 commit / RTC / VHAL 命名（2026-10-31）
+
+- 用户新增每次同步 type.h 文件名随当前 commitid_rtcid_vhalversion 更新，并明确选择保留同内容 type.h 兼容副本。需求升级 `docs/requirements/terminal-sync-review.md` v0.5。
+- 新增 `src/server/terminal/sync/header-identity.ts`：从最终获胜来源的固定 commit、当前 Git 历史 RTC 列表（去重、保留顺序）及文件 VER_PRO_CFG 生成无扩展名 `<commit>_<RTC列表>_<8位编码>`。无 RTC 使用 no-rtc，无有效版本使用 unknown-vhal，身份无效则失败。
+- runner 同一暂存目录发布命名文件和兼容副本，`.sync-state.json` 新增可选 headerFile，files 校验两个文件；提交和 RTC 纳入指纹，即使内容相同也更新身份。缺失任一副本补齐，旧清单下次同步自动升级。旧命名文件在身份变化或移除时保留到 bak，同名异内容保护原快照。
+- 独立审查发现新远端普通 SDB 文件若占用旧 headerFile 会被退役逻辑删除，已补红绿回归并改为发布前冲突失败。复查通过；当前命名文件损坏也作为同名异内容保护，不覆盖损坏文件或推进映射。
+- 定向 4 文件 45 项通过；最终全量 Vitest 91 文件通过、13 文件跳过，437 项通过、42 项条件跳过（MySQL 禁用，浏览器单独启用）。全量 typecheck、ESLint、git diff --check 与文档链接检查通过。
+- 增强真实本地 SSH 回归：临时 Git 仓库实际提交/传输 type.h，验证当前命名文件与兼容副本一致、同内容新提交命名与旧名归档、三次同步只认证一次。SSH/Gateway 定向 2 文件 4 项通过，测试文件追加 ESLint 通过；没有连接真实业务远端。
+- 独立构建 `/tmp/ivacp-header-name-final-8fd4noce` 退出 0；本机生产预览 127.0.0.1:3043（exec66585）。终端 / 看板生产浏览器 2 文件 9 场景全部通过，覆盖同步结果、VHAL 标签刷新与分支隔离、完整终端交互及看板 IndexedDB 刷新持久化；SSH / WebSocket / 镜像均为本地 mock。
+- PRODUCT、ARCHITECTURE、WORKFLOW、SEQUENCE_DIAGRAMS 和需求 v0.5 已同步；计划 `docs/superpowers/plans/2026-10-31-terminal-header-name.md`。保留全部既有工作区修改，未改实际 docs/project.json、configuration、原工单结果或参考 app。
+- 未停止或重启现有用户前端 / Terminal Gateway，未发起真实同步。需更新并重启现有 Gateway 后，真实后续同步才使用新逻辑；当前代码和本地隔离验收不等于真实目标验收。
+- 日志 `/tmp/ivacp-header-name-{red,collision-red,targeted,final-tests,final-types,final-lint,build,ssh,ssh-lint,browser}.log`。
+
+## 最新续接：RTC 关联 VS 提交定位 VHAL 已实现（2026-10-31）
+
+- 用户授权按 `docs/requirements/pipeline-vhal-vs-rtc-review.md` 实现，需求更新为 v1.0。共享 resolveVhal 先匹配来源 commit，再在同一 project / branches 对象的唯一 repoName=vs 中按 RTC 完整相等关联，使用唯一 VS commit 搜索根目录与 bak 的归档。
+- 多 RTC 任一完整命中收集候选，同一 VS commit（忽略 Git hash 大小写）去重并保留命中 RTC；部分 RTC 未命中留提示；无 RTC / VS / 匹配记录记 unknown，多 VS 仓库条目 / 多 VS commit 记 ambiguous，不跨范围或回退来源 commit / 当前 type.h。来源为 VS 也执行同一唯一性检查。
+- 可选 `resolution.vsAssociation` 保存关联原因、全部 VS 候选、selected 与 unmatchedRtcids，来源 candidates 保持原意。归档新增可选 commitCandidates；审查发现归档短前缀可能指向同仓库其他提交，已通过红绿测试修复为对照同 VS 仓库全部映射校验唯一性，冲突保留证据并继续。只读复查通过。
+- 摘要明确区分来源 commit → RTC → VS commit → 版本归档，继续进入既有 Step4/5、检查日志、响应、IndexedDB、历史和详情证据展开区。飞书保存响应 Zod schema 保留新字段，无索引或数据库升级，旧结果兼容。未切换 JSON / DBC / Proto。
+- 新增 `test/pipeline-vhal-vs-rtc.test.ts`：主流程、RTC 完整匹配、项目/分支隔离、去重与歧义、缺失、来源本身为 VS、归档前缀唯一性、持久化与旧结果兼容；恢复和生命周期测试同时覆盖旧结果及 VS 证据。浏览器覆盖未知、RTC 成功、刷新、重跑历史及看板持久化。浏览器历史首次误点旧记录的折叠项，已按具体 RTC 证据定位并通过。
+- 最终全量 typecheck、ESLint、git diff --check 与文档链接检查通过。最终全量 Vitest：91 文件通过、13 文件跳过；430 项通过、42 项条件跳过（MySQL 禁用，浏览器单独启用）。受限运行的本地 SSH 监听 / 子进程失败后，在允许本机操作环境重新全量通过；未连接真实 MySQL 或运行外部业务操作。
+- 实际工单只读验证：读取 7147061892 原 run 的 hash 行，在临时目录运行定位，确认 `82c3bd1… → RTC1-3103705 → a0ffcea6b5db76730bde833e742ba01192befa6a → 82552236 → 2.2.36`。实际 Excel 14 张业务表 / 3288 行可读、无解析提示；原 Step2 的 5 个 token 中 1 个 configured、4 个 signal_missing，部分缺少继续。此为本地只读检查，未触发真实模型或重跑 / 改写工单结果。
+- 第一独立构建 `/tmp/ivacp-vs-rtc-build-r5tce2xe` 退出 0，3041 本机预览（exec42783）；其 mock 浏览器 2 文件 4 场景通过。最终包含归档短前缀修复的独立副本 `/tmp/ivacp-vs-rtc-final-v08rm53h` 构建退出 0，3042 本机预览（exec48744）；最终生产浏览器 2 文件 4 场景全部通过，日志 `/tmp/ivacp-vs-rtc-final-browser.log`。前一轮 3041 验收服务在确认测试结束后已停止，仅保留最终 3042。
+- 构建操作记录：第一次复制遇 `.codegraph/daemon.sock` 后，目录切换失败导致构建误在工作目录启动，已立即 Ctrl-C 停止（exec54581）；曾改写 .next，未停止或重启现有服务，随后 127.0.0.1:3000/login 返回 200。后续均显式指定独立副本 workdir；最终在主机网络再次只读确认 3000/login 返回 200、原 next-server PID11915 监听。不要将此前中止的工作目录输出作为可发布构建。
+- 文档同步 PRODUCT / ARCHITECTURE / WORKFLOW / SEQUENCE_DIAGRAMS / PIPELINE_GUIDE / 原需求与新需求 / OpenAPI。保留所有既有未提交修改，未修改 docs/project.json、真实配置、历史产物或参考 app，未整体提交。
+- 日志 `/tmp/ivacp-vs-rtc-{red,archive-red,archive-green,targeted,real-validation,browser,final-tests,final-types,final-lint,final-build}.log`。真实模型和业务工单端到端验收未执行；旧 run 的 unknown 不自动回写，采用新逻辑需要新分析运行。
+
+## 最新续接：RTC 关联 VS 提交定位 VHAL 审核稿（2026-10-31）
+
+- 用户要求先整理需求供审核，本轮仅文档，不实现业务代码、不重跑或改写工单。
+- 新增 `docs/requirements/pipeline-vhal-vs-rtc-review.md` v0.1：来源 commit 前缀 → RTC → 同项目、同 branches 条目内 `repoName=vs` 的 commit → 根目录 / bak 归档 → VHAL 版本与 Excel；包含流程图、关联证据、兼容要求及验收条件。
+- 当前本地真实样例：`82c3bd1…`（automotive-custom）→ `RTC1-3103705` → `a0ffcea6b5db76730bde833e742ba01192befa6a`（vs），对应 t1x-sop/bak 的 `82552236` 归档和 VHAL 2.2.36 Excel。仅只读核对，旧运行仍保留原 unknown。
+- 待审核重点：多 RTC 按任一完整命中收集候选、唯一 VS commit 时继续；多个不同 VS commit 时保留歧义并提示后继续。其余异常建议见审核稿，不视为已确认规则。
+- PRODUCT 与原需求稿已增加待审核入口，原 v0.3 实现说明保留。文档相对链接、代码块配对、样例归档及 Excel 路径检查通过，git diff --check 通过。未修改 project.json、配置、业务代码和历史结果，未重启服务。
+
+## 最新续接：飞书筛选无限等待修复（2026-10-30）
+
+- 用户指出3000规则组详情（3UciZIsXWv8kE5Uh3_ULrx?source=jira）一直“筛选中”；该按钮实际筛选规则组配置的全部来源。初始“验证中”表述已由用户更正。
+- 已用失败测试复现：fetch忽略AbortSignal时调用方一直等待；过期running记录在持续打开页面时仍显示运行中；npm CLI包装器超时后原生后代残留（包括忽略TERM的后代）。
+- 新增server/meegle/cli-command.ts，spawn+关闭stdin+Unix独立进程组，30秒超时立即拒绝并TERM整个组，250ms后升级KILL；限制输出并按UTF-8解码。runMeegle/runMeegleJson共用；AUTH_REQUIRED提示保持，新增超时可重试提示。不执行交互登录。
+- 飞书整次筛选90秒截止，Jira保持10分钟；即使请求/正文读取不响应取消也会退出等待。异步边界检查取消，不再启动晚到的依赖查询或提交旧响应，原事务最新运行门禁保留。
+- 来源状态纯函数识别过期；useFilterAction启动、每15秒及focus恢复过期记录，卸载清理监听/计时器；不在liveQuery写库。保留原归属、快照、分析结果与历史，超时后允许重试。
+- 定向测试28项首轮通过；最新完整Vitest 90文件通过、13文件跳过，412项通过、41项条件跳过（禁用真实MySQL）。typecheck、ESLint、独立构建通过；日志/tmp/ivacp-filter-{all-tests,types,lint,final-build}.log。
+- 浏览器完整链路先因全局clock干扰刷新后的Dexie订阅而失败；数据库证实重试completed与旧expired均已落盘。仅加速90秒特定截止计时器、不修改全局Date/调度后，超时退出→重试→迟到响应→刷新场景通过；旧构建双来源3场景亦通过。最终3036生产副本3文件6个浏览器场景全部通过（超时→重试→迟到响应隔离→刷新、双来源工作流、看板持久化），日志/tmp/ivacp-filter-final-browser.log。
+- 最终独立副本/tmp/ivacp-filter-final-w0if9lr8，预览127.0.0.1:3036；此前独立副本/tmp/ivacp-filter-build-sanmqx6d在3035用于mock验收。未停止/重启现有3000（当前ivacp）和3001（参考app），未修改参考app。
+- 只读核对本机CLI版本1.0.19；auth status未在8秒内返回，不据此断言登录失效，也未修改登录态。MySQL镜像只读诊断返回本机3306 ECONNREFUSED，无法从镜像核对指定组配置；未修改真实数据或运行真实工单筛选/分析/回填。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS已同步。保留前轮Pipeline VHAL全部未提交改动和docs/project.json既有修改，勿整体reset或提交。
+
+## 最新续接：Pipeline 版本与 VHAL 检查实现（2026-10-30）
+
+- 已实现需求稿 v0.3：共享 processIssue 在 collectEvidence 后、Step4 前统一执行 SOC/SCC AI 比对、Android hash/提交/归档/Excel 定位、Step2 信号与 DBC 车型 Project 检查；普通 Jira/Bosch Jira/飞书及共享的单票/批量/周期入口覆盖。保留原无附件/拒绝提前分支。
+- AI 逐对判定版本并校验 JSON；mismatched 立即停止且不再请求其余配对。unknown、定位/读取失败、跨分支/短 hash/同最新日期冲突均持久化提示并继续；不强选候选。编译日期选最新完整 hash，保留 selectedHash 与全部候选的文件/行号/原文。
+- 同时搜索分支组根目录及 bak 中 .h/无扩展名归档，82552235 → 2.2.35；不回退当前 type.h、后缀版本或相邻版本。未自动切换原 JSON/DBC/Proto。
+- DBC 支持已确认命名；MCU UP / IVI DOWN 按表头跨业务 sheet 精确匹配，Project 按 / 分割完整车型；保留大小写、不自动映射别名。明确的方括号/逗号/换行单格信号列表逐成员精确匹配。全部信号确认缺少且无大小写差异豁免才停止，部分缺少/未知/大小写差异继续。
+- 本地 Excel dimension 元数据错误（普通只读遍历会漏列），新增 Python3 标准库 OOXML 读取器，不新增依赖；实际 V2.2.36 只读读取 14 个业务表、3288 行。目录读取失败不再静默漏掉可能较新 hash。合并 Project/特殊值不可解释时 unknown。
+- 四份检查审计产物 + pipeline.log + 可选 versionVhalCheck；正常结果/IndexedDB/重跑历史/飞书完整响应恢复/兼容入口贯通。详情页新增状态、提示、逐信号证据与完整候选展开项，旧结果兼容；无需数据库索引升级。复核读取检查摘要，OpenAPI 补充字段。
+- 提前结论复用 finishSuccess，保留 CAN 图/证据/完整 response 与最后提交成功指标的门禁；不执行 Step4/Step5/自检。继续时将摘要写入真实 Step4 输入及 Step5 证据，未知不得变成已验证。人工复核/回填门禁保留。
+- 最新完整 Vitest 88 文件通过、12 文件跳过；407 项通过、40 项显式条件跳过。运行 Node22、Python Anaconda，MYSQL_URL 为空跳过真实 MySQL；本地 SSH 与临时进程测试在允许本地监听的环境通过。首轮受限环境的 SSH/MySQL/tsx 失败不作为最终结果。
+- 全量 typecheck、ESLint、git diff --check 通过；最终独立副本 /tmp/ivacp-vhal-final-mi4ei_1j 构建退出0，生产预览127.0.0.1:3034（exec88551）；此前独立副本 /tmp/ivacp-vhal-build-ffve9ivm 的3033（exec93461）同样未接真实分析。两者仅隔离验收，未停止或重启任何既有用户服务。
+- 日志 /tmp/ivacp-vhal-{tests-final,types-final,lint-final,final-build,final-browser}.log；前轮生产浏览器检查与看板2文件3场景通过；最终3034生产浏览器3文件6场景全部通过，覆盖新增检查刷新恢复、看板持久化和双来源完整分析/复核/重跑。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS/PIPELINE_GUIDE/需求稿与计划已同步。未改 docs/project.json 的既有工作区修改，未改 Excel、真实模型、工单、配置或用户历史数据；所有改动未提交。
+- 真实 Qwen 版本判断与真实工单端到端验收未执行；本地 tests/mock/browser 不能代替业务环境验收。当前 type.h 兼容、特殊 Project 语义、新 DBC 后缀等未确认边界继续按 unknown 提示处理。
+
+## 最新续接：Pipeline 非阻断与大小写规则确认（2026-10-30）
+
+- 需求稿更新至 v0.3，仍仅文档，未实现共享流水线。
+- SOC/SCC unknown、hash/版本/Excel 无法定位或读取均持久化原因并提示，不阻断；可执行的检查继续，无法执行的依赖检查记 unknown，继续 Step4/5。
+- 同 commit 跨分支组、短 hash 冲突、最新日期并列不同 hash：保存全部候选与来源至持久化日志作为提示，继续处理，不虚构唯一版本。
+- 信号大小写敏感，A 与 a 不同，不自动映射别名；仅大小写不匹配时保存差异和候选行并继续，单信号也不触发全部缺少停止。已确认版本不一致仍立即停止。
+- 流程图、正文、异常表、验收及确认表同步；PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS 同步。
+- 文档静态检查与 git diff --check 通过；未运行应用测试/构建、未重启服务，未修改 project.json 或 Excel。
+
+## 最新续接：Pipeline 版本与 VHAL 需求确认（2026-10-30）
+
+- 按用户审核意见更新需求稿至 v0.2；本轮仅文档，未实现流水线、修改配置或运行业务分析。
+- 版本不一致立即停止；完整 hash 保留 6a5d61b，按 hash 后最新编译日期选择；同时搜索分支组根目录与 bak/；82552235 对应 V2.2.35，均已确认。
+- DBC 车型映射明确 D01、D01_OS_APA、D01_HW、T1L_FL1、T1YA；信号只查 MCU UP / IVI DOWN，Project 按 / 分割后匹配完整车型。
+- 全部待查信号确认缺少配置才停止，部分缺少继续；覆盖所有共享流水线来源。流程图、异常表、验收与 A–J 确认表已同步。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS 同步已确认规则与尚未实现标识；未知状态阻断、并列最新 hash、多分支、当前 type.h 兼容及特殊表语义仍待确认。
+- 文档静态检查与 git diff --check 通过；未运行应用测试或构建，未重启服务。保留工作区既有修改，尤其 docs/project.json 未触碰。
+
+## 最新续接：Pipeline 版本与 VHAL 检查需求审核稿（2026-10-29）
+
+- 用户要求先转为需求文档供审核，本轮仅文档，没有实现功能、修改 project.json/Excel 或运行业务分析。
+- 新增 docs/requirements/pipeline-version-vhal-review.md v0.1：在证据整理后增加 SOC/SCC AI 比对、日志 hash 追溯项目/分支/commit/RTC/Excel、Step2 信号与 DBC 车型 Project 检查。包含一句 Chat Prompt、流程图、逐阶段输入输出、建议持久化文件、提前结束、异常、验收及 A–J 审核表。
+- 明确不擅自决定：6a5d61b 与 a5d61b 的前缀差异；82552235 到 V2.2.36 的转换；版本不一致/未知的阻断、多分支多 hash、多 DBC 车型、Excel 信号列与 Project 特殊值。保留用户示例，不自行加一或删首位。
+- 只读核对本地 vhal2.2.35 / vhal2.2.36 文件均存在；V2.2.36 为多工作表，业务表含 Project。现有归档在 bak 且无扩展名，需求建议兼容 .h 与无扩展名，以及有清单证明的当前 type.h，仍待审核。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS 添加待审核标识与链接，PIPELINE_GUIDE 保持当前实现描述。文档相对链接、流程图结构及 git diff --check 校验；本轮不运行应用测试/构建，不重启服务。
+
+## 最新续接：Pipeline 流程整理（2026-10-29）
+
+- 用户准备后续修改 pipeline，本轮只核对当前代码并整理流程，没有修改业务实现或运行真实工单。
+- 新增 docs/PIPELINE_GUIDE.md：覆盖前端任务创建、统一处理 API、附件分支、Step1–5、CAN 并行绘图、日志/版本/证据、结论修正、产物提交、IndexedDB、通知/校验/复核/回填、取消恢复及修改索引；WORKFLOW 增加入口链接。
+- 特别标明现状：pipeline 不读取 project.json 的 commit/RTC 映射，也不根据 BoschVehicleHalHash 自动选 configuration/bak 版本；JSON/Proto 在准备阶段读取，type.h 在证据汇总阶段读取，目前没有统一冻结配置版本。后续版本选择需求需要调整读取时序及配置一致性。
+- 记录实际容易混淆的分支：Step3 输入是评论+需求+信号结果；CAN 与包时间差 90–120 分钟也可 reject；服务端 rejected 的固定回复可能使客户端任务 completed，不能混同证据成功；流水线自检、本地校验、AI 复核相互独立。
+- 本轮只修改文档，验证相对链接与代码路径、Mermaid 结构及 git diff --check；未重跑应用测试/构建、未操作业务服务。
+
 ## 最新续接：最近 10 条提交映射与 type.h 版本归档（2026-10-29）
 
 - 用户要求点击「同步全部项目」时，将各对应仓库 git log -10 中全部 commit/RTC 更新至 docs/project.json；同名 type.h 内容变化时，以更新前映射和旧版本命名归档。保留本轮开始前所有未提交改动及用户 project.json 内容，没有主动执行真实业务同步。

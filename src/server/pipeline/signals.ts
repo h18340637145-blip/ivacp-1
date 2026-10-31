@@ -173,12 +173,12 @@ export function normalizeSignalToken(value: string): string {
   return value.trim().replace(/^[-*•\d.()\s]+/, "").toUpperCase();
 }
 
-export function parseStep2SignalTokens(text: string): string[] {
+export function parseStep2SignalTokens(text: string, includeSingleLetters = false): string[] {
   const tokens = new Set<string>();
-  const matches = text.match(/[A-Za-z][A-Za-z0-9_]+/g) ?? [];
+  const matches = text.match(includeSingleLetters ? /[A-Za-z][A-Za-z0-9_]*/g : /[A-Za-z][A-Za-z0-9_]+/g) ?? [];
   for (const token of matches) {
     const normalized = normalizeSignalToken(token);
-    if (normalized.length >= 2) {
+    if (normalized.length >= (includeSingleLetters ? 1 : 2)) {
       tokens.add(token.trim());
     }
   }

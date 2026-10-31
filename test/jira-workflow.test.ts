@@ -53,7 +53,7 @@ describe("filter run lifecycle", () => {
   it("maps runs to source state", () => {
     expect(filterRunToSourceState(undefined, false).status).toBe("disabled");
     expect(filterRunToSourceState(undefined, true).status).toBe("idle");
-    expect(filterRunToSourceState(run({ status: "pending" }), true).status).toBe("running");
+    expect(filterRunToSourceState(run({ status: "pending", createdAt: new Date() }), true).status).toBe("running");
     expect(filterRunToSourceState(run({}), true)).toMatchObject({ status: "completed", issueCount: 3 });
   });
 

@@ -12,7 +12,13 @@ const schedule = createLimiter(CLIENT_CONCURRENCY);
 
 export function useFilterAction(groups: RuleGroup[]) {
   const [running, setRunning] = useState(false);
-  useEffect(() => { void recoverExpiredFilters().catch((error) => toast.error(errorMessage(error))); }, []);
+  useEffect(() => {
+    const recover = () => { void recoverExpiredFilters().catch((error) => toast.error(errorMessage(error))); };
+    recover();
+    const timer = setInterval(recover, 15_000);
+    window.addEventListener("focus", recover);
+    return () => { clearInterval(timer); window.removeEventListener("focus", recover); };
+  }, []);
 
   async function run(targets: RuleGroup[]) {
     if (running) return;

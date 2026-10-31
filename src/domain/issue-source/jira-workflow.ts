@@ -6,12 +6,15 @@ import { createRuleGroupSourceSummary } from "@/domain/issue-source/contracts";
 
 /** Jira 筛票超时：请求 10 分钟未返回即中止并标记过期 */
 export const FILTER_RUN_TIMEOUT_MS = 10 * 60_000;
+/** 飞书可先查询待办项目（30秒），再执行MQL（30秒），预留响应与落盘时间。 */
+export const MEEGLE_FILTER_TIMEOUT_MS = 90_000;
+export function filterRunTimeoutMs(source?: string): number { return source === "meegle" ? MEEGLE_FILTER_TIMEOUT_MS : FILTER_RUN_TIMEOUT_MS; }
 export const FILTER_RUN_TIMEOUT_ERROR = "筛票任务超时";
 export const FILTER_RUN_RECOVERY_ERROR = "筛票任务超时，已在启动恢复时自动过期";
 
-export function isExpiredActiveFilterRun(run: Pick<FilterRun, "status" | "createdAt">, now = Date.now()): boolean {
+export function isExpiredActiveFilterRun(run: Pick<FilterRun, "status" | "createdAt"> & { source?: string }, now = Date.now()): boolean {
   if (run.status !== "running" && run.status !== "pending") return false;
-  return now - new Date(run.createdAt).getTime() > FILTER_RUN_TIMEOUT_MS;
+  return now - new Date(run.createdAt).getTime() >= filterRunTimeoutMs(run.source);
 }
 
 /** 启动恢复：把超时仍在运行的筛票标记为过期 */
@@ -42,6 +45,7 @@ export function latestBy<T>(items: T[], dateOf: (item: T) => Date | string | und
 export function filterRunToSourceState(run: FilterRun | undefined, configured: boolean): RuleGroupSourceState {
   if (!configured) return { configured: false, status: "disabled", issueCount: 0 };
   if (!run) return { configured: true, status: "idle", issueCount: 0 };
+  if (isExpiredActiveFilterRun(run)) run = expireFilterRun(run);
   return {
     configured: true,
     status: run.status === "pending" ? "running" : run.status,

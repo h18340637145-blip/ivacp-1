@@ -12,6 +12,10 @@ import type { FewShotSample, PipelineMetrics, ProcessRequest } from "@/server/pi
 
 /** 单次工单分析的运行上下文：请求参数 + 目录 + 日志/指标 + 阶段记录 */
 export interface ProcessContext {
+  analysisConfig?: import("./effective-context").EffectiveConfiguration;
+  configurationResolution?: import("@/domain/analysis/effective-configuration").ConfigurationResolution;
+  logVersionWarnings?: string[];
+  logVersions?: import("../log-versions").LogVersions[];
   request: ProcessRequest;
   issueKey: string;
   summary: string;

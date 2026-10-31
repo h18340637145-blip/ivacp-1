@@ -92,6 +92,9 @@ export function RuleGroupDialog({ group, bosch = false, readOnly, onClose }: Pro
                         <span className="text-xs font-medium">车型 {index + 1}</span>
                         {!readOnly ? <Button size="icon" variant="ghost" aria-label={`移除车型 ${index + 1}`} onClick={() => patch("modelRows", values.modelRows.filter((item) => item.rowId !== row.rowId))}><Trash2 aria-hidden /></Button> : null}
                       </div>
+                      <Field label="车型别名" htmlFor={`rg-model-${row.rowId}-aliases`} hint="支持逗号、分号或换行分隔；完整匹配且区分大小写。留空时自动识别使用用户默认配置。">
+                        <Textarea id={`rg-model-${row.rowId}-aliases`} value={row.aliases ?? ""} rows={2} onChange={(e) => patch("modelRows", values.modelRows.map((item) => item.rowId === row.rowId ? { ...item, aliases: e.target.value } : item))} />
+                      </Field>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {([['modelName', '车型名称'], ['json', 'JSON 文件'], ['dbc', 'DBC 文件（逗号分隔）'], ['proto', 'Proto 文件']] as const).map(([key, label]) => (
                           <Field key={key} label={label} htmlFor={`rg-model-${row.rowId}-${key}`}>
