@@ -1,0 +1,103 @@
+[
+  {
+    "slide": 1,
+    "theme": "业务价值：围绕工单组织证据与协作",
+    "oldSlides": [
+      1,
+      2
+    ],
+    "explanationGroups": 4,
+    "minutes": 2
+  },
+  {
+    "slide": 2,
+    "theme": "整体架构：浏览器、服务与数据边界",
+    "oldSlides": [
+      3,
+      4
+    ],
+    "explanationGroups": 4,
+    "minutes": 3
+  },
+  {
+    "slide": 3,
+    "theme": "飞书全流程：筛票、分析与人工复核",
+    "oldSlides": [
+      4,
+      5,
+      6
+    ],
+    "explanationGroups": 4,
+    "minutes": 3.5
+  },
+  {
+    "slide": 4,
+    "theme": "可靠输入：查看缓存与分析快照分开",
+    "oldSlides": [
+      7,
+      10
+    ],
+    "explanationGroups": 4,
+    "minutes": 3
+  },
+  {
+    "slide": 5,
+    "theme": "分析证据：配置、信号与日志共同约束结论",
+    "oldSlides": [
+      8,
+      13
+    ],
+    "explanationGroups": 4,
+    "minutes": 3.5
+  },
+  {
+    "slide": 6,
+    "theme": "有效配置：唯一选择、运行冻结与整套回退",
+    "oldSlides": [
+      9
+    ],
+    "explanationGroups": 4,
+    "minutes": 4
+  },
+  {
+    "slide": 7,
+    "theme": "历史 VHAL：hash、RTC、VS 提交与 Excel",
+    "oldSlides": [
+      10,
+      11
+    ],
+    "explanationGroups": 4,
+    "minutes": 5
+  },
+  {
+    "slide": 8,
+    "theme": "恢复回填：完整成功产物与独立外部授权",
+    "oldSlides": [
+      12,
+      13
+    ],
+    "explanationGroups": 4,
+    "minutes": 4.5
+  },
+  {
+    "slide": 9,
+    "theme": "Loop 开发：在现有 Harness 中完成小目标",
+    "oldSlides": [
+      14,
+      15
+    ],
+    "explanationGroups": 4,
+    "minutes": 3
+  },
+  {
+    "slide": 10,
+    "theme": "未来自动迭代：建议、授权、开发与发布分开",
+    "oldSlides": [
+      16,
+      17,
+      18
+    ],
+    "explanationGroups": 4,
+    "minutes": 3.5
+  }
+]

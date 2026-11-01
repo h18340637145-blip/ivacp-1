@@ -1,0 +1,68 @@
+{
+  "originalFilesUnchanged": true,
+  "slideCount": 10,
+  "explanationGroups": 40,
+  "durationMinutes": 35,
+  "pages": [
+    {
+      "page": 1,
+      "groups": 4,
+      "connectors": 5,
+      "pictures": 0
+    },
+    {
+      "page": 2,
+      "groups": 4,
+      "connectors": 7,
+      "pictures": 0
+    },
+    {
+      "page": 3,
+      "groups": 4,
+      "connectors": 5,
+      "pictures": 0
+    },
+    {
+      "page": 4,
+      "groups": 4,
+      "connectors": 3,
+      "pictures": 0
+    },
+    {
+      "page": 5,
+      "groups": 4,
+      "connectors": 7,
+      "pictures": 0
+    },
+    {
+      "page": 6,
+      "groups": 4,
+      "connectors": 5,
+      "pictures": 0
+    },
+    {
+      "page": 7,
+      "groups": 4,
+      "connectors": 6,
+      "pictures": 0
+    },
+    {
+      "page": 8,
+      "groups": 4,
+      "connectors": 14,
+      "pictures": 0
+    },
+    {
+      "page": 9,
+      "groups": 4,
+      "connectors": 6,
+      "pictures": 0
+    },
+    {
+      "page": 10,
+      "groups": 4,
+      "connectors": 7,
+      "pictures": 0
+    }
+  ]
+}

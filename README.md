@@ -67,4 +67,6 @@ npm run terminal:gateway
 
 报告位于 `docs/golden-baseline/`，人工真值文件为 `eval-set.json`。评测兼容旧票目录及 Jira / 飞书独立运行目录，同票选择最新完整成功运行。
 
+开发按 [AGENTS.md](AGENTS.md) 的最小 Loop 执行，当前目标、验收状态和下一步见 [会话交接](session-handoff.md)。
+
 开始修改代码前，阅读 [产品](docs/PRODUCT.md)、[架构](docs/ARCHITECTURE.md)、[流程](docs/WORKFLOW.md)、[时序](docs/SEQUENCE_DIAGRAMS.md) 和 [交接](session-handoff.md)。

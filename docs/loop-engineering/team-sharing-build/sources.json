@@ -1,0 +1,149 @@
+{
+  "README.md": {
+    "sha256": "33499dd00a32ff7742c2426c1e649e37a9b82e66d8623f8227720736227d7dcd"
+  },
+  "docs/PRODUCT.md": {
+    "sha256": "19d4e2c7bf22ed1d87f5c42c1b86227d9643e48369f487e54379f402610126c1"
+  },
+  "docs/REFACTOR_STATUS.md": {
+    "sha256": "b9474aa48292f186e6f75a76e1a3f7d24f971784b0f47311fe0d1db40ec488ab"
+  },
+  "src/app/(app)/page.tsx": {
+    "sha256": "f32264a4049a23a915f758ec0d86b228dc274aca4b2d6ce0683d885625d24a7b"
+  },
+  "src/shared/db/database.ts": {
+    "sha256": "bd02b33a46dbe2180edf0eda497ce1b54bf8cd2960226903118892d60d9d0f46"
+  },
+  "src/shared/db/sync.ts": {
+    "sha256": "cf746ab8e42497de6c5d4f7dfadda4464b27b2f41bc15d17a84f17d3015c83b4"
+  },
+  "src/server/pipeline/process/orchestrator.ts": {
+    "sha256": "5ab5741c7f49fc2790c2805462301b56d29c84993668ef183e40a8dca1d030dc"
+  },
+  "terminal-gateway/server.ts": {
+    "sha256": "c061114c5dd7c5923e2b9f1ba00727cd1c84caa49d522d1d5ac5a50eb4f36530"
+  },
+  "docs/ARCHITECTURE.md": {
+    "sha256": "dac3fd9b7a0305a57d9576b8577f82895a81d1702e294027ae65b84ecab01a80"
+  },
+  "src/domain/entities.ts": {
+    "sha256": "4dcd419e723b3bdc8730741ce44b62a185082916fdb7806bb0c11c83d2967857"
+  },
+  "src/features/tickets/services/process-repository.ts": {
+    "sha256": "46d73a507298c5bb9e6ab4db4fe0e5b42f1474336a4054278fa92b0e77aeb664"
+  },
+  "src/server/meegle/recovery.ts": {
+    "sha256": "ef0df411a8c583939fb138cdf55c439bfd3348d446954f491214634382350910"
+  },
+  "src/server/meegle/mql-filtering.ts": {
+    "sha256": "b108a3fba7ea28037b3f7a24a57757118ed758a5d71e4e57479a4ccc1c4664c3"
+  },
+  "src/server/meegle/cli.ts": {
+    "sha256": "bb17572870ef7e701abc1c6993156ecbb08610216309efb3265d18ddf620965f"
+  },
+  "src/features/workflow/filter-service.ts": {
+    "sha256": "6f199132b671e53aaa2e6964e142d203866252c1278aef11c9644aa257993764"
+  },
+  "src/features/tickets/services/process.ts": {
+    "sha256": "79bfa50a49758d9a09ec6078e8b7cf6fc92174a80e795131b04c97f608aa1765"
+  },
+  "src/domain/auth/permissions.ts": {
+    "sha256": "165fa6cd5d23d1363e17365b83fa3976106c35c3526a8f55aed3a4c8fab3aba2"
+  },
+  "src/server/meegle/mql-filter-run.ts": {
+    "sha256": "029e86fa615206daeaa93eb7145509510bc0a4fc74890264fc8298a8af047af8"
+  },
+  "src/features/workflow/filter-repository.ts": {
+    "sha256": "fbd8ea86e2da8aefcc66e598228f68066c62b88c11f6db7c110d507c1720dbd7"
+  },
+  "src/domain/issue-source/jira-workflow.ts": {
+    "sha256": "606721bc060e8679f129f8afbb41a402709a8dee59889a485c7ef0d7b5f8e855"
+  },
+  "src/server/meegle/context-view.ts": {
+    "sha256": "fdfcecf023098c6c8ecbb013d78df71217c3f4726da7c7e56c0118c3f2fbf1ca"
+  },
+  "src/server/meegle/context-cache.ts": {
+    "sha256": "135e5c3a1d6038cdefbc573fad6d898f6c13da49f75951ff4ac16e4a70164827"
+  },
+  "src/server/meegle/context.ts": {
+    "sha256": "6a61f507846ba2d00691f58d87bfdc445c426f9af50bd4b6339e14081a2d4af8"
+  },
+  "src/features/tickets/components/ticket-context-panel.tsx": {
+    "sha256": "36f035099543cb9a65770364ae783c1da2d3b35387eef0f98b16ba93d014c890"
+  },
+  "src/server/pipeline/process/signals-stage.ts": {
+    "sha256": "e3d262120ed257e7d0f37b7d2a4651496edaff421d7e6f5146aad5d2b58f971b"
+  },
+  "src/server/pipeline/process/evidence-stage.ts": {
+    "sha256": "ee8dd89280266cae519ad896a749484a6ccc07f10b14345acdfa66ebd1caac5f"
+  },
+  "src/server/pipeline/step5.ts": {
+    "sha256": "88dd8fcf9ea354544575ef3648a49b0a550842eff77363090f56253e7f1fb39f"
+  },
+  "docs/PIPELINE_GUIDE.md": {
+    "sha256": "f2db1e9fbd0211e576b01e3afb33ad29a80248f3b41d3652b084b817c6d7d7fb"
+  },
+  "src/server/pipeline/process/effective-configuration.ts": {
+    "sha256": "a3463e4e254243d08f430d900276a0d9b00cc8c8dc0acaca398a9db7d99f0a13"
+  },
+  "src/server/pipeline/process/effective-context.ts": {
+    "sha256": "3b89046511011f7510b736815227de57ba84ffae861c4465f8036e26dd66fb07"
+  },
+  "src/domain/rule-groups/model-files.ts": {
+    "sha256": "174cbeadc0ad09ee24a1581f0b3c82e407e9f1301b52cb5ca51936197c60a7dd"
+  },
+  "src/server/pipeline/log-versions.ts": {
+    "sha256": "f10fc56a272e05569393af22fa90356765677c02b90f7ae8a84c41fa0c66c2a6"
+  },
+  "src/server/pipeline/process/version-vhal-stage.ts": {
+    "sha256": "c1822766a7ac11c86bb49a3971a4a7ff1d1140ebf415c59a5a089ad972aaa015"
+  },
+  "src/server/pipeline/version-vhal/resolution.ts": {
+    "sha256": "ec238dc814268dfefc157f6606b7a0a8d838566b8210d856c21f63b478c69b17"
+  },
+  "src/server/pipeline/vhal-version.ts": {
+    "sha256": "3a68e7addf41b68b40bb29917629bf45fdcef90a8a82ad2e75f88c6a9b6d791f"
+  },
+  "src/server/pipeline/version-vhal/signals.ts": {
+    "sha256": "22a08b768bbd8841ffb1960a38e4f0fcb43bb6d4c9de5540e4dc9d1c09f8a5f8"
+  },
+  "scripts/read-vhal-xlsx.py": {
+    "sha256": "4272528938407366438f89735f8f3d0d053d9f68bd6c33a7d4b02c35f227c625"
+  },
+  "src/server/pipeline/process/finish.ts": {
+    "sha256": "5f93449e51f3f22e6e1934ca57334083167ca33a47eb5cb42e1a961c0bbfcc5d"
+  },
+  "src/features/tickets/services/backfill.ts": {
+    "sha256": "17f23c343466678419c8ca42405e50fcf8308ac1ecb7ff44961afa669da07cf7"
+  },
+  "src/server/artifacts/analysis-run-registry.ts": {
+    "sha256": "b0b9a5eaec0683780bcfab01ed4a192bf04b7a3548ba548d5d0a69e4f6c0d493"
+  },
+  "test/pipeline-run-commit.test.ts": {
+    "sha256": "c9264c6231b4c45e89ca4fb6ff7b354a7c4645d29db0ab9fbfdcd4f94942e934"
+  },
+  "test/pipeline-auto-config.test.ts": {
+    "sha256": "baa5284c3049397131d81e88b738fdeb97c789fb176b0cce8483d1de82044557"
+  },
+  "test/meegle-recovery.test.ts": {
+    "sha256": "c7ceab512640405e25338832fb708262cc57caa98a9d60c285613282137d3573"
+  },
+  "test/kanban-browser.test.ts": {
+    "sha256": "9b1f7c3424310904b44390f88338b117a94aba146417aaa99c875313cb56f9d5"
+  },
+  "src/server/evaluation/accuracy.ts": {
+    "sha256": "be9fc596492d2effdf58ca8d58d568707abe1f3f28d504889a15cf80149a3a5a"
+  },
+  "AGENTS.md": {
+    "sha256": "0d1e90566e88ec0ee15cbfafa334933eff97a672165662f54265beb5f3db0593"
+  },
+  "docs/loop-engineering/minimal-loop-agents-review.md": {
+    "sha256": "fe5f5f311258d25d53fcb6c9ea2d7cc23f29ed70e0b2b914f4d4b078d1ef7045"
+  },
+  "docs/loop-engineering/project-adoption-review.md": {
+    "sha256": "1f614041a6457b81822d95dbedfeb5a6502c68cb2370b37092dfcc41d6bcda36"
+  },
+  "session-handoff.md": {
+    "sha256": "585dd01a13de0d3685fc51f04e3a944ad82087634b57bb16ee20a2954b2e0aa1"
+  }
+}

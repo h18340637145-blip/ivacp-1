@@ -1,0 +1,346 @@
+# IVACP 项目介绍：10 页图文版逐页讲解稿
+
+总时长约 35 分钟。新版保留原 18 页文件，按指定十个主题重组，每页一张可编辑技术图、4 组关键解释和一句结论。细节、异常与源码依据保留在讲解备注及本稿。
+
+## 第 01 页：业务价值：围绕工单组织证据与协作
+
+建议时长：2 分钟。证据状态：现有主要功能已接通，完整业务验收仍有遗留。
+
+**一句结论：IVACP 将重复分析工作组织为可追溯流程，人工保留关键判断与外部操作决定权。**
+
+### 四组关键解释
+
+- 服务对象：面向车载中间件小团队，围绕 Jira / 飞书缺陷协作。
+- 重复劳动：统一提取需求、信号和日志，集中查看版本、曲线与证据。
+- 判断分工：模型生成分析建议，人工复核并决定回填。
+- 团队沉淀：统计、模板、标注、知识与笔记，把纠错结果留下来复用。
+
+### 详细讲解
+
+这一页先回答为什么做 IVACP。团队处理车载中间件缺陷时，一张工单常同时包含正文、评论、CAN trace、Android/QNX 日志及多种车型配置。人工需要反复确认上下文、寻找信号、查版本、整理证据，再进行复核与回填。IVACP 将这些步骤连成有记录、可解释的工作流。主图表达能力之间的关系，不表示结果必须等到回填之后才保存。
+
+业务分工很重要。模型擅长提取、汇总和生成候选分析，确定性代码负责身份、文件、配置、提交顺序和权限边界，人工负责关键复核和业务判断。系统不是通过一段提示词直接决定工单的全部后续动作。
+
+功能入口可以按使用路径理解：规则组和模板配置查询与车型文件；筛票和单票入口组织任务；详情页展示曲线、阶段、版本和产物；复核与标注产生纠错样本；统计和报告支持团队回顾；对话、知识库、记忆与笔记支持检索；终端、配置同步、备份迁移和 API / 评测工具服务开发与运维。
+
+当前多数主要入口已经接通，但这不能等同于全部重构目标、真实数据和真实业务验收已经完成。本次重组保留这一边界，也没有重新发起真实分析或外部写入。讲述时强调“减少重复搬运、保留证据与决定权”，不使用没有测量依据的提效比例。
+
+### 源码与文档依据
+
+- README.md:1
+- docs/PRODUCT.md:107；定位：目标用户
+- docs/REFACTOR_STATUS.md:5；定位：功能与验证边界
+- README.md:38；定位：主要页面
+- src/app/(app)/page.tsx:1
+
+## 第 02 页：整体架构：浏览器、服务与数据边界
+
+建议时长：3 分钟。证据状态：当前源码架构，本次未重跑运行验收。
+
+**一句结论：IndexedDB 保存浏览器业务状态，MySQL 支持镜像与团队能力，文件系统保留运行证据。**
+
+### 四组关键解释
+
+- 分层职责：app / features 组织交互，domain/shared 提供规则与存储。
+- 统一入口：Next.js 鉴权后适配 Jira、飞书 CLI、Qwen 与 CAN 工具。
+- 数据分工：IndexedDB 为本地主存储，MySQL 与本地产物各有职责。
+- 独立终端：独立网关连接白名单 SSH，同步配置与分析读取分别执行。
+
+### 详细讲解
+
+主图从调用与数据职责介绍结构。浏览器 app/features 负责页面、交互、任务编排和状态，domain 是统一实体与纯规则，shared 包含 Dexie 数据库及通用工具。浏览器通过同源 API 进入 Next.js 服务端，服务端完成鉴权并适配 Jira REST、飞书 CLI、Qwen 及本地 CAN / Python 工具。
+
+IndexedDB 是浏览器业务主存储，保存规则组、筛票、分配、快照、任务、结果、历史，以及助手相关数据。服务端 MySQL 承担现有镜像和团队统计、模板等能力，沿用原有登录体系。分析文本、图、完整响应和指标位于文件系统，configuration 中保存已同步的配置与归档。三者不是可以随意替换的同一份数据库。
+
+一张工单的关联要同时理解来源身份和运行身份。飞书以 projectKey、工作项类型及 workItemId 区分，Jira 还区分默认和 Bosch 站点。ruleGroupId 是当前配置与归属，task.id 是本次 runId；result 关联 task、snapshot 和 assignment，重跑另留历史。票号不能单独证明跨项目或跨运行的身份。
+
+图底部是独立终端通道：浏览器通过 WebSocket 连接 terminal-gateway，再使用白名单 SSH 目标。配置同步将 Git 固定提交中的文件和映射发布到本地，分析只读取已有本地资料，不会因为要分析工单而自动触发远程同步。箭头表示主要调用或数据访问，不表示跨节点共享一个事务。
+
+### 源码与文档依据
+
+- src/shared/db/database.ts:12；定位：DB_SCHEMA_V1
+- src/shared/db/sync.ts:28；定位：FLUSH_DELAY_MS
+- src/server/pipeline/process/orchestrator.ts:30；定位：processIssue
+- terminal-gateway/server.ts:1
+- docs/ARCHITECTURE.md:4；定位：IVACP 新仓库实现边界
+- src/domain/entities.ts:216；定位：ProcessTask
+- src/features/tickets/services/process-repository.ts:18；定位：beginProcessAttempt
+- src/server/meegle/recovery.ts:50；定位：recoverMeegleRun
+- src/server/meegle/mql-filtering.ts:132；定位：meegleMqlIdentityKey
+
+## 第 03 页：飞书全流程：筛票、分析与人工复核
+
+建议时长：3.5 分钟。证据状态：现有实现，示意身份为 P / issue / 12345。
+
+**一句结论：筛票成功、分析完成和允许回填是不同状态，必须分别核对归属、运行与复核门禁。**
+
+### 四组关键解释
+
+- 完整身份：项目、类型、工作项 ID 区分工单，ruleGroupId 与 runId 各有含义。
+- 唯一归属：MQL 查询目标与高优先组，按 sortOrder、id 确定自动归属。
+- 失败隔离：成功空结果可解除未命中归属，失败、超时不冒充本轮成功。
+- 外部动作：AI 复核只给建议，人工门禁后才可回填，流转与指派另处理。
+
+### 详细讲解
+
+这页用 P / issue / 12345 作为示意工单，不代表真实工单。登录沿用平台现有会话和 analyst、reviewer、admin 角色。飞书访问在服务端通过 CLI 封装执行，运行 Next.js 的用户和环境需要已有有效飞书登录。浏览器并不直接拿飞书凭据访问上游。
+
+筛票从规则组 MQL 开始。完整 FROM 子句可直接提供项目 key，旧条件式查询才可能从待办兼容推断项目。目标组也要查询更高优先级比较组，按 sortOrder 再按 id 解决重复命中，并返回成功组列表与审计。比较查询失败时，即使目标查询有结果，也不能安全提交归属清理。
+
+成功空查询与失败查询必须区分：成功后会解除该组未再命中的当前归属，保留结果和历史；失败则保留既有归属，页面不能展示旧成功快照冒充本次结果。新自动分配对手工分配有保护，但不应泛化为手工归属永远不受成功查询的解除规则影响。CLI 默认单次 30 秒，飞书筛票前端截止 90 秒，迟到响应不覆盖新运行。
+
+分析开始前事务创建 task 与输入快照；正常页面 runId 等于 task.id，飞书补齐上下文后复用共享 process API。完整产物和最新运行门禁共同决定保存或恢复。AI 复核、本地一致性校验和人工复核是不同操作。飞书人工通过，或驳回并提供正确结论后，才满足相应回填门禁；评论、流转和经办人操作继续走独立授权与记账。
+
+### 源码与文档依据
+
+- src/domain/entities.ts:216；定位：ProcessTask
+- src/features/tickets/services/process-repository.ts:18；定位：beginProcessAttempt
+- src/server/meegle/recovery.ts:50；定位：recoverMeegleRun
+- src/server/meegle/mql-filtering.ts:132；定位：meegleMqlIdentityKey
+- src/server/meegle/cli.ts:54；定位：runMeegleJson
+- src/features/workflow/filter-service.ts:44；定位：filterSource
+- src/features/tickets/services/process.ts:66；定位：processTicket
+- src/domain/auth/permissions.ts:42；定位：requiredRoleForPath
+- src/server/meegle/mql-filter-run.ts:99；定位：runMeegleMqlFilter
+- src/server/meegle/mql-filtering.ts:82；定位：selectMeegleMqlFilterExecutionScope
+- src/features/workflow/filter-repository.ts:27；定位：commitFilterRun
+- src/domain/issue-source/jira-workflow.ts:10；定位：MEEGLE_FILTER_TIMEOUT_MS
+
+## 第 04 页：可靠输入：查看缓存与分析快照分开
+
+建议时长：3 分钟。证据状态：现有上下文与版本提取机制。
+
+**一句结论：当前票缓存便于查看，运行快照负责追溯；缺失或冲突要保留原因，不能补造事实。**
+
+### 四组关键解释
+
+- 分析输入：字段、评论、评论附件与插件附件归入本次分析 rawData。
+- 查看缓存：富文本与本地图片按工单隔离，只通过同源鉴权接口展示。
+- 日志来源：SOC 取 MAIN_VERSION，SCC 解码同目录 DLT payload。
+- 失败策略：远端失败保留旧内容，单图占位；缺证据继续保留 unknown。
+
+### 详细讲解
+
+主图用三条用途不同的数据路径解释“可靠输入”。第一条是分析输入：fetchMeegleContext 获取详情、评论、评论附件和附件插件，形成 rawData 并关联本次处理快照。分析依据这份运行输入，而不是后续任意刷新过的页面内容。
+
+第二条是详情查看：context-view 优先读取本票 context.json，必要时只读取得字段、评论与作者；图片通过 CLI 下载至按 projectKey / issue / meegle-ID 隔离的本地缓存，使用 URL 的 SHA-256 标识，通过同源鉴权图片接口展示。富文本经过清理，不能将任意 HTML 原样执行。此查看动作不启动分析、不回填评论，也不覆盖旧分析 run。
+
+缓存下载有明确预算：单张 20 MiB，一次新增最多 40 张、100 MiB、45 秒，只接受受限的官方 HTTPS 文件地址，优先复用有效旧图。远端失败保留旧内容，无缓存可展示分析快照；评论失败不清空旧评论，单图失败可占位。这些细节用于理解失败时界面为什么仍能展示部分内容。
+
+第三条是日志版本原文：解压后递归读取 Buildinfo.txt 的 MAIN_VERSION，同时解码同目录 Scc-*.dlt 的 [Vip-App]App: payload，不跨目录随意配对。Android BoschVehicleHalHash 是另一种来源，保留 hash、编译日期和原始文件行。版本元数据不是信号命中证据。缺失、解析失败、冲突和来源告警要进入记录，不能为了完整显示而猜测。SOC/SCC 的后续比较与历史 VHAL 的用途在第 7 页展开。
+
+### 源码与文档依据
+
+- src/server/meegle/context-view.ts:6；定位：meegleContextCache
+- src/server/meegle/context-cache.ts:49；定位：createMeegleContextCache
+- src/server/meegle/context.ts:21；定位：fetchMeegleContext
+- src/features/tickets/components/ticket-context-panel.tsx:1
+- src/server/pipeline/log-versions.ts:42；定位：extractLogVersions
+- src/server/pipeline/process/version-vhal-stage.ts:34；定位：runVersionVhalCheck
+- src/server/pipeline/version-vhal/resolution.ts:18；定位：chooseLatestHash
+- src/server/pipeline/vhal-version.ts:1
+
+## 第 05 页：分析证据：配置、信号与日志共同约束结论
+
+建议时长：3.5 分钟。证据状态：现有共享流水线，历史验证本次未重跑。
+
+**一句结论：有回复不等于完整证据分析成功，接地率也不等于端到端业务准确率。**
+
+### 四组关键解释
+
+- 真实映射：Step2 信号须在配置中匹配，由 Proto 取得 Property ID。
+- 证据汇合：CAN 解码与 Step3 局部并行，证据整理后进入版本检查。
+- 按路径降级：缺附件、拒绝或摘要兜底不代表完整 Step1—5 都已执行。
+- 校准边界：业务证据自修正最多 3 轮，EGR、人工真值与覆盖率一起看。
+
+### 详细讲解
+
+图按当前共享编排顺序展示。下载、附件分类和解压之后，先选择并冻结有效配置，再执行 Step1 需求提取和 Step2 信号提取。信号不能仅因出现在模型文本就参与后续解释，必须与真实 JSON 配置匹配，并借助 Proto 取得 Property ID，受限补救也只能使用真实候选。
+
+CAN 解码绘图与 Step3 上层摘要是局部并行。Step3 的直接输入是工单评论、需求提取和信号结果，不能把它描述成已经读取了所有 Android/QNX 文件。证据汇总等待 CAN，按时间窗和 Property ID 筛选日志，生成 evidence-packet、extract、signals 和曲线摘要。版本/VHAL 检查在证据整理后、Step4/5 前执行，明确条件可提前结束。
+
+附件模式决定能力边界。飞书缺有效附件会在 OCR 前返回固定补日志回复，拒绝模式也会提前结束；只有 CAN、压缩包或联合资料时采用各自路径。最终 Step5 可以联合分析、CAN 对比或摘要兜底，不能将它们统一宣传为完整证据分析成功。五个 AI 阶段也不意味着恰好五次模型请求，系统存在额外判断、重试和校准。
+
+业务内部的证据自修正最多 3 轮，保留候选和回退保护，防止靠删去已接地事实提高指标。这与开发 Agent 的最多 2 轮修复是两种不同预算。EGR 衡量断言接地，必须结合信号召回、关键判断、人工真值与覆盖率，缺证据保持未知。测试和历史隔离验证记录不能替代真实工单或实车证据。
+
+### 源码与文档依据
+
+- src/server/pipeline/process/orchestrator.ts:47；定位：runStages
+- src/server/pipeline/process/signals-stage.ts:114；定位：matchSignalsToConfig
+- src/server/pipeline/process/evidence-stage.ts:35；定位：collectEvidence
+- src/server/pipeline/step5.ts:218；定位：runEvidenceSelfCritique
+- docs/PIPELINE_GUIDE.md:84；定位：附件分支与提前结束
+- docs/REFACTOR_STATUS.md:39；定位：验证纪律
+- test/pipeline-run-commit.test.ts:1
+- test/pipeline-auto-config.test.ts:1
+- test/meegle-recovery.test.ts:1
+- test/kanban-browser.test.ts:1
+- src/server/evaluation/accuracy.ts:163；定位：buildAccuracyReport
+
+## 第 06 页：有效配置：唯一选择、运行冻结与整套回退
+
+建议时长：4 分钟。证据状态：现有实现，历史整套配置配套未验证。
+
+**一句结论：当前有效配置负责本次分析一致性，历史 VHAL 追溯负责定位问题所属版本，二者不能混同。**
+
+### 四组关键解释
+
+- 唯一候选：SOC 匹配分支，SCC 与工单车型须完整命中当前组别名。
+- 文件可信：校验同步清单、Git blob 标识，以及 JSON / Proto / DBC 内容。
+- 运行冻结：复制至 run/effective-config，保存实际路径和 SHA-256。
+- 整体回退：不唯一、冲突或文件不齐时用整套用户配置，不混用来源。
+
+### 详细讲解
+
+这页对应自动基础配置选择，时序必须早于 Step2 和 CAN 解码。先按当前规则组的完整别名解析工单车型；SOC 去除已识别构建版本后匹配 project.json 的项目与分支候选，SCC 提供日志车型，并要求命中同一组的同一个车型条目。Android hash 若可用，继续交叉消歧；多日志身份不一致、SOC 与 hash 冲突，或候选仍不唯一，不能任取一个。
+
+候选目录确定后，检查 .sync-state.json 的项目分支、仓库与文件身份、Git blob 标识及读取期间的一致性。自动模式要求 JSON 为数组、Proto 包含 Property_ID，DBC 还需要实际解析通过。不能只替换目录字符串而忽略文件集合、文件身份及车型。
+
+通过后读取并冻结到本 run 的 effective-config/UUID，记录源路径、快照路径、SHA-256、manifest 和仓库提交。后续 JSON、DBC、Proto 与当前配置 type.h 使用统一的有效上下文。原 request、runId、业务目录和归属保持，requested 与 actual 另行保存；旧结果不补造新字段。
+
+选择失败则整体回退请求开始时的用户配置，冻结其中可用文件，缺失项保留原有能力边界，不从另一套自动目录借文件拼接。明确身份冲突时，不能利用另一上下文的 VHAL 检查触发全部缺少而提前停止。自动选择采用分支当前已同步快照，不自动同步远程，不重建日志历史整套 JSON/DBC/Proto。决定及来源保存到 effective-config-resolution.json 与 effective-config-check.md，并随响应、历史和恢复展示。
+
+### 源码与文档依据
+
+- src/server/pipeline/process/effective-configuration.ts:145；定位：selectEffectiveConfiguration
+- src/server/pipeline/process/effective-configuration.ts:67；定位：freeze
+- src/server/pipeline/process/effective-context.ts:8；定位：configurationFor
+- src/domain/rule-groups/model-files.ts:31；定位：resolveModelAlias
+
+## 第 07 页：历史 VHAL：hash、RTC、VS 提交与 Excel
+
+建议时长：5 分钟。证据状态：现有判断规则，未知与歧义保持独立状态。
+
+**一句结论：只有明确版本不一致，或待查信号全部确认缺少且无豁免时停止；未知和冲突不能当作通过。**
+
+### 四组关键解释
+
+- 前置比较：SOC/SCC 明确不一致才停止，匹配或 unknown 均进入后续。
+- 唯一追溯：最新编译 hash 定位来源提交，同项目同分支组 RTC 关联 VS。
+- 归档到版本：用 VS commit 查根目录和 bak，82552236 对应 VHAL 2.2.36。
+- 精确检查：三列精确匹配并验证 Project，未知与部分缺少等情况继续。
+
+### 详细讲解
+
+这一页按顺序区分两个判断。前置的 SOC/SCC 比较仍在证据整理后的版本检查阶段执行：对每个目录配对的原始版本做 AI 判断，要求只比较有效版本号、保留原因，并用 schema 检查输出。任一明确 mismatched 就结束后续版本定位及 Step4/5；全部明确匹配才能汇总 matched，资料不足或格式错误为 unknown 并继续。这里的 AI 结论不能当作真实刷机验证。
+
+历史 VHAL 链路使用 Android BoschVehicleHalHash，解析 hash-YYYY-MM-DD，按编译日期选择最新候选，而不是日志行时间。最新日期含不同 hash、日期无效或来源告警不能强选。前缀匹配 project.json 中的来源 commit，必须唯一定位它所属项目与 branches 条目。取得来源 RTC 列表后，只在同一项目同一个 branches 对象的唯一 vs 仓库中做 RTC 完整匹配，去重得到唯一 VS commit；RTC 不是本次工单号，也不要求不同仓库 branchName 一样。
+
+随后用 VS commit 查 configuration 项目分支组根目录与 bak 的归档文件名，兼容有无 .h，归档前缀、多个编码或缺失都保留原因。示例 82552236 拆为平台 8255 与 VHAL 2.2.36，定位对应 Excel；当前命名仍有 CHERY 模式，不能声称已泛化到所有 OEM。问题历史版本不能由当前 type.h 直接代替，更不能证明整套历史配置已经配套。
+
+信号检查按表头取得 Vehicle property ID、MCU UP、IVI DOWN，精确区分大小写，再检查同行 Project 按斜线分割的完整车型。车型取实际 DBC 文件名，ALL、空白或未知 Project 保持 unknown。只有非空待查列表全部为 signal_missing 或 model_not_configured，且没有仅大小写差异豁免，才提前结束。部分缺少、大小写差异、未知和冲突均提示后继续；读取前后 Excel 摘要要一致，证据保留 sheet、row、column、值和车型。各结果写入版本检查 JSON/Markdown 及历史，不会因此自动重分析旧票。
+
+### 源码与文档依据
+
+- src/server/pipeline/log-versions.ts:42；定位：extractLogVersions
+- src/server/pipeline/process/version-vhal-stage.ts:34；定位：runVersionVhalCheck
+- src/server/pipeline/version-vhal/resolution.ts:18；定位：chooseLatestHash
+- src/server/pipeline/vhal-version.ts:1
+- src/server/pipeline/version-vhal/resolution.ts:156；定位：resolveVhal
+- src/server/pipeline/version-vhal/resolution.ts:100；定位：associateVs
+- src/server/pipeline/version-vhal/signals.ts:29；定位：checkSignalRows
+- scripts/read-vhal-xlsx.py:1
+
+## 第 08 页：恢复回填：完整成功产物与独立外部授权
+
+建议时长：4.5 分钟。证据状态：现有实现，时序省略内部适配调用。
+
+**一句结论：完整成功产物才能恢复；HTTP 断开不等于停止，AI 建议也不能替代人工回填门禁。**
+
+### 四组关键解释
+
+- 严格保存：回复、阶段与完整响应先落盘，最后发布 success 完成标记。
+- 恢复边界：飞书按原 run 恢复并重签凭据，不完整时等待或超时失败。
+- 最新运行：IndexedDB 短事务核对 task，迟到结果不得覆盖新归属。
+- 外部记账：人工复核后领取并授权，流转失败不重复已成功评论。
+
+### 详细讲解
+
+时序的第一步是 IndexedDB 事务创建 task 和输入快照，网络工作在事务之外。服务端完成分析后依次写 final_reply、stages 和 process-response，flush 日志，然后最后原子发布带 responseArtifactVersion=1 的 success metrics。只看到 final_reply.md 不能证明成功产物完整，取消或保存失败也不能伪装成可恢复成功。
+
+客户端提交还要核对 analysisRunId、当前 task、最新任务及 assignment 的令牌，过期结果不能覆盖新分析或新归属。重跑归档旧结果，失败不能直接抹去原有可用历史。
+
+飞书忽略 HTTP 断开取消，显式 cancel 才请求服务端运行注册表停止，停止与成功发布有互斥边界。刷新后使用原 run 身份读取完整成功产物，重签 artifactRef / analysisReceipt，保留曲线、枚举、Token、版本及有效配置。尚未完整且未超两小时可保持 running，超时才失败。注册表在进程内，服务重启不保证任务继续，完整产物恢复不等于任意阶段断点续跑；恢复还依赖原快照和组等上下文，Jira 也没有完全相同的自动恢复路径。
+
+回填前必须满足飞书人工复核门禁，AI 复核仅保存建议。多标签页通过事务领取防重，服务端进一步检查动作和目标绑定凭据。评论成功立即保存，后续流转失败只重试流转；中断回填要核对原票避免重复评论。经办人指派是独立操作，不等同于评论或流转。图将鉴权适配封装为业务服务，细节在源码与备注，不代表浏览器直接越过服务端访问飞书。
+
+### 源码与文档依据
+
+- src/server/pipeline/process/finish.ts:24；定位：persistSuccess
+- src/server/meegle/recovery.ts:50；定位：recoverMeegleRun
+- src/features/tickets/services/process-repository.ts:54；定位：finishProcessAttempt
+- src/features/tickets/services/backfill.ts:17；定位：execute
+- src/server/artifacts/analysis-run-registry.ts:141；定位：registerAnalysisRun
+- docs/REFACTOR_STATUS.md:39；定位：验证纪律
+- test/pipeline-run-commit.test.ts:1
+- test/pipeline-auto-config.test.ts:1
+- test/meegle-recovery.test.ts:1
+- test/kanban-browser.test.ts:1
+- src/server/evaluation/accuracy.ts:163；定位：buildAccuracyReport
+
+## 第 09 页：Loop 开发：在现有 Harness 中完成小目标
+
+建议时长：3 分钟。证据状态：当前已采用的开发规范，提效收益尚未实测。
+
+**一句结论：单目标、最多 2 轮修复；重复失败且无新证据时交接，不降低验收标准换取全绿。**
+
+### 四组关键解释
+
+- 适用阶段：主流程已有回归基础，适合小功能与可复现缺陷。
+- Harness 依据：保留产品、架构、权限和测试，不因自动推进扩大范围。
+- Loop 反馈：调查、最小改动、相关验证，有新假设才继续修复。
+- 外部记忆：交接记录目标、证据与下一步；规则文件不会自动唤醒或发布。
+
+### 详细讲解
+
+Harness 在 IVACP 中包括产品、架构、流程、时序、代码分层、工具、测试和交接。它规定依据和边界，Loop 则将同一已授权目标的调查、最小改动、验证及决策连续执行。两者互补，不能把 Harness 描述成完全没有反馈，或把 Loop 描述成不需要规则。
+
+现有多数功能入口与回归基础已经具备，后续常见任务是字段展示、明确失败恢复、小配置或可复现缺陷，容易写清范围和验收，因此适合有界 Loop。这是工程判断，没有实际测量就不宣称成功率或提效比例；复杂的权限、迁移与架构问题仍需先澄清和规划。
+
+AGENTS.md 已采用最简规则，外部状态复用 session-handoff。当前默认最多 2 个修复轮次，一轮是一个明确假设的修复和相关验证，不是一次工具调用。同一失败连续出现两次且没有新证据时停止盲目重试；缺权限、环境、验收歧义或需要扩大范围时留下证据和下一步。用户明确要求继续时带着尝试历史恢复，而不是删除失败记录。
+
+纯文档检查内容与格式即可；页面、持久化或共享生命周期改动则需要对应回归和刷新持久化证据。不能删除有效测试、放宽断言或把跳过算作通过。最终完成需要验收、文档与交接一致。规则不会定时唤醒 Agent，也不会授予真实回填、同步或发布权限，更不保证两轮内必然收敛。
+
+### 源码与文档依据
+
+- AGENTS.md:29；定位：最小开发循环
+- docs/loop-engineering/minimal-loop-agents-review.md:7；定位：实施记录
+- docs/loop-engineering/project-adoption-review.md:1
+- AGENTS.md:56；定位：停止与交接
+- docs/REFACTOR_STATUS.md:5；定位：功能与验证边界
+- session-handoff.md:31；定位：实施最简 AGENTS.md
+
+## 第 10 页：未来自动迭代：建议、授权、开发与发布分开
+
+建议时长：3.5 分钟。证据状态：未来规划，留言板与自动开发闭环尚未实现。
+
+**一句结论：Agent 筛选通过只形成候选需求，开发与发布仍须满足明确授权、验收、暂停和回退条件。**
+
+### 四组关键解释
+
+- 需求先成形：去重、分类、补充信息，区分有价值与可直接开发。
+- 授权分模式：A 逐次人工确认，B 仅在低风险预授权内自动推进。
+- 隔离与验证：固定基线、任务合同与预算，测试、差异审查和预览后再合入。
+- 发布可控制：部署独立决策，保存版本账本；健康失败可回退，随时可暂停。
+
+### 详细讲解
+
+这页全部是未来规划，本次不实现留言板、不启用 Agent 开发，也不发布系统。目标是用户沿用现有登录提交建议，管理员后台查看和配置筛选 Agent。四个判断必须分开：功能是否有价值、需求是否足够明确、是否在自动开发授权范围内，以及修改是否达到验收与发布条件。
+
+建议正文是不可信输入，只能作为需求资料，不能直接变成命令、工具权限或秘密访问。只读筛选 Agent 做去重、分类、检索已有能力和优先级建议；信息不足转补充。策略服务决定授权，任务合同写明范围、验收、预算和允许工具，再进入独立持久队列。建议、任务、开发 run 和候选版本分别有 ID，幂等领取防止重复评论和中断重放。
+
+模式 A 先由 Agent 提出任务，开发者确认后隔离开发，验证和预览通过再确认合入与部署。模式 B 则由管理员预先限定低风险文件与任务类型、工具及发布条件，只有全部满足才自动更新，超范围、未知或敏感改动转人工。筛选、开发、审核和发布使用不同权限，部署凭据仅授予最小发布角色。不能拿当前 AutoCycle 或分析队列冒充已存在的后台开发设施。
+
+固定基线、冲突检查、测试、构建、浏览器回归、差异审查和预览之后，代码生成、合入和部署仍分别决定。发布记录版本、构建摘要和回退目标，健康失败恢复上一已验证版本并暂停。数据库变化不能假定能随代码一键回退，首期自动范围应排除这类风险。暂停要拦截新任务和新发布，运行中的取消需明确收尾策略。
+
+建议按三阶段独立验收：先收集筛选和后台状态，再接人工确认后的隔离开发，最后依据试点证据评估低风险自动发布。继续沿用当前不引入云同步、第三方账号或真实 GitHub API 的边界，不承诺未测量的自动化成功率。
+
+### 源码与文档依据
+
+- AGENTS.md:3；定位：角色与项目边界
+- docs/REFACTOR_STATUS.md:5；定位：功能与验证边界
+- AGENTS.md:39；定位：外部评论
+- docs/loop-engineering/minimal-loop-agents-review.md:96；定位：最小开发循环
+- docs/REFACTOR_STATUS.md:39；定位：验证纪律
+- AGENTS.md:41；定位：验证与完成
+
