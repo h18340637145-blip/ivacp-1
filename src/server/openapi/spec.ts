@@ -70,6 +70,18 @@ const extra: OpenApiDocument["paths"] = {
   "/api/meegle/auto-assign": { post: operation("从待办识别并自动分配规则组", "Meegle", object({ ruleGroups: { type: "array", items: object() }, filterRuleGroupId: text, manualAssignments: { type: "array", items: object() } }, ["ruleGroups"])) },
   "/api/meegle/filter": { post: { ...operation("按 MQL 筛票并返回归属和审计", "Meegle", object({ projectKey: text, ruleGroups: { type: "array", items: object() }, filterRuleGroupId: text, manualAssignments: { type: "array", items: object() } }, ["projectKey", "ruleGroups"])), description: "HTTP200不代表来源成功；须检查successfulRuleGroupIds、filterResults及audits。传入同项目优先级规则组，不能用失败空结果解除归属。" } },
   "/api/meegle/context": { post: operation("读取飞书工单分析前完整上下文", "Meegle", object(identity, identityFields)) },
+  "/api/meegle/context-view": { get: {
+    ...operation("读取飞书工单富文本与本地图片缓存", "Meegle"),
+    description: "按完整工单身份缓存优先；refresh=1只读刷新原票并补齐图片。上游失败保留已有缓存，无缓存则返回detail:null/source:snapshot及warning。评论图片保存于jira-issues/meegle-context/<projectKey>/issue/meegle-<workItemId>/，不修改分析历史或经办人凭据。",
+    parameters: [...identityFields.map(name => query(name, true, identity[name as keyof typeof identity])), query("refresh", false, { type: "string", enum: ["1"] })],
+    responses: { ...responses(), "200": { description: "原票、缓存或快照降级状态", content: { "application/json": { schema: object({ detail: { ...object(), nullable: true }, images: { type: "object", additionalProperties: object({ id: text, name: text, status: { type: "string", enum: ["cached", "unavailable"] }, reason: text }, ["id", "name", "status"]) }, source: { type: "string", enum: ["cache", "remote", "snapshot"] }, cachedAt: text, warning: text, errors: object() }, ["detail", "images", "source"]) } } } },
+  } },
+  "/api/meegle/context-image": { get: {
+    ...operation("读取指定飞书工单已缓存的图片", "Meegle"),
+    description: "仅返回当前身份context.json中登记的图片，不接受远端URL或文件路径。PNG/JPEG/GIF/WebP，需登录，禁止公共缓存与内容嗅探。",
+    parameters: [...identityFields.map(name => query(name, true, identity[name as keyof typeof identity])), query("imageId", true, { type: "string", pattern: "^[a-f0-9]{64}$" })],
+    responses: { ...responses(), "200": { description: "本地图片字节", content: Object.fromEntries(["image/png", "image/jpeg", "image/gif", "image/webp"].map(mime => [mime, { schema: { type: "string", format: "binary" } }])) }, "404": { description: "图片未缓存或不可用" } },
+  } },
   "/api/meegle/analyze": { post: { ...operation("兼容旧飞书分析调用", "Meegle", object({ ...identity, ...genericConfig, runId: text, workItemName: text, rawData: object(), description: text }, ["workItemId", "workItemName"])), description: "兼容入口；新持久化客户端应先获取context，再直接提交共享/issues/process，避免服务端HTTP回环。" } },
   "/api/meegle/cancel": { post: operation("显式停止原飞书运行", "Meegle", object(runIdentity, [...identityFields, "runId", "issueKey", "ruleGroupName"])) },
   "/api/meegle/recover": { post: { ...operation("恢复原运行的完整成功分析产物", "Meegle", object(runIdentity, [...identityFields, "runId", "issueKey", "ruleGroupName"])), description: "只检查不可变原run，未完成时200返回recoverable:false；完整成功才返回曲线、枚举及重新签名凭据。" } },

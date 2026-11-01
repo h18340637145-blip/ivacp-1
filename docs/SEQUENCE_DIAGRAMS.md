@@ -487,6 +487,8 @@ Jira / Meegle Store          IndexedDB                 Issue Process / Validatio
   │                    │                    │                                │                    │
   │  选择 transitionId  │                    │                                │                    │
   │  可选选择 targetUser │                    │                                │                    │
+```
+
   ## 7. 远程终端连接时序
 
   ```
@@ -1010,3 +1012,29 @@ sequenceDiagram
 ## VHAL 属性名称列匹配修复（2026-10-31）
 
 共享信号检查增加按表头定位的 Vehicle property ID 名称列（通常 I 列），与 MCU UP / IVI DOWN 一起做大小写敏感的精确匹配，再检查命中行 Project 的完整车型。读取器保留只有属性名、没有上/下行 CAN 信号的行；旧表没有属性列仍兼容原两列。证据保存 column=Vehicle property ID，不做模糊或后缀猜测，不改变大小写差异 / unknown 继续以及全部确认缺少才停止的规则。7147061892 的四个属性在实际 VHAL 2.2.36 中均可匹配 T1J_FL3；未自动重跑或改写旧结果。
+
+
+## 飞书工单上下文与持久化图片（2026-10-31）
+
+```mermaid
+sequenceDiagram
+  participant UI as 工单上下文
+  participant API as context-view（需登录）
+  participant Cache as 本票持久化目录
+  participant CLI as 飞书 CLI
+  UI->>API: 完整工单身份
+  API->>Cache: 读取 context.json
+  alt 缓存命中且未要求刷新
+    Cache-->>API: 原文与图片映射
+  else 无缓存或手动刷新
+    API->>CLI: 只读原票、评论与作者
+    CLI-->>API: 富文本原文与图片 URL
+    API->>CLI: 有界下载未缓存的官方图片
+    API->>Cache: 校验位图并原子保存图片及上下文
+    Note over API,Cache: 上游失败保留旧内容，单图失败只产生占位
+  end
+  API-->>UI: 正文、图片映射、缓存时间与提示
+  UI->>API: context-image（身份 + SHA256 ID，需登录）
+  API->>Cache: 验证本票映射并读取图片
+  API-->>UI: 本地位图 / 404占位
+```

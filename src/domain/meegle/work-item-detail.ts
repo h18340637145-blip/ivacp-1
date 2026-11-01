@@ -1,3 +1,9 @@
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkRehype from "remark-rehype";
+import rehypeRaw from "rehype-raw";
+
 export interface MeegleWorkItemIdentity {
   projectKey: string;
   workItemTypeKey: "issue";
@@ -160,17 +166,40 @@ function filenameFromUrl(url: URL): string {
   }
 }
 
-export function extractSafeMarkdownImageAttachments(body: string): MeegleCommentAttachment[] {
+const richImageParser = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkRehype, { allowDangerousHtml: true })
+  .use(rehypeRaw);
+
+interface RichImageNode {
+  type: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: RichImageNode[];
+}
+
+/** 与富文本渲染器使用相同的 Markdown / HTML 解析，返回实体解码后的原始 URL。 */
+export function extractSafeRichImageAttachments(body: string): MeegleCommentAttachment[] {
   const attachments: MeegleCommentAttachment[] = [];
   const seen = new Set<string>();
-  const imagePattern = /!\[[^\]]*\]\(\s*<?([^\s)>]+)>?(?:\s+["'][^"']*["'])?\s*\)/g;
-  for (const match of body.matchAll(imagePattern)) {
-    const url = safeHttpUrl(match[1]);
-    if (!url || seen.has(url.href)) continue;
-    seen.add(url.href);
-    attachments.push({ url: url.href, name: filenameFromUrl(url), kind: "image" });
-  }
+  const collect = (node: RichImageNode) => {
+    const source = node.tagName === "img" ? node.properties?.src : undefined;
+    if (typeof source === "string" && !seen.has(source)) {
+      const url = safeHttpUrl(source);
+      if (url) {
+        seen.add(source);
+        attachments.push({ url: source, name: filenameFromUrl(url), kind: "image" });
+      }
+    }
+    node.children?.forEach(collect);
+  };
+  collect(richImageParser.runSync(richImageParser.parse(body)));
   return attachments;
+}
+
+export function extractSafeMarkdownImageAttachments(body: string): MeegleCommentAttachment[] {
+  return extractSafeRichImageAttachments(body);
 }
 
 function collectFileUrlValues(value: unknown): Array<{ url: string; name?: string }> {
@@ -189,9 +218,11 @@ export function extractSafeFileAttachments(value: unknown): MeegleCommentAttachm
   const seen = new Set<string>();
   for (const file of collectFileUrlValues(value)) {
     const url = safeHttpUrl(file.url);
-    if (!url || seen.has(url.href)) continue;
-    seen.add(url.href);
-    attachments.push({ url: url.href, name: file.name || filenameFromUrl(url), kind: "file" });
+    if (!url || seen.has(file.url)) continue;
+    seen.add(file.url);
+    const name = file.name || filenameFromUrl(url);
+    const isImage = /\.(?:png|jpe?g|gif|webp|bmp|avif|svg|ico)$/i.test(name);
+    attachments.push({ url: file.url, name, kind: isImage ? "image" : "file" });
   }
   return attachments;
 }

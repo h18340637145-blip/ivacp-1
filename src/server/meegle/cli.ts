@@ -179,7 +179,7 @@ export function normalizeMeegleUsers(value: unknown): MeegleUser[] {
     const source = nested ? { ...record, ...nested } : record;
     const key = firstString(source, ["key", "user_key", "userKey", "id"]);
     if (!key) return [];
-    const name = firstString(source, ["name", "display_name", "displayName", "username"]) || key;
+    const name = firstString(source, ["name", "display_name", "displayName", "name_cn", "name_en", "username"]) || key;
     const email = firstString(source, ["email", "email_address", "emailAddress"]);
     return [{ key, name, ...(email ? { email } : {}) }];
   });

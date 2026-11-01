@@ -1,3 +1,16 @@
+## 最新续接：飞书工单上下文富文本与本地图片缓存（2026-10-31）
+
+- 用户以 meegle-7148399110 为例授权更新「工单上下文」，参考飞书项目评论排版并将图片缓存到本地工单持久化目录。需求 `docs/requirements/meegle-context-rich-content.md`，计划 `docs/superpowers/plans/2026-10-31-meegle-context.md`。
+- 飞书页签自动缓存优先读取，按钮「刷新原票详情」强制只读刷新；描述/评论保留段落、换行、强调、列表、链接、代码、表格与原位图片，作者时间分条显示。Markdown/HTML经sanitizer清理；原生img只引用同源鉴权图片接口，可打开大图。Jira继续原pre纯文本，避免吞掉 <VehicleSpeed> 等字面内容。
+- 新增独立 context-view/context-image API 与服务，保持实时workitem经办人签名凭据独立；按完整项目/issue/票号隔离 `jira-issues/meegle-context/<projectKey>/issue/meegle-<workItemId>/{context.json,images/<SHA256原URL>}`。缓存JSON原子发布，普通并发合并，强制刷新顺序执行。仅官方HTTPS文件路径由现有CLI有界下载，保留原URL查询参数；PNG/JPEG/GIF/WebP魔数校验、文件20MiB、每次新下载40张/100MiB/45秒，不将正文页面链接加入图片下载。
+- 远端失败保留既有缓存，无缓存返回snapshot模式供UI继续展示分析快照；评论失败不清空旧评论。图片失败占位、损坏图片刷新重下载；达到新下载预算仍复用旧图。图片路由重复会话校验、验证当前票manifest/64位ID、拒绝符号链接和非位图，private/no-store/nosniff。HTML实体/引用图片按解析后的URL去重；非正文图片直接传原URL，避免右括号URL重拼Markdown截断。
+- fetchMeegleContext另存descriptionRich/comments[].id/richBody，保留原description/body及分析模型输入；无IndexedDB升级、不改写已有快照或分析run。只新增Markdown解析/安全渲染的直接依赖及lock。真实CLI用户响应采用name_cn/name_en，补归一化候选保留旧优先级；作者姓名真实刷新10/10解析成功。
+- TDD先红后绿，缓存9项、渲染7项、API3项、原文/提取5项等回归覆盖上述行为；独立代码审查提出并复查修复预算丢图、HTML重复图、Jira兼容及特殊URL。全量Vitest：100文件通过/14条件跳过，514项通过/45跳过（MYSQL_URL空、Anaconda Python、4worker）；全量typecheck/ESLint通过。沙箱首轮有本地SSH listen EPERM及受限子进程失败，正常环境重跑通过；不把失败轮算通过。
+- 隔离副本 `/tmp/ivacp-context-final-25v5sqc6`，最终webpack生产构建退出0，预览127.0.0.1:3047（最终exec49821；仅停止过本轮旧3047预览exec2337）。临时副本node_modules软链接被Turbopack拒绝后，改用已有webpack构建；未改变主仓构建配置。浏览器使用已有 Chromium1223（默认期待1248未安装）执行2文件5场景通过：原位图、刷新失败保留、相同ID图片失败重试、快照/Jira兼容、看板卡片和IndexedDB刷新持久化。
+- 真实链路：按meegle技能先解码URL，auth status确认登录，project search确认pojw7j对应projectKey 6a3124c5681f717f59901004；只读获取原票10条评论与4图，4图全部CLI缓存成功（902789 bytes）。真实浏览器无mock context/image接口，10条评论（10/10作者姓名）/4图正常、重载命中cache、375/768/1440无横向溢出、外部图片请求0/页面异常0、未登录图片401。截图 `/tmp/ivacp-context-real-browser.png`，真实票内容仅保存在本地忽略目录与/tmp，不提交个人信息。
+- PRODUCT/ARCHITECTURE/WORKFLOW/SEQUENCE_DIAGRAMS、OpenAPI同步。补齐时序文档原有未闭合代码块，使后续与新增时序正常渲染；Harness与需求代码块检查、git diff --check通过。没有发送评论、改经办人/状态、运行模型或重新分析，未重启用户服务/Terminal Gateway，未自动提交。业务端现有服务需常规更新代码后使用新版；隔离3047仅验证预览。
+- 日志 `/tmp/ivacp-context-{cache-red,target,review-red,review-green,api,authors-red,all-tests-final,types,lint,build-final,browser-final,real-final,real-browser-final}.log`。首轮浏览器仅定位器同时命中隐藏原始JSON而失败，收窄至article/提示段后5场景及真实页面全部通过；无业务代码为适配定位器作变更。
+
 ## 最新续接：VHAL Vehicle property ID 列精确匹配修复（2026-10-31）
 
 - 用户确认工单 7147061892 的四个名称存在于 VHAL 2.2.36，并授权修改。根因是旧检查仅查 MCU UP / IVI DOWN，四个名称实际位于 Vehicle property ID 列；CAN 列另有大小写和后缀不同的名字。

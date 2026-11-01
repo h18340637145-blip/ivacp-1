@@ -1541,3 +1541,12 @@ runner 根据旧清单最终 type.h 来源定位仓库及旧 commit，合并映�
 ## VHAL 属性名称列匹配修复（2026-10-31）
 
 共享信号检查增加按表头定位的 Vehicle property ID 名称列（通常 I 列），与 MCU UP / IVI DOWN 一起做大小写敏感的精确匹配，再检查命中行 Project 的完整车型。读取器保留只有属性名、没有上/下行 CAN 信号的行；旧表没有属性列仍兼容原两列。证据保存 column=Vehicle property ID，不做模糊或后缀猜测，不改变大小写差异 / unknown 继续以及全部确认缺少才停止的规则。7147061892 的四个属性在实际 VHAL 2.2.36 中均可匹配 T1J_FL3；未自动重跑或改写旧结果。
+
+
+## 飞书上下文缓存与图片读取（2026-10-31）
+
+浏览器 `TicketContextPanel` 使用独立 `GET /api/meegle/context-view`，不复用带经办人签名凭据的实时 `/api/meegle/workitem` 缓存语义。`context-cache` 服务保存 `context.json`（原始正文、字段、作者、图片 URL 到 SHA256 ID 的映射）及 `images/<SHA256(originalURL)>`；按 projectKey / issue / meegle-workItemId 分目录。临时文件写完原子重命名，进程内按身份合并普通并发请求，强制刷新排在当前读取后。下载失败不清空原评论与其他可用图片，失败原票不覆盖已有内容。
+
+图片沿用 CLI `attachment +download <originalURL> --project-key ... --work-item-id ... --output ... --overwrite`，只允许 HTTPS project.feishu.cn 官方 files/download 路径，完整保留查询参数。正文解析与 UI 同用 Markdown/HTML 语法，前端经 rehype-sanitize 清洗；`img` 只能映射到当前票的本地接口。图片路由重复鉴权，验证身份、64位图片 ID 和本票 manifest，拒绝符号链接和非位图内容；输出 private/no-store、nosniff。不存在任意网址代理或客户端远程图片请求。
+
+文件缓存在现有工单持久化根目录，IndexedDB 仍是规则组/分析结果主存储，无数据库索引变更。快照额外保存 descriptionRich 与 comments[].id/richBody，原 description/body 供分析使用，不改变模型输入语义。
