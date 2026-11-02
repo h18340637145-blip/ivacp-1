@@ -9,6 +9,7 @@ import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { Input } from "@/shared/ui/input";
 import { Callout, EmptyState, ErrorState, Skeleton } from "@/shared/ui/feedback";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { toast } from "@/shared/ui/toast";
 import { importProcessedHistory } from "../lib/import-history";
@@ -33,6 +34,7 @@ export function KnowledgePanel({ userId, onCountChange }: KnowledgePanelProps) {
   const [busy, setBusy] = useState<"upload" | "import" | null>(null);
   const [notice, setNotice] = useState<{ tone: "info" | "warning" | "danger" | "success"; text: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<KnowledgeDoc | null>(null);
+  const [viewing, setViewing] = useState<KnowledgeDoc | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -158,8 +160,15 @@ export function KnowledgePanel({ userId, onCountChange }: KnowledgePanelProps) {
               return (
                 <li key={d.id} className="flex items-start gap-2 rounded-md border border-border bg-surface px-3 py-2">
                   <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground" title={d.name}>
+                  <div
+                    className="min-w-0 flex-1 cursor-pointer rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`查看 ${d.name} 详情`}
+                    onClick={() => setViewing(d)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewing(d); } }}
+                  >
+                    <p className="truncate text-sm font-medium text-foreground hover:underline" title={d.name}>
                       {d.name}
                     </p>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -182,6 +191,33 @@ export function KnowledgePanel({ userId, onCountChange }: KnowledgePanelProps) {
           </ul>
         )}
       </div>
+
+      <Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
+        <DialogContent size="lg">
+          {viewing ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="break-all">{viewing.name}</DialogTitle>
+                <DialogDescription>
+                  共 {viewing.chunks.length} 段 · {formatBytes(viewing.size)} · {formatDateTime(viewing.createdAt)}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogBody className="space-y-3">
+                {viewing.chunks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">该文档没有内容。</p>
+                ) : (
+                  viewing.chunks.map((c, i) => (
+                    <section key={i} className="rounded-md border border-border bg-muted/30 p-3">
+                      <p className="mb-1 text-xs text-muted-foreground tabular-nums">第 {i + 1} / {viewing.chunks.length} 段</p>
+                      <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed">{c.text}</pre>
+                    </section>
+                  ))
+                )}
+              </DialogBody>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!pendingDelete}

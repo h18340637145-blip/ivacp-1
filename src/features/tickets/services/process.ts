@@ -12,7 +12,7 @@ import { errorMessage } from "@/shared/lib/errors";
 import { createLimiter, CLIENT_CONCURRENCY } from "@/shared/lib/concurrency";
 import { fetchJiraHandoverAt } from "@/features/jira-workflow/services/jira-api";
 import { fetchErrorPatterns, fetchFewShotSamples } from "./few-shot";
-import { beginProcessAttempt, failProcessAttempt, finishProcessAttempt } from "./process-repository";
+import { beginProcessAttempt, failProcessAttempt, forceFailTicket, finishProcessAttempt } from "./process-repository";
 import { notifyFeishuProcessResultSafely } from "./process-result-notify";
 import { runValidation } from "./validation";
 
@@ -79,10 +79,13 @@ function runIdentity(task: ProcessTask, snapshot: TicketSnapshot, group: RuleGro
   return { runId: task.id, issueKey: `meegle-${task.ticketKey}`, projectKey: snapshot.projectKey, workItemTypeKey: snapshot.workItemTypeKey, workItemId: task.ticketKey, ruleGroupName: group.name };
 }
 
-export async function stopProcess(task: ProcessTask, snapshot: TicketSnapshot, group: RuleGroup) {
-  if (task.source === "meegle") await apiFetch("/api/meegle/cancel", { method: "POST", json: runIdentity(task, snapshot, group) });
-  controllers.get(task.id)?.abort();
-  await failProcessAttempt(task, "分析已停止");
+export async function stopProcess(task: ProcessTask | undefined, snapshot: TicketSnapshot, group: RuleGroup) {
+  if (task?.status === "running") {
+    if (task.source === "meegle") await apiFetch("/api/meegle/cancel", { method: "POST", json: runIdentity(task, snapshot, group) }).catch((error) => console.warn(`[Stop] ${task.id}: ${errorMessage(error)}`));
+    controllers.get(task.id)?.abort();
+    await failProcessAttempt(task, "分析已停止");
+  }
+  await forceFailTicket(snapshot, group, "分析已手动停止");
 }
 
 export async function recoverPendingProcesses() {

@@ -92,3 +92,17 @@ export async function failProcessAttempt(task: ProcessTask, error: string) {
     if (assignment?.latestAttemptTaskId === task.id && assignment.ruleGroupId === task.ruleGroupId) await db.assignments.update(assignment.id, { status: "failed", error, completedAt });
   });
 }
+
+/** 强制将该工单的运行中任务与处理中归属置为失败，用于闪退后状态卡住的修复。 */
+export async function forceFailTicket(snapshot: TicketSnapshot, group: RuleGroup, error: string) {
+  await db.transaction("rw", ["processTasks", "assignments"], async () => {
+    const completedAt = new Date();
+    const assignments = snapshot.source === "meegle" ? await db.assignments.where("ticketKey").equals(snapshot.ticketKey)
+      .filter((row) => row.projectKey === snapshot.projectKey && row.workItemTypeKey === snapshot.workItemTypeKey && row.ruleGroupId === group.id).toArray() : [];
+    const ids = new Set(assignments.map((row) => row.id));
+    const tasks = await jiraTasks((await db.processTasks.where("[source+ticketKey]").equals([snapshot.source, snapshot.ticketKey])
+      .filter((row) => row.ruleGroupId === group.id).toArray()), snapshot, group.jiraProvider);
+    for (const task of tasks) if (task.status === "running") await db.processTasks.update(task.id, { status: "failed", error, completedAt });
+    for (const assignment of assignments) if (ids.has(assignment.id) && assignment.status !== "failed") await db.assignments.update(assignment.id, { status: "failed", error, completedAt });
+  });
+}
