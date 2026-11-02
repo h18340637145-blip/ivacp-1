@@ -1,3 +1,78 @@
+## 当前目标：project.json 导入/导出 + 每服务器配置 + 放开非管理员终端（2026-11-02）
+
+- 状态：完成；自动检查通过（vitest 539 通过 / 41 跳过，typecheck 干净，改动文件 eslint 干净）；未做构建、浏览器回归与真实网关/业务端连接验证。
+- 目标与范围：为远程终端工作台增加 project.json 的导入/导出；默认使用服务端 `docs/project.json`，缺失时切换分支/同步等功能禁用并提示导入；支持导出当前生效配置。用户经三次安全确认后显式选择 `open_now_full`：
+  - 导入写入服务端：管理员写 `docs/project.json`；非管理员写 `docs/project_<target-name>.json`（`<server-name>`=终端目标显示名）。
+  - 读取优先级 named_first：所有人优先读 `project_<target-name>.json`，缺失回退 `docs/project.json`。
+  - 覆盖导入前把旧文件备份到 `docs/bak/`。
+  - 放开非管理员连接远程终端与同步（安全边界变更，已获用户显式授权；仍保留登录鉴权与命令审计/守卫）。
+  - 导出 server_current：下载当前生效文件（含同步写回的 commit/RTC 映射）。
+- 验收清单：
+  - [x] `project-file.ts` 解析器：目标名→安全 slug（拒绝路径穿越）、canonical/named 路径、named_first 读取、按角色导入写入；抽出 `validateProjects` 纯校验。
+  - [x] `loadTerminalProjects` 支持 `targetName`，缺失返回空列表不抛错，并提供 file/missing/可写位置详情（`describeTerminalProjects`）。
+  - [x] 同步 runner 按 `targetName` 命中 named_first 文件读/写回；gateway session-manager 传 `session.target.name`。
+  - [x] 放权：`requiredRoleForPath` 删除 `/terminal`、`/api/terminal` 的 admin 要求（降为 analyst）；gateway `verifyClient`/`canSync` 放开为任意登录；targets/projects 路由改 `requireSession()`。
+  - [x] 导入 API（POST，校验+备份+按角色写）与导出 API（GET，下载当前生效文件）。
+  - [x] 客户端 service 拆分 `loadTerminalTargets`/`loadTerminalProjects`，暴露 configMissing/canImportCanonical；新增 `importProjectConfig`/`exportProjectConfig`。
+  - [x] 工作台 UI 移除 admin 拦截、每工作区按 target 加载、无配置禁用切换分支/同步并提示导入、提供导入(文件选择)/导出入口。
+  - [x] OpenAPI legacy-spec 补充 import/export 路径与 TerminalProjectsResponse 字段；新增/更新测试（解析器、导入导出、缺失降级、放权路由、openapi 角色）；typecheck/vitest/eslint 通过。
+  - [x] 同步 PRODUCT/WORKFLOW/ARCHITECTURE 与本交接。
+- 验证：
+  - `npm run typecheck`：通过（0 错误）。
+  - `npx vitest run`：101 文件通过 / 16 跳过，539 用例通过 / 41 跳过（含新增 `test/terminal-project-file.test.ts` 6 例与改写的 `test/terminal-client-service.test.ts`）。
+  - `npx eslint`（改动文件全集，含新 API 路由、服务与组件、测试）：0 错误（修复了 workspace 内 setState-before-declare 与 set-state-in-effect 两处）。
+  - 未验证 / 跳过：未运行 `npm run build`；未做浏览器回归（analyst 进入 /terminal、导入导出交互、配置缺失禁用态）；未连真实 Terminal Gateway / SSH 验证按 target 读写 named 文件与同步。
+- 修复轮次：1/2；一轮内修复 eslint 的 React Hooks 规则（状态声明顺序、effect 内同步 setState）后复跑通过。
+- 运行边界：写入仅限服务端 `docs/` 下的 project 配置文件与 `docs/bak/` 备份；不触碰无关业务代码；不启动/停止用户正在运行的业务服务。
+
+（审计入库与界面、服务端向量召回、文档同步、OpenAPI legacy-spec）（2026-11-02）
+
+- 状态：完成；自动检查通过（vitest 530 通过 / 41 跳过，typecheck 干净，相关文件 eslint 干净）；未做真实模型 / 业务验证、构建与浏览器回归。
+- 目标与范围：用户在上一轮 P2 完成后指出 4 项遗留，要求本轮补齐并展示完整 loop engineering 过程：
+  1. 证据后再次召回审计进入 IndexedDB 结果与详情页界面（此前只落 run 目录）；
+  2. 服务端对"证据后再次召回"增加真实向量路径（此前向量只复用客户端初次召回结果）；
+  3. 同步 PRODUCT / WORKFLOW / SEQUENCE_DIAGRAMS 文档；
+  4. 补齐新增 `fewShotPool` 请求字段在 `legacy-spec.ts` 的缺口（已确认 `spec.ts` 对 `IssueProcessRequest/Response` 是整体覆盖赋值，`legacy-spec.ts` 同名定义是死代码；真正需要维护的是被合并式更新的 `FewShotSample` 基础 schema）。
+  不扩大范围：不做 P0 基线评测、P3 校准灰度；不把审计面板扩展到"历史"标签页；AI 复核（Review）流程的 Embedding RAG 不在本次范围内，未改动。
+- 验收清单：
+  - [x] `ProcessResponse`/`ProcessResult` 新增 `fewShotRetrievalAudit` 字段，贯穿 `conclusion-stage.ts → finish.ts → process-repository.ts → IndexedDB`；详情页新增 `FewShotRetrievalPanel` 展示策略版本、候选数、路由命中数、降级原因、入选案例命中路径与分数、排除统计与原始 JSON。
+  - [x] `few-shot-rerecall.ts` 的 `recallFewShotAfterEvidence` 改为 async，新增服务端向量召回路由：对请求内快照候选用证据指纹文本重新发起一次服务端 embedding 调用，按阈值过滤排序后并入四路 RRF（标识符/词法/向量/初次结果）；调用失败自动降级为两路（原逻辑）并记录原因。为保持 `src/domain/**` 不依赖 `@/server/*`（架构边界，由 eslint `no-restricted-imports` 强制），向量化函数改为可选依赖注入参数 `embed`，真实实现 `embedTexts` 由服务端调用方 `conclusion-stage.ts` 显式传入，测试传入桩函数，不发起真实网络调用。
+  - [x] `process-contracts.ts`/`spec.ts` 的 `FewShotRetrievalAudit.routeCounts` 补 `vector` 字段，OpenAPI `test/openapi.test.ts` 保持 6/6 通过。
+  - [x] `legacy-spec.ts`：`IssueProcessRequest/Response` 处补充"会被 spec.ts 整体覆盖"的说明性注释；真正生效的 `FewShotSample` 基础 schema 补 `sampleId` 字段。
+  - [x] `docs/PRODUCT.md`（prop/signal RAG 小节扩写为三路召回 + RRF + 证据后重排 + 审计可见性）、`docs/WORKFLOW.md`（Phase 3 证据精召回小节重写为有界快照 + 三路再召回 + 向量调用 + 审计落库展示）、`docs/SEQUENCE_DIAGRAMS.md`（5.2 时序图补充证据后三路重排与 `fewShotRetrievalAudit` 返回/展示步骤）均已同步。
+  - [x] `docs/requirements/issue-rag-optimization.md` 顶部状态行更新为 P2 含服务端向量召回、审计入库与界面展示。
+- 验证：
+  - `npm run typecheck`：通过（0 错误）。
+  - `npx vitest run`：100 个测试文件通过 / 16 跳过，530 个用例通过 / 41 跳过（含为本轮新增的 2 个 `few-shot-rerecall.test.ts` 用例：验证向量路由真正命中语义相关但无共享标识符的样本、验证 embedding 调用失败时优雅降级且不影响标识符路由）；其余 4 个既有用例补 `await` 后保持通过。
+  - `npx eslint`（本轮改动文件全集）：首次运行发现 `few-shot-rerecall.ts` 直接 `import { embedTexts } from "@/server/ai/embeddings"` 触发 `no-restricted-imports`（`src/domain/**` 禁止依赖 `@/server/*`），以及一个空扩展接口的 `no-empty-object-type`；按依赖注入改造并把 `PostEvidenceRecallAudit` 从空扩展接口改为类型别名后复跑，0 错误。
+  - 未验证 / 跳过：未运行 `npm run build`；未做浏览器端详情页面板渲染截图回归（仅走 typecheck + 既有组件风格复用，逻辑上与 `VersionVhalPanel` 一致）；未调用真实工单跑一次完整处理流程验证服务端向量召回在真实环境下的效果（本机 `.env` 实际配置了可达的 `EMBEDING_BASE_URL`，但未发起过一次真实 `/api/issues/process` 全链路请求）；未验证准确率提升。
+- 修复轮次：1/2；一轮内发现并修复了"服务端向量召回实现直接引入 @/server/* 导致领域层架构边界违规"这一个问题（依赖注入改造），其余均一次通过。
+- 下一步：等待用户审阅本轮改动；若要验证真实效果，需要跑一次完整在线处理并人工核对 `few-shot-retrieval.json` / 详情页面板与最终结论质量；P0 基线评测、P3 校准灰度仍未实施。
+- 运行边界：未调用真实 Jira / 飞书工单、未执行回填、未重启或停止用户正在运行的业务服务，未修改无关代码。
+
+## 历史目标：实施问题 RAG 召回优化 P2（2026-11-02）
+
+- 状态：P2 代码完成，自动检查通过（vitest 528 通过 / 41 跳过，typecheck、eslint 通过）；未做真实模型 / 业务验证、构建与浏览器回归。
+- 改动：客户端 `fetchFewShotRecall` 随请求携带有界快照 `fewShotPool`（≤100 条，文本 ≤1000 字符）与 `fewShotPoolMeta`（eligible / sent / truncated）；`few-shot-rerecall.ts` 在 Step5 证据生成后于快照内再次召回（初次结果 + 标识符 + 词法三路 RRF，排除自身、同场景、忽略客户端分数），无快照退回重排并记录降级；审计写入 run 目录 `few-shot-retrieval.json`，恢复不重新抽选（结论阶段不重跑）。
+- 未完成：审计未进入 IndexedDB 结果 / UI；服务端无向量路径；未同步 PRODUCT / WORKFLOW / 时序文档；P0 基线、P3 灰度未做。（**以上 4 项已在下一轮"补齐 RAG P2 遗留四项"中完成，见上方当前目标。**）
+
+## 历史目标：实施问题 RAG 召回优化 P1（2026-11-02）
+
+- 状态：P1 代码完成，自动检查通过；未做真实业务 / 模型验证。
+- 范围：`docs/requirements/issue-rag-optimization.md` 第 9 节 P1。新增 `src/domain/analysis/few-shot-recall.ts`（中文二元组词法、Property ID 十六进制 / 十进制标准化、命名空间标记、IDF 精确召回、RRF 融合）；`few-shot.ts` 改为三路召回，向量失败降级为前两路；样本向量只含问题侧文本，`ReviewSample.embeddingTextVersion` 与模型不一致时重建；`process.ts` 把描述传入查询。
+- 验证：新增 `test/few-shot-recall.test.ts`；全量 vitest 524 通过 / 41 跳过，typecheck、相关 eslint 通过。未运行构建、浏览器测试与 IndexedDB 刷新回归；未验证召回率。
+- 未实施：P0 基线评测、P2 证据后二次召回与 run 审计、P3 校准灰度；批准后再同步 PRODUCT / WORKFLOW / 时序文档。旧样本向量首次检索时会按新版本重建（写 IndexedDB，增加一次 embedding 调用）。
+
+## 历史目标：问题 RAG 召回优化方案文档（2026-11-02）
+
+- 状态：文档完成并通过静态验证；方案待用户审核，未实施。
+- 目标与范围：根据本轮 RAG 优化讨论，整理当前实现限制、字段与标记、过滤与部分匹配、评论使用、证据后再次召回、存储边界及评测验收；仅新增方案和更新交接。
+- 交付：`docs/requirements/issue-rag-optimization.md` v0.1；正式产品与流程规则保持不变，后续批准并实施时再同步。
+- 验收清单：覆盖用户关心的信号、标题、上层评论、车型及全量 / 部分匹配；明确当前与未来边界；本地链接、代码块和差异检查通过。
+- 验证：方案 262 行、12 个本地链接有效，代码块、关键主题、末尾换行与差异格式检查通过；覆盖验收清单。首次检查发现新增文档缺末尾换行，修正后复验通过。纯文档修改未运行应用测试或构建，未验证准确率提升。
+- 修复轮次：1/2；仅修正文档末尾换行。
+- 运行边界：不修改业务代码、数据库或配置，不调用模型、真实工单、回填、同步或远程服务，不启动或重启用户服务。
+
 ## 当前目标：IVACP 介绍重组为 10 页图文版（2026-11-01）
 
 - 状态：完成
@@ -530,3 +605,4 @@ export PATH=/home/huo2wx/.nvm/versions/node/v20.20.0/bin:$PATH
 ## 最新：知识库文档详情
 
 - 知识库面板中的文档条目可点击（或键盘 Enter/空格），弹窗按段展示完整内容。仅前端展示，未改存储；typecheck/eslint 已通过，未跑浏览器验收。
+- 已同步更新 docs：PRODUCT、WORKFLOW、ARCHITECTURE、SEQUENCE_DIAGRAMS、REFACTOR_STATUS（2026-11-02 段落）。

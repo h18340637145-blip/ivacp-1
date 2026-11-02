@@ -1,14 +1,16 @@
 import { hasMeaningfulGroundingSource, withSupplementalCommentSource } from "@/domain/analysis/grounding-evidence-sources";
+import { buildEvidenceFingerprintText } from "@/domain/analysis/evidence-fingerprint";
+import { recallFewShotAfterEvidence } from "@/domain/analysis/few-shot-rerecall";
 import { buildErrorPatternBlock, buildReviewSamplePromptBlocks } from "@/domain/analysis/review-sample";
 import type { GroundingEvidenceSource } from "@/domain/analysis/structured-evidence-validation";
 import { chat } from "@/server/ai/qwen";
+import { embedTexts } from "@/server/ai/embeddings";
 import { MAX_STEP5_CAN_SUMMARY_CHARS, MAX_STEP5_RAW_CAN_CHARS, MIN_STEP5_CAN_SUMMARY_CHARS } from "@/server/pipeline/constants";
 import { recordMetricStage, setPromptMetric } from "@/server/pipeline/metrics";
 import { saveStepLog } from "@/server/pipeline/paths-logging";
 import {
   buildStep5MergedPrompt,
   isHighPriorityIssue,
-  rerankFewShotSamplesByEvidence,
   runEvidenceSelfCritique,
   runStep5Conclusion,
   stripThinkTags,
@@ -65,12 +67,36 @@ export async function runFinalConclusion(ctx: ProcessContext, input: ConclusionI
     logger.log("AI_STEP5", `检测到高优先级票（priority=${String(rawData.priority ?? "—")}），Step5 将启用自洽投票`);
   }
 
-  const evidenceRerankedFewShotSamples = rerankFewShotSamplesByEvidence(fewShotSamples, evidence.evidencePacket);
+  const recall = await recallFewShotAfterEvidence({
+    initial: fewShotSamples,
+    pool: request.fewShotPool,
+    poolMeta: request.fewShotPoolMeta,
+    summary: request.summary,
+    description: typeof rawData.description === "string" ? rawData.description : undefined,
+    // 与样本向量同构的指纹文本，提升证据后再次召回向量路径的可比性
+    evidenceText: buildEvidenceFingerprintText({
+      ruleGroupId: request.ruleGroupId,
+      ruleGroupName: request.ruleGroupName,
+      issueKey: request.issueKey,
+      issueSummary: request.summary,
+      carModel: evidence.reviewEvidence.carModel,
+      props: evidence.reviewEvidence.props,
+      signalTokens: evidence.reviewEvidence.signalTokens,
+      propertyIds: evidence.reviewEvidence.propertyIds,
+    }),
+    selfKeys: [request.issueKey, request.issueKey.replace(/^meegle-/, "")],
+    evidencePacket: evidence.evidencePacket,
+    embed: embedTexts,
+  });
+  const evidenceRerankedFewShotSamples = recall.samples;
+  ctx.fewShotRetrievalAudit = recall.audit;
+  await saveStepLog(ctx.logRoot, "few-shot-retrieval.json", JSON.stringify(recall.audit, null, 2)).catch(() => undefined);
+  if (recall.audit.degradations.length > 0) logger.log("AI_STEP5", `案例召回降级：${recall.audit.degradations.join("；")}`);
   const { correctionBlock, approvedBlock } = buildReviewSamplePromptBlocks(evidenceRerankedFewShotSamples);
   const errorPatternBlock = buildErrorPatternBlock(request.errorPatterns);
   logger.log(
     "AI_STEP5",
-    `注入 ${evidenceRerankedFewShotSamples.length} 条证据精召回案例（纠错与人工确认案例分区）`,
+    `证据后再次召回（${recall.audit.mode}，候选 ${recall.audit.candidateCount}）：注入 ${evidenceRerankedFewShotSamples.length} 条案例（纠错与人工确认案例分区）`,
   );
 
   const signalsJsonBlock = buildSignalsJsonBlock(input.signals, evidence);

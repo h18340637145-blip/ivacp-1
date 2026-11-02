@@ -62,9 +62,8 @@ export async function acquireSyncLock(root: string): Promise<() => Promise<void>
   });
 }
 
-export async function readProjects(file: string): Promise<TerminalProject[]> {
-  if ((await fs.lstat(file)).isSymbolicLink()) throw new Error("project.json 不能是符号链接");
-  const data = JSON.parse(await fs.readFile(file, "utf8"));
+/** 校验 project.json 解析后的数据结构（供文件读取与导入复用），返回规范化后的项目数组 */
+export function validateProjects(data: unknown): TerminalProject[] {
   if (!Array.isArray(data)) throw new Error("project.json 必须是数组");
   const projects = new Set<string>();
   for (const project of data) {
@@ -86,7 +85,12 @@ export async function readProjects(file: string): Promise<TerminalProject[]> {
       }
     }
   }
-  return data;
+  return data as TerminalProject[];
+}
+
+export async function readProjects(file: string): Promise<TerminalProject[]> {
+  if ((await fs.lstat(file)).isSymbolicLink()) throw new Error("project.json 不能是符号链接");
+  return validateProjects(JSON.parse(await fs.readFile(file, "utf8")));
 }
 export function branchKey(project: TerminalProject, branch: TerminalBranchConfig): string {
   return JSON.stringify([project.projectName, project.mainPath, branch.name, branch.repos.map(r => [r.repoName, r.repoPath, r.branchName])]);

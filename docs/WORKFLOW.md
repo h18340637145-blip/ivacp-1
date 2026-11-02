@@ -358,7 +358,7 @@ log/{ruleGroupId}/{carModel}/{issueKey}/
 
 #### Phase 3 证据精召回与评测集覆盖
 
-Step 5 前，系统会基于 `evidence-packet.json` 对处理前召回的 few-shot 案例进行证据精召回 / 重排，使历史纠错案例优先匹配当前票的 prop、signal、Property ID、缺失证据和风险标记。该重排失败时回退原 few-shot 顺序，不影响处理流程。Evidence Packet 按真实时间窗 overlap 计算评论与 trace 是否重叠（而非仅检查字段是否存在）。离线评测额外输出 `eval-set-coverage.{json,md}`，报告人工真值数量和覆盖比例，实现二段式 RAG 评测集覆盖闭环。证据校准及审计只辅助解释和人工复核，保持 advisory / non-blocking，不改变 Jira 回填边界。
+Step 5 前，系统会基于 `evidence-packet.json` 对处理前召回的 few-shot 案例进行证据后再次召回：客户端随请求携带不超过 100 条的样本快照（`fewShotPool`/`fewShotPoolMeta`，超限按分数截断并记录覆盖比例），服务端在该有界快照与初次入选案例的并集中排除自身票和跨场景样本后，分别执行标识符精确、中文词法和向量语义三路独立检索并按倒数排名融合（RRF）重排，向量一路使用当前证据指纹文本新发起一次服务端 embedding 调用，调用失败时自动降级为仅标识符 + 词法两路并记录原因，不影响处理流程。重排结果连同策略版本、候选数、各路由命中数、排除统计、降级原因和最终入选案例的命中路径与分数一起写入审计（`few-shot-retrieval.json`），并随分析结果写入 IndexedDB，在详情页「证据后再次召回」面板展示供排查。Evidence Packet 按真实时间窗 overlap 计算评论与 trace 是否重叠（而非仅检查字段是否存在）。离线评测额外输出 `eval-set-coverage.{json,md}`，报告人工真值数量和覆盖比例，实现二段式 RAG 评测集覆盖闭环。证据校准及审计只辅助解释和人工复核，保持 advisory / non-blocking，不改变 Jira 回填边界。
 
 #### 台架 / 实车场景
 
@@ -1046,7 +1046,7 @@ KanbanBoard setInterval 触发 runDueAutoCycles()
 
 若终端显示 `SSH 认证失败` 或 `All configured authentication methods failed`，说明 Gateway 已到达 SSH 服务，但目标服务器拒绝了当前认证材料。需要在 `REMOTE_SHELL_TARGETS_JSON` 中更换为目标服务器已授权的 `privateKeyPath`，或配置 `password`、`privateKeyPassphrase`、`agentSocket`。这些字段只在服务端使用，不会通过 `/api/terminal/targets` 返回浏览器。
 
-远程终端页面会额外读取 `/api/terminal/projects`，其来源是 `docs/project.json`。用户先选择服务器，再选择项目和分支；选中分支后，右侧显示该分支配置的各个 repo 的 git status。用户在终端中提交任意命令后，Gateway 会在短延迟后按当前项目上下文刷新每个 repo 的 `git status --short --branch`；点击“刷新”会立即刷新。
+远程终端页面会额外读取 `/api/terminal/projects?target=<目标id>`，按 named_first 返回当前目标生效的项目配置（`docs/project_<目标名>.json` 优先，缺失回退 `docs/project.json`）。用户先选择服务器，再选择项目和分支；选中分支后，右侧显示该分支配置的各个 repo 的 git status。用户在终端中提交任意命令后，Gateway 会在短延迟后按当前项目上下文刷新每个 repo 的 `git status --short --branch`；点击“刷新”会立即刷新。服务端缺少配置时返回空列表并标记 `configMissing`，页面禁用切换分支与同步并提示导入。
 
 选择项目时，前端向当前远程 shell 发送 `cd mainPath`，例如选择 `chery-8255` 会进入 `~/workspace`。选择分支时，前端按分支配置对每个 repo 发送 `git checkout branchName`，用于把 `vs`、`api-public`、`automotive-custom` 等仓库切到对应分支；若 checkout 失败，则执行 `git stash push -u` 保存本地改动后重新 checkout。点击“配信号”时，前端向当前远程 shell 发送 `cd mainPath/scriptPath`，便于后续直接运行脚本目录下的信号配置命令。
 
@@ -1198,7 +1198,7 @@ KanbanBoard setInterval 触发 runDueAutoCycles()
 
 ### 远程终端工作台验收流程
 
-1. 管理员进入「远程终端」，选择脱敏白名单目标并确认连接。Gateway按平台Cookie再次校验管理员；普通分析员访问页面重定向，API返回403。
+1. 任意已登录用户进入「远程终端」，选择脱敏白名单目标并确认连接。Gateway 按平台 Cookie 校验登录态（非管理员同样可连接与同步）；未登录访问页面重定向，API 返回 401。每个终端标签可导入/导出 `project.json`：管理员导入覆盖 `docs/project.json`，其它用户写入 `docs/project_<目标名>.json`（覆盖前备份到 `docs/bak/`）；服务端缺少配置时切换分支与同步禁用，提示先导入。
 2. 每标签独立选择项目与分支。项目切换只进入目录；分支切换确认后对配置仓库执行带stash回退的checkout。配信号进入脚本目录，一键pull与checkout作用于当前分支配置；全量checkout需确认。
 3. Repo面板多选文件后执行add/reset，撤销工作区文件需确认，未跟踪文件会删除。配置扫描默认全选保留；取消勾选再点「配置」只恢复未选文件，按仓库路径和分支绑定。
 4. 三类上传分别进入脚本目录、主repo的tools/sdb与tools/inc；上传文件读取完成后再次检查标签连接与项目上下文。打包zip与清单下载只接受当前请求的返回内容。
@@ -1280,7 +1280,7 @@ Android 日志筛选完成后，将同次提取、去重的 BoschVehicleHalHash 
 
 ## 远程终端同步流程（已实现，2026-10-29）
 
-管理员登录并连接白名单SSH目标后点击同步，遍历project.json全部项目、分支组及仓库；固定各本地 branchName 的最新 commit，通过 git log -10 逐条提取最近最多 10 条提交及完整 RTC1-数字标识，更新已有映射并保留历史，文件未变也执行。固定同一commit后递归收集tools/json、tools/sdb、tools/scripts下指定文件，直接以原文件名打平保存到configuration/<projectName>/<分支组名>/，不建立分类子目录。提交不变且完整则跳过，缺失补齐，变化替换托管快照并移除旧文件。无fetch/pull，无repoName目录层。同名异内容先备份再覆盖；type.h 按旧来源 commit、更新前 project.json 的 RTC 与旧文件 VER_PRO_CFG 归档为 bak/commitid_rtcids_vhal-version，保留多轮版本，相同内容不归档；其他文件备份允许同名覆盖。临时目录完整准备后按分支组发布文件与映射，失败保留旧快照。查看逐repo结果和最近一轮configuration/.sync-last.json；再次同步可重试或修复缺失文件。详细依赖及故障恢复见requirements/terminal-sync-review.md第11节。
+已登录用户登录并连接白名单SSH目标后点击同步，遍历当前目标生效的 project.json（named_first）全部项目、分支组及仓库；固定各本地 branchName 的最新 commit，通过 git log -10 逐条提取最近最多 10 条提交及完整 RTC1-数字标识，更新已有映射并保留历史，文件未变也执行。固定同一commit后递归收集tools/json、tools/sdb、tools/scripts下指定文件，直接以原文件名打平保存到configuration/<projectName>/<分支组名>/，不建立分类子目录。提交不变且完整则跳过，缺失补齐，变化替换托管快照并移除旧文件。无fetch/pull，无repoName目录层。同名异内容先备份再覆盖；type.h 按旧来源 commit、更新前 project.json 的 RTC 与旧文件 VER_PRO_CFG 归档为 bak/commitid_rtcids_vhal-version，保留多轮版本，相同内容不归档；其他文件备份允许同名覆盖。临时目录完整准备后按分支组发布文件与映射，失败保留旧快照。查看逐repo结果和最近一轮configuration/.sync-last.json；再次同步可重试或修复缺失文件。详细依赖及故障恢复见requirements/terminal-sync-review.md第11节。
 
 ### 查看当前同步分支的 VHAL 版本（2026-10-29）
 
@@ -1325,3 +1325,9 @@ Android 日志筛选完成后，将同次提取、去重的 BoschVehicleHalHash 
 3. 刷新页面复用缓存。「刷新原票详情」重新读取原票，复用有效图片、补齐缺失图片；损坏缓存可重新下载。
 4. 远端失败保留当前内容并提示；评论接口失败保留旧评论；单图下载失败用占位显示并可刷新重试。身份变更或组件卸载中止旧响应更新。
 5. 此查看流程不启动分析、不发送评论、不改经办人，不覆盖旧 run；Jira 保留原纯文本上下文。
+
+## 工单停止与知识库浏览（2026-11-02）
+
+1. 工单详情点「停止」：运行中则取消服务端运行（飞书）并中止本地请求；无论是否运行中，都把该工单在当前规则组下残留的运行中 task 与处理中 assignment 置为失败。
+2. 闪退后工单长期显示处理中：打开详情点「停止」→ 状态变为失败 → 点「重新分析」重新处理。
+3. 智能助手知识库页签点击文档条目 → 弹窗按段查看全文 → 关闭返回列表；检索框筛选后同样可点击。

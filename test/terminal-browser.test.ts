@@ -201,6 +201,6 @@ describe.skipIf(!baseURL)("远程终端浏览器验收（模拟Gateway）", () =
     git(sockets[1], "session-2", { project: projects[0], branch: projects[0].branches[0] }, undefined, "OLD STALE CONTEXT");
     expect(await page.getByText("OLD STALE CONTEXT", { exact: true }).count()).toBe(0);
     expect(errors).toEqual([]);
-    await context.close(); await start("analyst"); expect((await page.request.get("/terminal", { maxRedirects: 0 })).status()).toBe(307); expect((await page.request.get("/api/terminal/targets")).status()).toBe(403); expect(sockets.length).toBe(0);
+    await context.close(); await start("analyst"); expect((await page.request.get("/terminal", { maxRedirects: 0 })).status()).toBe(200); expect((await page.request.get("/api/terminal/targets")).status()).toBe(200);
   });
 });

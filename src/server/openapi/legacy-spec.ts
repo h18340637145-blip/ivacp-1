@@ -431,19 +431,96 @@ export const legacySpec = {
         },
       },
     },
+    "/api/terminal/projects/import": {
+      post: {
+        tags: ["Terminal"],
+        summary: "导入远程终端项目配置到服务端",
+        description: "管理员覆盖 docs/project.json，其它登录用户写入目标专属文件 docs/project_<目标名>.json；覆盖前自动备份到 docs/bak/。",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  targetId: { type: "string", description: "终端目标 id；非管理员必填" },
+                  projects: { type: "array", items: { type: "object" }, description: "project.json 的项目数组" },
+                },
+                required: ["projects"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "写入结果",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    file: { type: "string" },
+                    backup: { type: "string", nullable: true },
+                    scope: { type: "string", enum: ["canonical", "named"] },
+                    projectCount: { type: "number" },
+                  },
+                  required: ["file", "backup", "scope", "projectCount"],
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/Error" },
+          "500": { $ref: "#/components/responses/Error" },
+        },
+      },
+    },
+    "/api/terminal/projects/export": {
+      get: {
+        tags: ["Terminal"],
+        summary: "导出当前生效的远程终端项目配置",
+        parameters: [
+          {
+            name: "target",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "终端目标 id，用于按 named_first 解析专属配置文件",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "project.json 原始内容（附下载头）",
+            content: { "application/json": { schema: { type: "object" } } },
+          },
+          "400": { $ref: "#/components/responses/Error" },
+          "404": { $ref: "#/components/responses/Error" },
+          "500": { $ref: "#/components/responses/Error" },
+        },
+      },
+    },
     "/api/terminal/projects": {
       get: {
         tags: ["Terminal"],
         summary: "读取远程终端项目配置",
+        parameters: [
+          {
+            name: "target",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "终端目标 id，用于按 named_first 解析专属配置文件",
+          },
+        ],
         responses: {
           "200": {
-            description: "项目、分支和仓库配置",
+            description: "项目、分支和仓库配置，附配置缺失与可写位置信息",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/TerminalProjectsResponse" },
               },
             },
           },
+          "400": { $ref: "#/components/responses/Error" },
           "500": { $ref: "#/components/responses/Error" },
         },
       },
@@ -906,6 +983,8 @@ export const legacySpec = {
         },
       },
       IssueProcessRequest: {
+        // 本对象完全被 spec.ts 的 spec.components.schemas.IssueProcessRequest 赋值覆盖（旧 issue/ruleGroup 形状，
+        // 对应现已不存在的接口版本），不出现在最终文档中；新增的 fewShotPool / fewShotPoolMeta 只需补在 spec.ts。
         type: "object",
         required: ["issue", "ruleGroup"],
         properties: {
@@ -931,6 +1010,7 @@ export const legacySpec = {
         },
       },
       IssueProcessResponse: {
+        // 同样被 spec.ts 完全覆盖；fewShotRetrievalAudit 已在 spec.ts 的 IssueProcessResponse 中补充。
         type: "object",
         properties: {
           result: { type: "object" },
@@ -960,6 +1040,7 @@ export const legacySpec = {
           props: { type: "array", items: { type: "string" } },
           signalTokens: { type: "array", items: { type: "string" } },
           propertyIds: { type: "array", items: { type: "string" } },
+          sampleId: { type: "string", description: "客户端样本 id；证据后再次召回用于快照去重" },
         },
       },
       ReviewRequest: {
@@ -1079,6 +1160,8 @@ export const legacySpec = {
             type: "array",
             items: { type: "object" },
           },
+          configMissing: { type: "boolean", description: "服务端是否缺少当前目标的 project.json" },
+          canImportCanonical: { type: "boolean", description: "当前用户导入是否写入规范文件 docs/project.json" },
         },
       },
       TerminalTargetsResponse: {

@@ -27,7 +27,7 @@
 
 - 首页右侧提供可显示/隐藏的侧栏（右边缘「对话 / 知识库」按钮展开，侧栏右上角 × 隐藏），展开时主内容让出 380px。
 - 「对话」页签：调用 Qwen 的多轮对话，历史保存在浏览器 IndexedDB（`chatMessages`），可清空；回答会标注所参考的知识库文档。
-- 「知识库」页签：上传文本文档（txt/md/json/csv/log，≤2MB）；文档分段后调用 `/api/embeddings` 生成向量，保存在 IndexedDB（`knowledgeDocs`）；可删除。向量服务不可用时回退关键词检索。提问时取最相关的最多 4 段作为上下文。
+- 「知识库」页签：上传文本文档（txt/md/json/csv/log，≤2MB）；文档分段后调用 `/api/embeddings` 生成向量，保存在 IndexedDB（`knowledgeDocs`）；可删除；点击文档条目可在弹窗中按段浏览完整内容。向量服务不可用时回退关键词检索。提问时取最相关的最多 4 段作为上下文。
 - 知识库页签提供「导入已处理票与人工标注」：把本浏览器 IndexedDB 中的 Jira / 飞书处理结果（含人工驳回、人工正确结论）与人工标注样本按票转成知识库文档（按 id 覆盖，可重复执行），并提供票号/内容检索框；导入后可在对话中被引用。不导入曲线数据；仅限当前浏览器的数据。
 - 「记忆」页签：每轮对话后自动抽取用户的长期记忆（事实/偏好/事件），按相似度找相邻记忆并由 Qwen 判定新增/更新/忽略；提问时按相似度、重要度、时间衰减召回最多 5 条注入回答；支持手动添加、置顶（加权且不被遗忘）、删除；低重要度且长期未用的记忆自动遗忘。
 - 「笔记」页签：Markdown 笔记的新建/编辑/删除、标签、置顶、归档、关键词搜索与标签筛选、最近 20 个历史版本（可恢复）；未归档笔记自动向量化并参与对话检索。
@@ -290,7 +290,7 @@ PENDING → RUNNING → SUCCESS
 - 复核 Prompt 需包含完整分析上下文：Jira 描述、评论、原始快照、CAN 信号摘要，以及服务端分析日志中 Step1-5、信号映射、日志筛选和最终回复文本；
 - 复核 FAIL 的结论不自动写回 Jira，需人工复核后决策；
 - AI 复核只更新建议状态，不写入学习样本；只有人工通过或人工驳回才更新 `IssueReviewSample`。
-- **prop/signal RAG**：历史纠错案例召回除 Jira 标题外，还会使用 `prop`、signal token、Property ID、车型等 evidence fingerprint；Embedding 服务不可用时仍回退标题 Token 重叠度。
+- **prop/signal RAG**：历史纠错案例召回除 Jira 标题外，还会使用 `prop`、signal token、Property ID、车型等 evidence fingerprint；客户端初次召回为标识符精确 / 中文词法 / 向量三路独立检索后按倒数排名融合（RRF），问题向量与答案文本分离、按 embedding 模型与检索文本版本绑定缓存；结构化证据包生成后，服务端在请求内有界样本快照（最多 100 条，超限按分数截断并记录比例）中对标识符、词法、向量再做一次独立三路召回 + RRF 重排，向量一路使用证据指纹文本新调用一次 embedding 服务，单次调用失败只降级为两路并记录原因，不影响标识符与词法结果；本次召回的策略版本、候选数、路由命中数、降级原因和最终入选案例的命中路径与分数会写入审计，随分析结果落入 IndexedDB 并在详情页 `FewShotRetrievalPanel` 展示；Embedding 服务不可用时客户端与服务端均回退到标题 / 证据文本 Token 重叠度。
 
 ---
 
@@ -466,6 +466,12 @@ PENDING → RUNNING → SUCCESS
 终端支持复制粘贴：选中文字后 Ctrl+C（有选区时复制，无选区仍发送中断）、Ctrl+Shift+C 复制；Ctrl+V / Ctrl+Shift+V / Cmd+V 粘贴；右键有选区则复制、否则粘贴。读取剪贴板需浏览器授权且需安全上下文（localhost 或 HTTPS），否则粘贴退回浏览器原生行为（Shift+Insert）；多行粘贴仍按命令护栏逐条检查。
 
 远程终端支持从 `docs/project.json` 读取项目选择配置。用户连接服务器后，可在左侧选择 `projectName` 和分支；选择项目会在远程 shell 中自动执行 `cd mainPath`，例如 `chery-8255` 会切换到 `~/workspace`；选择分支会对该分支配置的每个 repo 执行 `git checkout branchName`。若 checkout 因未提交文件失败，则自动执行 `git stash push -u` 压栈后重试 checkout。页面右侧展示当前分支下每个 repo 的 `git status --short --branch`，输出按 git status 行类型着色，并且右侧分栏支持拖拽调整宽度。每次终端命令提交后，系统会自动刷新该状态；也可手动点击刷新。在 Repo 状态分栏中，对于未通过 `git add` 暂存的文件（包括修改未暂存文件及未跟踪文件）以及已暂存的文件（包括已修改暂存、新增暂存和删除暂存文件），其前方都会提供复选框供多选。每个 repo 卡片底部提供 `git add` 按钮、`checkout` 按钮和 `git reset` 按钮，点击即可对勾选的文件远程执行 `git add`（暂存）、`git checkout`（撤销工作区修改，需用户确认）或 `git reset`（撤销暂存区修改）操作，命令执行完成后自动清空勾选状态并刷新 git 状态。终端还会按当前项目分支下每个 repo 的 `repoPath/tools/json/config_*.json` 自动生成配置复选框，复选框名称取自 `config_*.json` 中的 `*`；配置复选框绑定当前 `repoPath + branchName`，路径或分支任意一个变化时都会清空旧列表并重新扫描。默认全选表示保留，用户取消勾选后点击“配置”，系统会对所有未选中的配置文件远程执行受限的 `git checkout -- tools/json/config_*.json`，并刷新配置列表和 git 状态。页面提供上传 xls、上传 dbc、上传 mcu.h 三个入口，分别写入 `mainPath/scriptPath/`、`mainPath/repoPath/tools/sdb/`、`mainPath/repoPath/tools/inc/`。一键 checkout 会对当前分支下所有 repo 执行 `git checkout .`；一键 pull 会对所有 repo 执行 `git pull`。配信号按钮会在远程 shell 中切换到 `mainPath/scriptPath`。打包按钮会在 `mainPath/scriptPath` 中打包 `types.hal`、`VHAL_SIGNAL_CHECKLIST_s.xls`、`com.bosch.cm.platform.vehicle.proto` 和 `CHERY_8255_VHAL_SIGNAL_V数字.数字.数字.xls` 匹配文件为 zip，并下载到本地。检验checklist按钮会通过 base64 形式，直接下载 `mainPath/scriptPath` 下的 `VHAL_SIGNAL_CHECKLIST_s.xls` 文件到本地。
+
+### 3.12.1 项目配置导入导出与终端放权（2026-11）
+
+远程终端不再限管理员：任意已登录用户均可进入 `/terminal`、读取脱敏目标、建立终端并启动同步。项目配置支持每服务器独立文件，按 named_first 优先级解析——给定目标时优先读取 `docs/project_<目标名>.json`，缺失再回退规范文件 `docs/project.json`。目标名会折叠为安全文件名片段（仅保留字母、数字、下划线、点、连字符与中日韩文字），拒绝空值、超长与路径穿越。
+
+服务端若缺少对应配置，页面不再报错，而是进入“配置缺失”降级：返回空项目列表，切换分支与同步按钮禁用，并提示先导入 `project.json`。每个终端标签提供「导入 project.json」和「导出 project.json」入口：导入时管理员覆盖规范文件 `docs/project.json`，其它登录用户写入目标专属文件 `docs/project_<目标名>.json`，覆盖前自动把旧文件备份到 `docs/bak/`；导出下载当前生效文件的原始内容（含同步写回的 commit/RTC 映射）。在 named_first 下，若某目标已存在专属文件，管理员对该目标的规范文件导入不会改变其生效配置。流水线（有效配置、版本 VHAL）不涉及具体终端目标，仍读取 `docs/project.json`。
 
 ---
 
@@ -865,11 +871,11 @@ SOC/SCC 提取之后，从本次规则组配置的 Proto 根目录（`base_paths
 
 ## 远程终端同步扩展（已实现，2026-10-29）
 
-远程终端新增「同步全部项目」入口，仅管理员沿用现有登录启动。范围覆盖 docs/project.json 全部项目、全部分支组及 repos；读取 SSH 服务器本地 branchName 分支最新提交，不 fetch/pull。从固定分支提交执行 `git log -10`，逐条提取最多 10 条提交的 commit ID 与 RTC ID，更新对应 repo 的映射并保留已有历史；文件未变也更新映射。RTC ID 完整保存 `RTC1-3103704` 格式及前缀到 repo 的 commid-rtcids-map 数组。
+远程终端新增「同步全部项目」入口，任意已登录用户沿用现有登录启动（2026-11 起不再限管理员）。范围覆盖当前目标生效的 project.json（named_first） 全部项目、全部分支组及 repos；读取 SSH 服务器本地 branchName 分支最新提交，不 fetch/pull。从固定分支提交执行 `git log -10`，逐条提取最多 10 条提交的 commit ID 与 RTC ID，更新对应 repo 的映射并保留已有历史；文件未变也更新映射。RTC ID 完整保存 `RTC1-3103704` 格式及前缀到 repo 的 commid-rtcids-map 数组。
 
 tools/json、tools/sdb、tools/scripts 均递归收集符合范围的文件，打平后保存到 `configuration/<projectName>/<分支组名>/<文件名>`，不保留源相对层级或 repoName 层。除 type.h 按当前身份生成版本文件并保留兼容副本外，匹配文件以原文件名存放在同一个分支组目录内，不建立 json/sdb/.h/xls 分类子目录。提交不变且文件完整则跳过；缺失补齐；提交变化时替换托管快照并移除旧文件。
 
-完整规则、目录配图、JSON 示例和验收条件见 [需求文档 v0.5](requirements/terminal-sync-review.md) 与 [交互流程图](requirements/terminal-sync-flow.html)。同名同内容合并；异内容按用户最新修改先将旧文件备份到分支组 bak/，再新覆盖，bak 同名允许覆盖。Gateway 复用认证 SSH 执行本地 Git 只读查询，真实管理员方可启动；界面显示进度和逐仓库结果。持久化清单、最近报告及运行依赖见需求第 11 节，真实业务远端和部署待验收。
+完整规则、目录配图、JSON 示例和验收条件见 [需求文档 v0.5](requirements/terminal-sync-review.md) 与 [交互流程图](requirements/terminal-sync-flow.html)。同名同内容合并；异内容按用户最新修改先将旧文件备份到分支组 bak/，再新覆盖，bak 同名允许覆盖。Gateway 复用认证 SSH 执行本地 Git 只读查询，任意已登录用户即可启动；界面显示进度和逐仓库结果。持久化清单、最近报告及运行依赖见需求第 11 节，真实业务远端和部署待验收。
 
 ### 远程终端当前分支 VHAL 标签（2026-10-29）
 
@@ -915,3 +921,10 @@ tools/json、tools/sdb、tools/scripts 均递归收集符合范围的文件，�
 - 图片只通过本应用已登录的接口展示，可打开本地大图；单图失败显示占位提示。上游失败保留缓存，无缓存则展示分析时快照；评论读取失败不清空已缓存评论。普通文件保留附件链接。
 - 仅缓存飞书官方文件地址的 PNG/JPEG/GIF/WebP，正文链接不作为图片下载；保留原下载 URL，使用现有服务端 CLI 登录。每次最多新下载40张、单张20MiB、合计100MiB、图片下载阶段45秒；达到限制保留已有图片并提示重试。
 - 新分析快照另存原始描述/评论富文本；旧分析正文、历史、规则组与 IndexedDB schema 不迁移。实时经办人读取和授权接口保持独立；Jira 上下文继续原有纯文本显示。
+
+## 工单强制停止与知识库文档详情（2026-11-02）
+
+- 工单详情操作区常驻「停止」按钮（不再仅在分析中显示）。分析中点击：飞书调用取消接口（失败只记警告），中止本页请求，并把当前运行置为失败「分析已停止」。
+- 未在分析时同样可点：将该工单在当前规则组下所有残留「运行中」任务及「处理中」归属统一置为失败「分析已手动停止」，用于浏览器或服务闪退后状态卡在处理中、无法重新分析的情况。之后可直接「重新分析」；已有成功结论与历史不删除。
+- 停止不撤销已落盘的过程产物，不回填、不发飞书通知。
+- 知识库页签的文档条目可点击（或键盘 Enter / 空格）打开详情弹窗，显示文档名、段数、大小、时间及按段排列的完整文本，仅浏览不编辑。对话回答中的「参考」来源名暂不可点击。

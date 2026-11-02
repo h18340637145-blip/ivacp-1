@@ -24,6 +24,12 @@ import {
   CommandGate,
 } from "../commands";
 import { downloadBase64File, readUpload } from "../browser-files";
+import {
+  exportProjectConfig,
+  importProjectConfig,
+  loadTerminalProjects,
+} from "../service";
+import { useSession } from "@/features/auth/session-store";
 import type { TerminalAction } from "../terminal-client";
 export type ConnectionState = "connecting" | "connected" | "closed" | "failed";
 const states: Record<ConnectionState, string> = {
@@ -34,24 +40,46 @@ const states: Record<ConnectionState, string> = {
 };
 interface Props {
   target: PublicRemoteShellTarget;
-  projects: TerminalProject[];
   gatewayUrl: string;
   active: boolean;
   onState: (state: ConnectionState) => void;
 }
 export function TerminalWorkspace({
   target,
-  projects,
   gatewayUrl,
   active,
   onState,
 }: Props) {
-  const [projectName, setProjectName] = useState(
-    projects[0]?.projectName ?? "",
-  );
-  const [branchName, setBranchName] = useState(
-    projects[0]?.branches[0]?.name ?? "",
-  );
+  const { can } = useSession();
+  const admin = can("admin");
+  const [projects, setProjects] = useState<TerminalProject[]>([]);
+  const [configMissing, setConfigMissing] = useState(false);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectsError, setProjectsError] = useState("");
+  const [configReload, setConfigReload] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const configInput = useRef<HTMLInputElement>(null);
+  const [projectName, setProjectName] = useState("");
+  const [branchName, setBranchName] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadTerminalProjects(target.id, controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        setProjects(data.projects);
+        setConfigMissing(data.configMissing);
+        setProjectName(data.projects[0]?.projectName ?? "");
+        setBranchName(data.projects[0]?.branches[0]?.name ?? "");
+        setProjectsError("");
+        setProjectsLoading(false);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setProjectsError(error instanceof Error ? error.message : "项目配置加载失败");
+        setProjectsLoading(false);
+      });
+    return () => controller.abort();
+  }, [target.id, configReload]);
   const [state, setState] = useState<ConnectionState>("connecting");
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -184,6 +212,48 @@ export function TerminalWorkspace({
           );
     if (commandGate.current.accept(data)) pane.current?.input(data);
   }
+  async function handleExport() {
+    setNotice("");
+    setError("");
+    try {
+      const fileName = await exportProjectConfig(target.id);
+      setNotice(`已导出 ${fileName}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "导出失败");
+    }
+  }
+  function pickImportFile() {
+    if (!configInput.current) return;
+    configInput.current.value = "";
+    configInput.current.click();
+  }
+  async function handleImport(file: File) {
+    setNotice("");
+    setError("");
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as unknown;
+      const list = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray((parsed as { projects?: unknown }).projects)
+          ? (parsed as { projects: unknown[] }).projects
+          : null;
+      if (!list) throw new Error("project.json 内容无效：应为项目数组或包含 projects 字段的对象。");
+      const result = await importProjectConfig(target.id, list);
+      setNotice(
+        `已导入 ${result.projectCount} 个项目到 ${result.file}` +
+          (result.backup ? `（原文件已备份到 ${result.backup}）` : "") +
+          (result.scope === "named" ? "；该配置仅对当前服务器生效。" : "。"),
+      );
+      setConfigReload((v) => v + 1);
+      setProjectsLoading(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "导入失败");
+    } finally {
+      setImporting(false);
+    }
+  }
   function upload(kind: UploadTargetKind) {
     if (!input.current) return;
     uploadKind.current = kind;
@@ -303,6 +373,34 @@ export function TerminalWorkspace({
           </Button>
         ) : null}
       </div>
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-3 py-2 text-xs">
+        {projectsLoading ? (
+          <span className="text-muted-foreground">正在读取项目配置…</span>
+        ) : configMissing ? (
+          <span role="status" className="text-amber-600 dark:text-amber-400">
+            服务端尚未配置 project.json，切换分支与同步暂不可用，请导入后使用。
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            项目配置来源：{admin ? "服务端规范文件" : "当前服务器生效配置"}
+          </span>
+        )}
+        <span className="flex-1" />
+        <Button size="sm" variant="ghost" disabled={importing} onClick={pickImportFile}>
+          {importing ? "导入中…" : "导入 project.json"}
+        </Button>
+        <Button size="sm" variant="ghost" disabled={configMissing} onClick={() => void handleExport()}>
+          导出 project.json
+        </Button>
+      </div>
+      {projectsError && (
+        <p role="alert" className="break-all border-b border-destructive/20 bg-destructive-soft p-2 text-xs text-destructive">
+          {projectsError}
+          <button className="ml-2 underline" onClick={() => { setProjectsLoading(true); setConfigReload((v) => v + 1); }}>
+            重试
+          </button>
+        </p>
+      )}
       <p aria-label="当前分支 VHAL 版本" className="break-all border-b border-border px-3 py-2 text-sm text-muted-foreground">
         当前分支已经配置的最新vhal版本是：{currentVhal?.raw ?? "未提取到"}
       </p>
@@ -384,6 +482,17 @@ export function TerminalWorkspace({
           />
         </div>
       </div>
+      <input
+        ref={configInput}
+        type="file"
+        aria-label="导入 project.json"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (file) await handleImport(file);
+        }}
+      />
       <input
         ref={input}
         type="file"

@@ -1,4 +1,4 @@
-# IVACP 重构约定（所有移植任务必须遵守）
+# IVACP（Intelligent Vehicle Analysis & Collaboration Platform） 重构约定（所有移植任务必须遵守）
 
 背景：把参考项目 `/home/huo2wx/project/nextjs/app`（旧系统，Jira/飞书项目工单 AI 分析平台）完整重构到
 `/home/huo2wx/project/nextjs/ivacp/ivacp`（新系统）。**保留全部功能点**，结构更可复用、易理解，UI 按新设计系统重做。

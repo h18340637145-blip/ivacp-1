@@ -39,14 +39,29 @@ spec.components.schemas.IssueProcessRequest = object({
   basePaths: object({ json_dir: text, dbc_dir: text, proto_dir: text }, ["json_dir", "dbc_dir", "proto_dir"]),
   modelToFiles: { type: "object", additionalProperties: object({ aliases: { ...strings, description: "显式车型别名，完整匹配且区分大小写；缺省时不按车型键推断。跨车型重复别名将导致自动配置回退。" }, json: { oneOf: [text, strings] }, dbc: { oneOf: [text, strings] }, proto: text }, ["json", "dbc", "proto"]) },
   ruleGroupId: text, ruleGroupName: text, source: { type: "string", enum: ["jira", "meegle"] }, jiraProvider: { type: "string", enum: ["default", "bosch"] }, runId: text, expand: text,
-  fewShotSamples: { type: "array", items: { $ref: "#/components/schemas/FewShotSample" } }, errorPatterns: { type: "array", items: object() },
+  fewShotSamples: { type: "array", items: { $ref: "#/components/schemas/FewShotSample" } }, fewShotPool: { type: "array", maxItems: 100, items: { $ref: "#/components/schemas/FewShotSample" } }, fewShotPoolMeta: object({ eligible: { type: "integer" }, sent: { type: "integer" }, truncated: { type: "boolean" } }, ["eligible", "sent", "truncated"]), errorPatterns: { type: "array", items: object() },
 }, ["issueKey", "summary", "rawData", "prompts", "ruleGroupId"]);
+spec.components.schemas.FewShotRetrievalAudit = object({
+  strategyVersion: text, mode: { type: "string", enum: ["pool", "fallback"] },
+  poolMeta: object({ eligible: { type: "integer" }, sent: { type: "integer" }, truncated: { type: "boolean" } }),
+  candidateCount: { type: "integer" },
+  excluded: object({ self: { type: "integer" }, scene: { type: "integer" }, duplicate: { type: "integer" } }),
+  routeCounts: object({
+    identifier: { type: "integer" },
+    lexical: { type: "integer" },
+    initial: { type: "integer" },
+    vector: { type: "integer", description: "证据后服务端向量召回命中数（服务端新增一次 embedding 调用，失败则为 0 并记入 degradations）" },
+  }),
+  degradations: strings,
+  selected: { type: "array", items: object({ ticketKey: text, sampleKind: text, routes: strings, recallScore: { type: "number" }, finalScore: { type: "number" } }) },
+}, ["strategyVersion", "mode"]);
 spec.components.schemas.IssueProcessResponse = object({
   configurationResolution: { ...object(), description: "本次基础配置审计：默认按日志和规则组完整别名选择分支当前配置；保存原始用户配置、全部候选、实际车型、文件内容摘要及运行快照路径。身份冲突、版本提取失败或文件不齐时整套回退；不混合来源，旧响应可缺省。" },
   analysisGroupName: { type: "string", description: "分析时的规则组目录名，复核不随规则组后续改名改变" },
   analysisRunId: { type: "string", description: "服务端确认的运行ID；新结果AI复核用作runId，旧响应可省略" },
   replyText: text, issueKey: text, model: text, mode: text, stages: { type: "object", additionalProperties: text },
   chartImage: text, signalSummary: text, traceData: object(), ticks: object(), reviewEvidence: object(),
+  fewShotRetrievalAudit: { ...object(), description: "P2：证据后再次召回审计摘要，参见 FewShotRetrievalAudit；旧结果或无快照时可省略 poolMeta。" },
   versionVhalCheck: { ...object(), description: "版本与 VHAL 配置检查审计：schemaVersion、socScc 配对结果、resolution 的 hash/来源提交/归档/Excel 候选，可选 vsAssociation 保存同项目同分支组 RTC 关联的 VS 候选、命中与未匹配 RTC、最终 VS commit 及原因（旧结果可缺省）、config 的逐信号/属性配置（Vehicle property ID、MCU UP、IVI DOWN 精确匹配及同行 Project）与大小写差异、warnings、stopReason 与 summary。未知/冲突不阻断；版本不一致或全部信号确认缺少且无大小写差异豁免时停止。" },
   elapsedMs: { type: "number" }, tokenUsage: { type: "integer" }, artifactRef: text, analysisReceipt: text, handoverAt: { type: "string", format: "date-time" },
 }, ["replyText", "issueKey", "model"]);

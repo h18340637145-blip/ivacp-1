@@ -73,6 +73,7 @@ export async function finishProcessAttempt(task: ProcessTask, data: ProcessRespo
       versionVhalCheck: data.versionVhalCheck,
       configurationResolution: data.configurationResolution,
       reviewEvidence: data.reviewEvidence, traceData: data.traceData, ticks: data.ticks, artifactRef: data.artifactRef,
+      fewShotRetrievalAudit: data.fewShotRetrievalAudit,
       analysisReceipt: data.analysisReceipt, tokenUsage: data.tokenUsage, reviewStatus: "pending", commentStatus: "not_started", transitionStatus: "not_selected",
       ...completeHandoverFields(data.handoverAt ? new Date(data.handoverAt) : undefined, now), createdAt: now };
     await db.processResults.add(result);

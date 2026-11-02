@@ -2,14 +2,11 @@
 import { useEffect, useState } from "react";
 import { Plus, TerminalSquare, X } from "lucide-react";
 import { useSession } from "@/features/auth/session-store";
-import type {
-  PublicRemoteShellTarget,
-  TerminalProject,
-} from "@/domain/terminal/types";
+import type { PublicRemoteShellTarget } from "@/domain/terminal/types";
 import { Button } from "@/shared/ui/button";
 import { PageHeader } from "@/shared/ui/page-header";
 import { TerminalWorkspace, type ConnectionState } from "./terminal-workspace";
-import { loadTerminalConfiguration, resolveGatewayUrl } from "../service";
+import { loadTerminalTargets, resolveGatewayUrl } from "../service";
 interface Tab {
   id: string;
   target: PublicRemoteShellTarget;
@@ -22,12 +19,8 @@ const labels: Record<ConnectionState, string> = {
   failed: "连接失败",
 };
 export function TerminalWorkbench() {
-  const { ready, can } = useSession();
-  const admin = can("admin");
-  const [configuration, setConfiguration] = useState<{
-    targets: PublicRemoteShellTarget[];
-    projects: TerminalProject[];
-  }>({ targets: [], projects: [] });
+  const { ready } = useSession();
+  const [targets, setTargets] = useState<PublicRemoteShellTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -36,13 +29,13 @@ export function TerminalWorkbench() {
   const [activeId, setActiveId] = useState("");
   const [gatewayUrl] = useState(resolveGatewayUrl);
   useEffect(() => {
-    if (!ready || !admin) return;
+    if (!ready) return;
     const controller = new AbortController();
-    void loadTerminalConfiguration(controller.signal)
+    void loadTerminalTargets(controller.signal)
       .then((data) => {
         if (controller.signal.aborted) return;
-        setConfiguration(data);
-        setTargetId(data.targets[0]?.id ?? "");
+        setTargets(data);
+        setTargetId(data[0]?.id ?? "");
         setLoading(false);
         setError("");
       })
@@ -52,8 +45,8 @@ export function TerminalWorkbench() {
         setLoading(false);
       });
     return () => controller.abort();
-  }, [ready, admin, retry]);
-  const target = configuration.targets.find((t) => t.id === targetId);
+  }, [ready, retry]);
+  const target = targets.find((t) => t.id === targetId);
   function connect() {
     if (!target) return;
     if (
@@ -73,15 +66,6 @@ export function TerminalWorkbench() {
   if (!ready)
     return (
       <p className="p-6 text-sm text-muted-foreground">正在加载登录状态…</p>
-    );
-  if (!admin)
-    return (
-      <div className="p-6">
-        <PageHeader title="远程终端" />
-        <p role="alert" className="text-destructive">
-          仅管理员可使用远程终端。
-        </p>
-      </div>
     );
   return (
     <div className="mx-auto w-full max-w-[1800px] space-y-4 p-4 md:p-6">
@@ -107,12 +91,12 @@ export function TerminalWorkbench() {
             disabled={loading}
             onChange={(event) => setTargetId(event.target.value)}
           >
-            {!configuration.targets.length && (
+            {!targets.length && (
               <option value="">
                 {loading ? "正在读取服务器…" : "暂无可用服务器"}
               </option>
             )}
-            {configuration.targets.map((t) => (
+            {targets.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name} · {t.environment}
               </option>
@@ -150,7 +134,7 @@ export function TerminalWorkbench() {
             </Button>
           </div>
         )}
-        {!loading && !error && !configuration.targets.length && (
+        {!loading && !error && !targets.length && (
           <p className="w-full text-sm text-muted-foreground">
             尚未配置白名单服务器，请由管理员检查服务器配置。
           </p>
@@ -204,7 +188,6 @@ export function TerminalWorkbench() {
           >
             <TerminalWorkspace
               target={tab.target}
-              projects={configuration.projects}
               gatewayUrl={gatewayUrl}
               active={tab.id === activeId}
               onState={(state) =>

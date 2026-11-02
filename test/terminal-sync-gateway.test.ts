@@ -15,8 +15,8 @@ async function setup(allowed=true) {
  const manager=new TerminalSessionManager({targets:[{id:"t",name:"T",host:"unused",port:22,username:"x",description:"",environment:"test",riskLevel:"normal",guardMode:"soft"}],connectSsh:async()=>channel,runRemoteCommand:fallback,uploadRemoteFile:async()=>{},send:m=>events.push(m),audit:async()=>{},canSync:()=>allowed,syncRoot:root});
  const sessionId=await manager.connect({type:"connect",targetId:"t",cols:80,rows:24});return {root,manager,sessionId,events,channel,fallback};
 }
-it("sync requires an authenticated admin even when debugging Gateway auth is disabled",async()=>{
- const f=await setup(false);try {await expect(f.manager.syncProjects({type:"syncProjects",sessionId:f.sessionId,requestId:"sync-1"})).rejects.toThrow("管理员");expect(f.channel.runCommand).not.toHaveBeenCalled();}finally{f.manager.disconnectAll("test")}
+it("sync requires an authenticated login even when debugging Gateway auth is disabled",async()=>{
+ const f=await setup(false);try {await expect(f.manager.syncProjects({type:"syncProjects",sessionId:f.sessionId,requestId:"sync-1"})).rejects.toThrow("已登录");expect(f.channel.runCommand).not.toHaveBeenCalled();}finally{f.manager.disconnectAll("test")}
 });
 it("sync reuses the authenticated SSH channel and sends correlated progress and results without closing PTY",async()=>{
  const f=await setup();try {await f.manager.syncProjects({type:"syncProjects",sessionId:f.sessionId,requestId:"sync-1"});expect(f.fallback).not.toHaveBeenCalled();expect(f.channel.close).not.toHaveBeenCalled();expect(f.events).toContainEqual(expect.objectContaining({type:"syncProgress",requestId:"sync-1",sessionId:f.sessionId}));expect(f.events).toContainEqual(expect.objectContaining({type:"syncResult",requestId:"sync-1",report:expect.objectContaining({totalProjects:1,completedBranches:1})}));}finally{f.manager.disconnectAll("test")}

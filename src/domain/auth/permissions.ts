@@ -40,7 +40,6 @@ export function isPublicPath(pathname: string): boolean {
 const REVIEWER_WRITE_PATHS = ["/api/meegle/authorize", "/api/meegle/comment", "/api/meegle/workflow"];
 
 export function requiredRoleForPath(pathname: string, method: string): AuthRole {
-  if (pathname.startsWith("/terminal") || pathname.startsWith("/api/terminal")) return "admin";
   const isRead = method === "GET" || method === "HEAD";
   if (
     pathname === "/api/jira/comment" ||

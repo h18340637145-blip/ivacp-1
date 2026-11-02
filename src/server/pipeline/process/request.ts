@@ -1,3 +1,4 @@
+import { FEW_SHOT_POOL_MAX } from "@/domain/analysis/process-contracts";
 import { REJECT_REASON_CODES } from "@/domain/analysis/reject-reasons";
 import { z } from "zod";
 import type { ProcessRequest } from "@/server/pipeline/types";
@@ -14,6 +15,7 @@ const modelFile = z.object({
   }),
   proto: z.string(),
 });
+const fewShotSampleSchema = z.object({ issueKey: z.string(), ticketKey: z.string().optional(), issueSummary: z.string(), sampleKind: z.enum(["correction", "approved"]).optional(), approvedConclusion: z.string().optional(), wrongConclusion: z.string(), correctConclusion: z.string(), errorReason: z.string(), errorCategory: z.enum(REJECT_REASON_CODES).optional(), carModel: z.string().optional(), props: z.array(z.string()).optional(), signalTokens: z.array(z.string()).optional(), propertyIds: z.array(z.string()).optional(), relevanceScore: z.number().optional(), sampleId: z.string().max(200).optional() });
 export const processRequestSchema = z.object({
   issueKey: z.string().trim().min(1).max(120).regex(/^[A-Za-z0-9_-]+$/, "工单标识无效"),
   summary: z.string(), rawData: z.record(z.string(), z.unknown()),
@@ -23,7 +25,9 @@ export const processRequestSchema = z.object({
   ruleGroupId: z.string().trim().min(1), ruleGroupName: z.string().trim().min(1).optional(),
   source: z.enum(["jira", "meegle"]).optional(), jiraProvider: z.enum(["default", "bosch"]).optional(),
   runId: z.string().regex(/^[A-Za-z0-9_-]{1,120}$/).optional(),
-  fewShotSamples: z.array(z.object({ issueKey: z.string(), ticketKey: z.string().optional(), issueSummary: z.string(), sampleKind: z.enum(["correction", "approved"]).optional(), approvedConclusion: z.string().optional(), wrongConclusion: z.string(), correctConclusion: z.string(), errorReason: z.string(), errorCategory: z.enum(REJECT_REASON_CODES).optional(), carModel: z.string().optional(), props: z.array(z.string()).optional(), signalTokens: z.array(z.string()).optional(), propertyIds: z.array(z.string()).optional(), relevanceScore: z.number().optional() })).optional(),
+  fewShotSamples: z.array(fewShotSampleSchema).optional(),
+  fewShotPool: z.array(fewShotSampleSchema).max(FEW_SHOT_POOL_MAX).optional(),
+  fewShotPoolMeta: z.object({ eligible: z.number().int().nonnegative(), sent: z.number().int().nonnegative(), truncated: z.boolean() }).optional(),
   errorPatterns: z.array(z.object({ code: z.enum(REJECT_REASON_CODES), label: z.string(), count: z.number().nonnegative(), share: z.number().min(0).max(1), checklist: z.string(), scope: z.enum(["car_model", "rule_group"]) })).optional(),
 }).superRefine((body, ctx) => {
   if (body.source === "meegle" && (!body.issueKey.startsWith("meegle-") || typeof body.rawData.projectKey !== "string" || typeof body.rawData.workItemId !== "string" || body.issueKey !== `meegle-${body.rawData.workItemId}`)) {

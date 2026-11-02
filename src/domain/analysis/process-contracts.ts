@@ -29,7 +29,21 @@ export interface FewShotSample {
   signalTokens?: string[];
   propertyIds?: string[];
   relevanceScore?: number;
+  /** 客户端样本 id，用于快照与初次入选结果去重 */
+  sampleId?: string;
 }
+
+/** 请求内有界样本快照的覆盖说明 */
+export interface FewShotPoolMeta {
+  /** 客户端授权范围内、同规则组同场景的合格样本数 */
+  eligible: number;
+  sent: number;
+  truncated: boolean;
+}
+
+/** 快照条目上限与单条文本长度上限（服务端按此校验） */
+export const FEW_SHOT_POOL_MAX = 100;
+export const FEW_SHOT_POOL_TEXT_LIMIT = 1000;
 
 export interface ProcessRequest {
   issueKey: string;
@@ -47,8 +61,24 @@ export interface ProcessRequest {
   runId?: string;
   /** 相似工单的历史人工纠错 / 确认样本 */
   fewShotSamples?: FewShotSample[];
+  /** 证据生成后再次召回用的有界样本快照；只在本次请求内使用，不写入样本库 */
+  fewShotPool?: FewShotSample[];
+  fewShotPoolMeta?: FewShotPoolMeta;
   /** 该规则组 / 车型历史上最常见的人工驳回类型，注入提示词作自查提醒 */
   errorPatterns?: ErrorPattern[];
+}
+
+/** 证据后再次召回的审计摘要：随 run 保存，供恢复与界面展示；不含票据原文，只含身份与分数 */
+export interface FewShotRetrievalAudit {
+  strategyVersion: string;
+  /** pool：基于请求内快照再次召回；fallback：无快照，仅对初次入选重排 */
+  mode: "pool" | "fallback";
+  poolMeta?: FewShotPoolMeta;
+  candidateCount: number;
+  excluded: { self: number; scene: number; duplicate: number };
+  routeCounts: { identifier: number; lexical: number; initial: number; vector: number };
+  degradations: string[];
+  selected: Array<{ ticketKey: string; sampleKind: string; routes: string[]; recallScore: number; finalScore: number }>;
 }
 
 export interface ProcessResponse {
@@ -70,6 +100,8 @@ export interface ProcessResponse {
   traceData?: SignalTraceData;
   ticks?: SignalTicks;
   reviewEvidence?: ReviewEvidence;
+  /** 证据后再次召回的审计摘要（仅 P2 证据后再次召回路径返回） */
+  fewShotRetrievalAudit?: FewShotRetrievalAudit;
   elapsedMs?: number;
   artifactRef?: string;
   analysisReceipt?: string;

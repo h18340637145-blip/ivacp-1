@@ -51,7 +51,24 @@ type EmbeddingSampleFields = Pick<
   | "carModel"
 >;
 
-/** 样本向量化文本：证据指纹 + 错误原因 + 结论片段 */
+/** 向量文本版本：2 起只含问题侧文本，不含历史结论 */
+export const EMBEDDING_TEXT_VERSION = 2;
+
+/** 样本向量化文本（问题侧）：证据指纹，不混入错误 / 正确结论 */
+export function buildSampleQuestionEmbeddingText(sample: EmbeddingSampleFields): string {
+  return (
+    sample.evidenceFingerprintText ||
+    buildEvidenceFingerprintText({
+      issueSummary: sample.issueSummary,
+      carModel: sample.carModel,
+      props: sample.props ?? [],
+      signalTokens: sample.signalTokens ?? [],
+      propertyIds: sample.propertyIds ?? [],
+    })
+  );
+}
+
+/** 旧版样本向量化文本：证据指纹 + 错误原因 + 结论片段 */
 export function buildSampleEmbeddingText(sample: EmbeddingSampleFields): string {
   const fingerprintText =
     sample.evidenceFingerprintText ||

@@ -1,12 +1,11 @@
 /**
  * 远程终端 WebSocket 网关（独立进程：npm run terminal:gateway）。
  * 浏览器 xterm ⇄ WS ⇄ ssh2 shell；命令输入经 command-guard 校验并写入审计日志（输出不落盘）。
- * 握手时校验 IVACP 登录 Cookie，仅管理员可连接（REMOTE_SHELL_GATEWAY_REQUIRE_AUTH=false 可关闭，仅限本地调试）。
+ * 握手时校验 IVACP 登录 Cookie，任意已登录用户均可连接（REMOTE_SHELL_GATEWAY_REQUIRE_AUTH=false 可关闭，仅限本地调试）。
  */
 import type { IncomingMessage } from "node:http";
 import { loadEnvConfig } from "@next/env";
 import { WebSocketServer } from "ws";
-import { hasRole } from "../src/domain/auth/permissions";
 import { AUTH_SESSION_COOKIE, verifySessionToken, type AuthSession } from "../src/server/auth/session";
 import { loadRemoteShellTargets } from "../src/server/terminal/config";
 import type { ClientTerminalMessage } from "../src/domain/terminal/types";
@@ -37,12 +36,11 @@ const wss = new WebSocketServer({
     if (!requireAuth) return done(true);
     const session = readSession(info.req);
     if (!session) return done(false, 401, "未登录或登录已过期");
-    if (!hasRole(session, "admin")) return done(false, 403, "仅管理员可使用远程终端");
     done(true);
   },
 });
 console.log(
-  `[terminal-gateway] listening on ws://${host}:${port}, targets=${targets.length}, auth=${requireAuth ? "admin" : "disabled"}`,
+  `[terminal-gateway] listening on ws://${host}:${port}, targets=${targets.length}, auth=${requireAuth ? "login" : "disabled"}`,
 );
 
 wss.on("connection", (socket, request) => {
@@ -50,7 +48,7 @@ wss.on("connection", (socket, request) => {
   if (operator) void appendAuditEvent(auditPath, { event: "gateway_connected", operator });
   const manager = new TerminalSessionManager({
     targets,
-    canSync: () => { const current = readSession(request); return !!current && hasRole(current, "admin"); },
+    canSync: () => { const current = readSession(request); return !requireAuth || !!current; },
     connectSsh,
     // Real sessions provide exec/upload on their authenticated channel.
     runRemoteCommand: async () => { throw new Error("SSH 操作通道不可用"); },

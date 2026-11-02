@@ -8,8 +8,9 @@ import type { TerminalProject, TerminalBranchConfig } from "../../../domain/term
 import type { TerminalSyncBranchResult, TerminalSyncProgress, TerminalSyncReport, TerminalBranchVhal } from "../../../domain/terminal/sync";
 import { assertFileName, gitBlobId, type SyncCommit, type SyncReader, type SyncSnapshot } from "./remote";
 import { acquireSyncLock, assertNoLinks, atomicJson, branchKey, exists, prepareMappings, readProjects, realDirectory } from "./storage";
+import { resolveProjectReadFile } from "../project-file";
 interface Manifest { headerFile?: string; vhal?: TerminalBranchVhal; schemaVersion: 1; targetId: string; fingerprint: string; configurationKey: string; files: Array<{ name: string; oid: string }>; repos: Array<{ repoName: string; repoPath: string; branchName: string; latestSyncedCommitId: string; rtcids: string[]; history?: SyncCommit[] }>; sources: Array<{ repoName: string; source: string; name: string; oid: string }>; syncedAt: string }
-export interface TerminalSyncOptions { root?: string; targetId: string; reader: SyncReader; signal?: AbortSignal; progress?: (progress: TerminalSyncProgress) => void }
+export interface TerminalSyncOptions { root?: string; targetId: string; targetName?: string; reader: SyncReader; signal?: AbortSignal; progress?: (progress: TerminalSyncProgress) => void }
 const fail = (error: unknown) => error instanceof Error ? error.message : String(error);
 async function manifestAt(dir: string): Promise<Manifest | undefined> {
   if (!await exists(path.join(dir, ".sync-state.json"))) return;
@@ -210,7 +211,7 @@ export async function runTerminalSync(options: TerminalSyncOptions): Promise<Ter
   options = { ...options, root: path.resolve(options.root ?? process.cwd()) };
   const release = await acquireSyncLock(path.join(options.root!, "configuration"));
   try {
-    const configFile = path.join(options.root!, "docs/project.json");
+    const configFile = await resolveProjectReadFile(options.root!, options.targetName);
     const projects = await readProjects(configFile);
     const report: TerminalSyncReport = { runId: randomUUID(), targetId: options.targetId, totalProjects: projects.length, totalBranches: projects.reduce((n,p) => n + p.branches.length, 0), totalRepos: projects.reduce((n,p) => n + p.branches.reduce((n,b) => n + b.repos.length, 0), 0), completedBranches: 0, message: "同步开始", startedAt: new Date().toISOString(), completedAt: "", branches: [] };
     const emit = (branch?: TerminalSyncBranchResult) => options.progress?.({ runId: report.runId, targetId: report.targetId, totalProjects: report.totalProjects, totalBranches: report.totalBranches, totalRepos: report.totalRepos, completedBranches: report.completedBranches, message: report.message, branch });

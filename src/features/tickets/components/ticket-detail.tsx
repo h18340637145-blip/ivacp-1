@@ -20,6 +20,7 @@ import { CanSignalChart } from "./can-signal-chart-client";
 import { ReviewPanel } from "./review-panel";
 import { BackfillDialog } from "./backfill-dialog";
 import { VersionVhalPanel } from "./version-vhal-panel";
+import { FewShotRetrievalPanel } from "./few-shot-retrieval-panel";
 import { ArtifactsPanel } from "./artifacts-panel";
 import { IssueSceneBadge } from "./issue-scene-badge";
 import { AssigneeDialog } from "./assignee-dialog";
@@ -66,6 +67,7 @@ export function TicketDetail({ source, ticketKey }: { source: TicketSource; tick
         </Tabs>
         <ConfigurationPanel resolution={result?.configurationResolution} />
         <VersionVhalPanel check={result?.versionVhalCheck} />
+        <FewShotRetrievalPanel audit={result?.fewShotRetrievalAudit} />
       </div>
       {result ? <div className="space-y-4"><ReviewPanel key={result.id} result={result} snapshot={snapshot} groupName={group?.name} validations={context.validations} />{result.commentError || result.transitionError ? <Callout tone="danger">{result.commentError || result.transitionError}</Callout> : null}</div> : null}
     </div>

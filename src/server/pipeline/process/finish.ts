@@ -83,6 +83,7 @@ export async function finishSuccess(
     tokenUsage: currentQwenTokenUsage(), replyText, model: process.env.QWEN_MODEL ?? "", issueKey: ctx.issueKey,
     mode: args.classified.mode, chartImage: plot.image ? `/api/charts/${path.relative(process.cwd(), plot.image).split(path.sep).join("/")}` : undefined,
     signalSummary: plot.summary || undefined, traceData: plot.trace_data, ticks: plot.ticks, reviewEvidence: args.evidence.reviewEvidence,
+    fewShotRetrievalAudit: ctx.fewShotRetrievalAudit,
     versionVhalCheck: args.evidence.versionVhalCheck,
     configurationResolution: ctx.configurationResolution,
     elapsedMs, artifactRef: ctx.artifactRef, analysisReceipt: ctx.analysisReceipt,

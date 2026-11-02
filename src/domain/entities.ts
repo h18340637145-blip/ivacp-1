@@ -264,6 +264,8 @@ export interface ProcessResult {
   chartImage?: string;
   signalSummary?: string;
   reviewEvidence?: ReviewEvidence;
+  /** 证据后再次召回的审计摘要（P2；旧结果可能没有） */
+  fewShotRetrievalAudit?: import("@/domain/analysis/process-contracts").FewShotRetrievalAudit;
   traceData?: SignalTraceData;
   ticks?: SignalTicks;
   /** 飞书运行产物引用（/api/meegle/artifacts 白名单读取） */
@@ -381,6 +383,8 @@ export interface ReviewSample {
   approvedConclusion?: string;
   issueSummaryEmbedding?: number[];
   embeddingModel?: string;
+  /** 向量文本版本；与当前版本不一致时重新生成 */
+  embeddingTextVersion?: number;
   embeddingUpdatedAt?: Date;
   wrongConclusion: string;
   correctConclusion: string;

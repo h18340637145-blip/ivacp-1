@@ -53,7 +53,7 @@ it("应用使用会话Cookie鉴权，公开文档不误导用户提交Jira Basic
   expect(openApiSpec.components.securitySchemes.SessionCookie).toMatchObject({ type: "apiKey", in: "cookie", name: "ivacp_session" });
   expect(JSON.stringify(openApiSpec)).not.toContain("JiraBasicAuth");
   expect(openApiSpec.paths["/api/openapi"].get.security).toEqual([]);
-  expect(openApiSpec.paths["/api/terminal/targets"].get["x-required-role"]).toBe("admin");
+  expect(openApiSpec.paths["/api/terminal/targets"].get["x-required-role"]).toBe("analyst");
   expect(openApiSpec.paths["/api/labeling/annotations"].put["x-required-role"]).toBe("reviewer");
 });
 it("共享分析、统一镜像、旧库预检使用当前请求字段", () => {

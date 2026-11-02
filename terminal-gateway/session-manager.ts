@@ -152,7 +152,7 @@ export class TerminalSessionManager {
   }
 
   async syncProjects(message: Extract<ClientTerminalMessage, { type: "syncProjects" }>): Promise<void> {
-    if (!this.options.canSync?.()) throw new Error("仅已登录管理员可启动同步");
+    if (!this.options.canSync?.()) throw new Error("仅已登录用户可启动同步");
     const session = this.sessions.get(message.sessionId);
     if (!session || !session.channel.runCommand) throw new Error("SSH 会话不可用，请重新连接");
     if (typeof message.requestId !== "string" || !message.requestId || message.requestId.length > 200) throw new Error("同步请求标识无效");
@@ -174,7 +174,7 @@ export class TerminalSessionManager {
         controller.signal.throwIfAborted();
         return result;
       });
-      const report = await runTerminalSync({ root: this.options.syncRoot, targetId: session.target.id, reader, signal: controller.signal, progress: sendProgress });
+      const report = await runTerminalSync({ root: this.options.syncRoot, targetId: session.target.id, targetName: session.target.name, reader, signal: controller.signal, progress: sendProgress });
       if (this.sessions.get(message.sessionId) === session)
         this.options.send({ type: "syncResult", sessionId: message.sessionId, requestId: message.requestId, report });
     } finally {

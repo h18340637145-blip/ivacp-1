@@ -28,6 +28,8 @@ export interface ProcessContext {
   issueScenePromptBlock: string;
   /** 已按同场景过滤的历史样本 */
   fewShotSamples?: FewShotSample[];
+  /** 证据后再次召回的审计摘要；结论阶段写入，finish 阶段读取落盘 */
+  fewShotRetrievalAudit?: import("@/domain/analysis/process-contracts").FewShotRetrievalAudit;
   attachRoot: string;
   logRoot: string;
   artifactRef?: string;

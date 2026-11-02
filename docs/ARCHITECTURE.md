@@ -242,7 +242,7 @@ Meegle 与 Jira 只共享分析、复核、证据校验、处理结果通知和 
 
 `REMOTE_SHELL_TARGETS_JSON` 的敏感认证字段只在 Gateway 进程内使用，不返回浏览器。每个目标至少需要配置 `privateKeyPath`、`password` 或 `agentSocket` 之一；私钥可额外配置 `privateKeyPassphrase`。SSH 认证失败会被转换为明确的认证错误并写入审计日志，不记录命令输出或密码内容。
 
-远程终端项目操作读取仓库内 `docs/project.json`。Next.js 通过 `/api/terminal/projects` 返回项目、分支和 repo 元数据；Terminal Gateway 根据当前 WebSocket session 复用目标服务器认证材料，在当前已认证 SSH 连接上使用独立 exec 通道执行 git status、上传文件、打包下载和配置文件扫描，不把这些自动化命令写入交互式 PTY。此外，针对选中的文件，浏览器可通过 WebSocket 向 Gateway 发送 `gitAdd`、`gitCheckout` 或 `gitReset` 类型的消息，Gateway 同样会通过独立 SSH exec 静默在对应的 repo 目录下执行远程的 `git add`、`git checkout --` 和 `git reset HEAD` 命令，避免干扰用户的 PTY 屏幕。配置文件扫描使用 `signalConfigFiles` 消息，在每个 repo 下读取 `tools/json/config_*.json` 并把 `*` 作为前端复选框名称；前端以 `repoPath + branchName` 作为配置复选框状态和请求签名，路径或分支变化会清空旧列表并重新扫描；点击“配置”会发送 `checkoutSignalConfigFiles`，Gateway 只接受 `tools/json/config_*.json` 形式的文件路径，并在对应 repo 下执行 `git checkout --` 恢复未勾选文件。上传文件从浏览器转为 base64 发送到 Gateway，再写入远端 `mainPath/scriptPath/`、`mainPath/repoPath/tools/sdb/` 或 `mainPath/repoPath/tools/inc/`。打包下载在远端生成临时 zip，使用静默 `zip -q` 避免进度信息混入 stdout，并通过 base64 起止标记截取有效内容，base64 回传浏览器后由前端触发本地下载。
+远程终端项目操作读取仓库内 project.json，支持每服务器独立文件（named_first：`docs/project_<目标名>.json` 优先，缺失回退 `docs/project.json`）。Next.js 通过 `/api/terminal/projects?target=<id>` 返回当前目标生效的项目、分支和 repo 元数据，并附带 `configMissing` 与导入可写位置信息；`/api/terminal/projects/import` 与 `/api/terminal/projects/export` 负责按角色写入（管理员写规范文件、其它用户写目标专属文件，覆盖前备份到 `docs/bak/`）与导出当前生效文件。页面与 API 访问已放开到任意已登录分析员（不再限管理员）。Terminal Gateway 根据当前 WebSocket session 复用目标服务器认证材料，在当前已认证 SSH 连接上使用独立 exec 通道执行 git status、上传文件、打包下载和配置文件扫描，不把这些自动化命令写入交互式 PTY。此外，针对选中的文件，浏览器可通过 WebSocket 向 Gateway 发送 `gitAdd`、`gitCheckout` 或 `gitReset` 类型的消息，Gateway 同样会通过独立 SSH exec 静默在对应的 repo 目录下执行远程的 `git add`、`git checkout --` 和 `git reset HEAD` 命令，避免干扰用户的 PTY 屏幕。配置文件扫描使用 `signalConfigFiles` 消息，在每个 repo 下读取 `tools/json/config_*.json` 并把 `*` 作为前端复选框名称；前端以 `repoPath + branchName` 作为配置复选框状态和请求签名，路径或分支变化会清空旧列表并重新扫描；点击“配置”会发送 `checkoutSignalConfigFiles`，Gateway 只接受 `tools/json/config_*.json` 形式的文件路径，并在对应 repo 下执行 `git checkout --` 恢复未勾选文件。上传文件从浏览器转为 base64 发送到 Gateway，再写入远端 `mainPath/scriptPath/`、`mainPath/repoPath/tools/sdb/` 或 `mainPath/repoPath/tools/inc/`。打包下载在远端生成临时 zip，使用静默 `zip -q` 避免进度信息混入 stdout，并通过 base64 起止标记截取有效内容，base64 回传浏览器后由前端触发本地下载。
 
 需要改变用户当前 shell 上下文的动作通过交互式 PTY 发送命令：选择项目发送 `cd mainPath`，选择分支发送各 repo 的 `git checkout branchName`，点击配信号发送 `cd mainPath/scriptPath`。一键 checkout 和一键 pull 也通过交互式 PTY 顺序执行当前分支配置下所有 repo 的 `git checkout .` / `git pull`。分支切换命令带有失败兜底：若 checkout 因本地未提交文件失败，则先 `git stash push -u` 再重试 checkout。这类命令会显示在终端中，并继续经过 Gateway 的命令审计和拦截逻辑。
 
@@ -1408,7 +1408,7 @@ QWEN_MODEL 用于指定调用模型。
 
 ### 终端客户端与Gateway关联
 
-`app/(app)/terminal` 只组装管理员工作台。`features/terminal` 拆分配置请求校验、命令生成/文件解析、文件读写、串行SessionClient、xterm生命周期、每标签工作区与Repo面板。xterm在浏览器挂载后动态导入；隐藏标签保持挂载与会话，销毁时释放socket、监听器、resize观察器和定时器。
+`app/(app)/terminal` 只组装终端工作台（任意已登录用户可用）。`features/terminal` 拆分配置请求校验、命令生成/文件解析、文件读写、串行SessionClient、xterm生命周期、每标签工作区与Repo面板。每个工作区按所属目标独立加载项目配置并提供 project.json 导入/导出入口。xterm在浏览器挂载后动态导入；隐藏标签保持挂载与会话，销毁时释放socket、监听器、resize观察器和定时器。
 
 `domain/terminal/context.ts` 统一生成包含项目名、mainPath、scriptPath、分支及全部repo身份的contextKey。结构化Client/Server消息新增可选requestId，返回状态、Git、配置与下载回显；自动输入后刷新无requestId但带contextKey。旧字段保持兼容，新客户端仅接受自身关联响应，因此更新客户端时需同时更新Gateway。队列一次发送一个结构化请求，连接和有副作用的操作超时关闭会话，避免把迟到成功归给后续动作；只读扫描/状态查询超时清空队列并保留 PTY，迟到响应仍按 requestId 丢弃。
 
@@ -1550,3 +1550,10 @@ runner 根据旧清单最终 type.h 来源定位仓库及旧 commit，合并映�
 图片沿用 CLI `attachment +download <originalURL> --project-key ... --work-item-id ... --output ... --overwrite`，只允许 HTTPS project.feishu.cn 官方 files/download 路径，完整保留查询参数。正文解析与 UI 同用 Markdown/HTML 语法，前端经 rehype-sanitize 清洗；`img` 只能映射到当前票的本地接口。图片路由重复鉴权，验证身份、64位图片 ID 和本票 manifest，拒绝符号链接和非位图内容；输出 private/no-store、nosniff。不存在任意网址代理或客户端远程图片请求。
 
 文件缓存在现有工单持久化根目录，IndexedDB 仍是规则组/分析结果主存储，无数据库索引变更。快照额外保存 descriptionRich 与 comments[].id/richBody，原 description/body 供分析使用，不改变模型输入语义。
+
+## 工单强制停止与知识库详情（2026-11-02）
+
+- `features/tickets/services/process.ts` 的 `stopProcess(task | undefined, snapshot, group)`：task 运行中时调用 `/api/meegle/cancel`（错误吞掉并告警）、中止本地 `AbortController`、`failProcessAttempt`；随后总是调用 `process-repository.ts` 新增的 `forceFailTicket`。
+- `forceFailTicket` 在单个 Dexie 读写事务（`processTasks`、`assignments`）中，按 source + ticketKey + ruleGroupId（Jira 另按站点过滤，飞书按项目/类型匹配 assignment）把所有 `running` task 与非失败 assignment 置为 `failed` 并写 `completedAt`。不改 `processResults`、历史与产物，无 schema 变更。
+- `ticket-detail.tsx` 的「停止」按钮只依赖规则组存在，不再依赖 `task.status === "running"`。
+- `features/chat/components/knowledge-panel.tsx` 增加本地状态 `viewing` 与 `@/shared/ui/dialog` 详情弹窗，直接读取已加载 `KnowledgeDoc.chunks` 渲染，不新增接口或存储。

@@ -387,15 +387,21 @@ Jira / Meegle Store          IndexedDB                 Issue Process / Validatio
       │  POST /api/issues/process + 最多 3 条候选                        │
       │ ────────────────────────────────────────────────────────────► │
       │                          │  生成 Evidence Packet             │
-      │                          │  二次稳定重排并再次执行正样本门槛     │
+      │                          │  证据后在请求内有界快照(≤100条)中按   │
+      │                          │  标识符/词法/向量三路重新召回 + RRF   │
+      │                          │  （向量路调用一次服务端 embedding，  │
+      │                          │   失败降级为两路并记录审计原因）      │
       │                          │  分区注入 <历史纠错案例>/<历史正确案例>│
       │                          │  历史事实不得覆盖当前票证据           │
       │                          │                                  │
       │                          │  返回 replyText/signalSummary     │
       │                          │  + reviewEvidence                 │
+      │                          │  + fewShotRetrievalAudit          │
       │ ◄─────────────────────────────────────────────────────────── │
-      │  保存来源专用 ProcessResult                                  │
+      │  保存来源专用 ProcessResult（含 fewShotRetrievalAudit）        │
       │ ────────────────────────► │                                  │
+      │  详情页「证据后再次召回」面板读取该字段展示策略版本/候选数/        │
+      │  路由命中数/降级原因/入选案例命中路径                           │
       │                          │                                  │
       │  人工通过/驳回：同一事务更新结果与统一样本，覆盖同票旧类型并清 Embedding │
       │ ────────────────────────► │                                  │
@@ -1037,4 +1043,26 @@ sequenceDiagram
   UI->>API: context-image（身份 + SHA256 ID，需登录）
   API->>Cache: 验证本票映射并读取图片
   API-->>UI: 本地位图 / 404占位
+```
+
+## 工单强制停止（2026-11-02）
+
+```text
+用户 -> TicketDetail: 点击「停止」
+alt 当前 task 运行中
+  TicketDetail -> 停止服务: stopProcess(task)
+  停止服务 -> /api/meegle/cancel: 飞书显式取消（失败仅告警）
+  停止服务 -> AbortController: 中止本页请求
+  停止服务 -> IndexedDB: failProcessAttempt「分析已停止」
+end
+停止服务 -> IndexedDB事务: forceFailTicket：残留 running task / 处理中 assignment → failed
+IndexedDB -> TicketDetail: 实时刷新为失败，可重新分析
+```
+
+## 知识库文档详情（2026-11-02）
+
+```text
+用户 -> KnowledgePanel: 点击文档条目
+KnowledgePanel -> 详情弹窗: 已加载 KnowledgeDoc
+详情弹窗 -> 用户: 元信息 + 按段全文
 ```

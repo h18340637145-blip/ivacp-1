@@ -11,7 +11,7 @@ import { apiFetch } from "@/shared/lib/api";
 import { errorMessage } from "@/shared/lib/errors";
 import { createLimiter, CLIENT_CONCURRENCY } from "@/shared/lib/concurrency";
 import { fetchJiraHandoverAt } from "@/features/jira-workflow/services/jira-api";
-import { fetchErrorPatterns, fetchFewShotSamples } from "./few-shot";
+import { fetchErrorPatterns, fetchFewShotRecall } from "./few-shot";
 import { beginProcessAttempt, failProcessAttempt, forceFailTicket, finishProcessAttempt } from "./process-repository";
 import { notifyFeishuProcessResultSafely } from "./process-result-notify";
 import { runValidation } from "./validation";
@@ -37,15 +37,15 @@ async function executeProcess(input: TicketSnapshot, group: RuleGroup, reanalyze
     }
     if (controller.signal.aborted) throw new Error("分析已停止");
     const carModel = detectCarModelFromSummary(snapshot.title, group.model_to_files);
-    const [fewShotSamples, errorPatterns] = await Promise.all([
-      fetchFewShotSamples({ source: snapshot.source, ruleGroupId: group.id, ticketKey: snapshot.ticketKey, issueSummary: snapshot.title, currentEvidence: { carModel, props: [], signalTokens: [], propertyIds: [] } }),
+    const [fewShotRecall, errorPatterns] = await Promise.all([
+      fetchFewShotRecall({ source: snapshot.source, ruleGroupId: group.id, ticketKey: snapshot.ticketKey, issueSummary: snapshot.title, description: typeof rawData.description === "string" ? rawData.description : undefined, currentEvidence: { carModel, props: [], signalTokens: [], propertyIds: [] } }),
       fetchErrorPatterns(group.id, carModel, snapshot.title),
     ]);
     await db.processTasks.update(task.id, { stage: "ANALYZING" });
     const data = await apiFetch<ProcessResponse & { handoverAt?: string }>("/api/issues/process", { method: "POST", signal: controller.signal,
       json: { issueKey: snapshot.source === "meegle" ? `meegle-${snapshot.ticketKey}` : snapshot.ticketKey, summary: snapshot.title,
         rawData, source: snapshot.source, runId: task.id, ruleGroupId: group.id, ruleGroupName: group.name, prompts: group.prompts,
-        basePaths: group.base_paths, modelToFiles: group.model_to_files, expand: group.expand, jiraProvider: snapshot.source === "jira" ? jiraProviderForSnapshot(snapshot, group) : undefined, fewShotSamples, errorPatterns } });
+        basePaths: group.base_paths, modelToFiles: group.model_to_files, expand: group.expand, jiraProvider: snapshot.source === "jira" ? jiraProviderForSnapshot(snapshot, group) : undefined, fewShotSamples: fewShotRecall.samples, fewShotPool: fewShotRecall.pool, fewShotPoolMeta: fewShotRecall.poolMeta, errorPatterns } });
     if (snapshot.source === "jira") {
       const handover = await fetchJiraHandoverAt(snapshot.ticketKey, jiraProviderForSnapshot(snapshot, group));
       if (handover) data.handoverAt = handover.toISOString();
