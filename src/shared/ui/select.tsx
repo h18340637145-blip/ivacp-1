@@ -23,10 +23,10 @@ interface SelectProps {
   size?: "sm" | "md";
 }
 
-/** 单选下拉（Radix Select 封装，键盘可达） */
+/** 单选下拉（Radix Select 封装，键盘可达）；空值始终传 ""（受控并显示占位符），避免非受控/受控切换警告 */
 export function Select({ id, value, onValueChange, options, placeholder = "请选择", disabled, className, size = "md", ...aria }: SelectProps) {
   return (
-    <SelectPrimitive.Root value={value || undefined} onValueChange={onValueChange} disabled={disabled}>
+    <SelectPrimitive.Root value={value ?? ""} onValueChange={onValueChange} disabled={disabled}>
       <SelectPrimitive.Trigger
         id={id}
         aria-label={aria["aria-label"]}

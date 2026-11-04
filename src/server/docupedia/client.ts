@@ -16,6 +16,19 @@ type DocupediaAuth =
   | { mode: "basic"; headerName: "Authorization"; headerValue: string }
   | { mode: "negotiate" };
 
+/** 生效配置快照目录，禁止上传到 Docupedia */
+const EXCLUDED_UPLOAD_DIRECTORY = "effective-config";
+
+/** 单页正文上限：过大的请求体经 cntlm 等代理转发时会反复返回 502，可用 DOCUPEDIA_MAX_PAGE_CHARS 调整。 */
+function maxPageChars(env = process.env): number {
+  return parsePositiveInt(env.DOCUPEDIA_MAX_PAGE_CHARS, 60_000);
+}
+
+export function limitDocupediaPageText(text: string, limit = maxPageChars()): string {
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit)}\n\n[内容过长，已截断：原始 ${text.length} 字符，仅上传前 ${limit} 字符]\n`;
+}
+
 export interface DocupediaArchiveInput {
   issueKey: string;
   summary: string;
@@ -53,6 +66,8 @@ interface DocupediaOptions {
   requestRetries: number;
   retryDelayMs: number;
   retryMaxDelayMs: number;
+  failedPasses: number;
+  failedPassDelayMs: number;
 }
 
 interface PlannedDirectory {
@@ -83,6 +98,8 @@ function getDocupediaOptions(env = process.env): DocupediaOptions {
     requestRetries: parsePositiveInt(env.DOCUPEDIA_REQUEST_RETRIES, 6),
     retryDelayMs: parsePositiveInt(env.DOCUPEDIA_RETRY_DELAY_MS, 3_000),
     retryMaxDelayMs: parsePositiveInt(env.DOCUPEDIA_RETRY_MAX_DELAY_MS, 60_000),
+    failedPasses: parseNonNegativeInt(env.DOCUPEDIA_FAILED_PASSES, 2),
+    failedPassDelayMs: parsePositiveInt(env.DOCUPEDIA_FAILED_PASS_DELAY_MS, 120_000),
   };
 }
 
@@ -92,6 +109,11 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   }
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function parseNonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = value === undefined || value === "" ? Number.NaN : Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function isDocupediaEnabled(env = process.env): boolean {
@@ -251,7 +273,7 @@ function sendJsonRequest(method: string, url: string, payload: unknown, authConf
 
         if ((res.statusCode ?? 0) < 200 || (res.statusCode ?? 0) >= 300) {
           const message = typeof data === "string" ? data : JSON.stringify(data);
-          reject(new Error(`Docupedia API returned HTTP ${res.statusCode}: ${message}`));
+          reject(new Error(`Docupedia API returned HTTP ${res.statusCode} (${method} ${parsed.pathname}): ${message}`));
           return;
         }
         resolve(data);
@@ -369,7 +391,7 @@ async function buildIssueLogImportPlan(rootPath: string): Promise<{
         filePath: filePaths[0],
         parentRelativePath: args.parentRelativePath,
         title: buildPrefixedDocupediaArticleTitle(rootTitle, stepKey),
-        text: sections.join("\n"),
+        text: limitDocupediaPageText(sections.join("\n")),
       });
     }
 
@@ -381,7 +403,7 @@ async function buildIssueLogImportPlan(rootPath: string): Promise<{
         filePath,
         parentRelativePath: args.parentRelativePath,
         title: buildPrefixedDocupediaArticleTitle(rootTitle, articleTitle),
-        text,
+        text: limitDocupediaPageText(text),
       });
     }
   }
@@ -426,7 +448,7 @@ async function buildIssueLogImportPlan(rootPath: string): Promise<{
     await addDirectory(dirPath, relativePath, title);
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     const childDirs = entries
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== EXCLUDED_UPLOAD_DIRECTORY)
       .map((entry) => path.join(dirPath, entry.name))
       .sort((left, right) => left.localeCompare(right));
 
@@ -549,6 +571,19 @@ async function findOrCreatePage(args: {
   });
 }
 
+/** 手动上传单页（供 scripts/docupedia-upload.ts 使用）；沿用环境变量配置、重试与代理。 */
+export async function uploadDocupediaPage(input: { title: string; text: string; parentId?: string; maxChars?: number }) {
+  const options = getDocupediaOptions();
+  return findOrCreatePage({
+    title: input.title,
+    text: limitDocupediaPageText(input.text, input.maxChars ?? maxPageChars()),
+    parentId: input.parentId ?? String(options.parentId),
+    endpoint: `${normalizeBaseUrl(options.baseUrl)}/rest/api/content`,
+    options,
+    authConfig: resolveDocupediaAuth({ auth: options.auth }),
+  });
+}
+
 export async function archiveIssueLogToDocupedia(input: DocupediaArchiveInput): Promise<DocupediaArchiveResult> {
   if (!isDocupediaEnabled()) {
     return { enabled: false, created: 0, existing: 0, skipped: 0, failed: 0 };
@@ -607,53 +642,80 @@ export async function archiveIssueLogToDocupedia(input: DocupediaArchiveInput): 
     }
   }
 
+  const uploadPage = async (page: PlannedPage, pageIdx: number): Promise<void> => {
+    const parentId = pageIdsByRelativePath.get(page.parentRelativePath);
+    if (!parentId) {
+      throw new Error(`Missing Docupedia parent page id for ${page.title}`);
+    }
+    const result = await findOrCreatePage({
+      title: page.title,
+      text: page.text,
+      parentId,
+      endpoint,
+      options,
+      authConfig,
+    });
+    if (result.action === "created") created += 1;
+    if (result.action === "existing") existing += 1;
+    try {
+      const record = await recordDocupediaUpload({ title: page.title, text: page.text, action: result.action });
+      if (record) {
+        console.log(`[docupedia] ${record.month}: ${record.monthlyTotal} articles over ${DOCUPEDIA_STAT_MIN_CHARACTERS} characters`);
+      }
+    } catch (error) {
+      console.warn(`[docupedia] upload statistics write failed for "${page.title}": ${String(error).slice(0, 200)}`);
+    }
+    await input.onProgress?.({
+      kind: "page_completed",
+      pageIndex: pageIdx + 1,
+      pageTotal: plan.pages.length,
+      title: page.title,
+      action: result.action,
+    });
+  };
+
+  const reportFailure = async (page: PlannedPage, pageIdx: number, error: unknown): Promise<void> => {
+    await input.onProgress?.({
+      kind: "page_failed",
+      pageIndex: pageIdx + 1,
+      pageTotal: plan.pages.length,
+      title: page.title,
+      error: String(error).slice(0, 200),
+    });
+    console.warn(`[docupedia] skip failed page "${page.title}": ${String(error).slice(0, 200)}`);
+  };
+
+  // 代理（如 cntlm）的 502 往往成片出现，首轮失败的瞬时错误页面在冷却后补传，避免整篇日志丢页。
+  let deferred: Array<{ page: PlannedPage; pageIdx: number; error: unknown }> = [];
   for (let pageIdx = 0; pageIdx < plan.pages.length; pageIdx += 1) {
     if (pageIdx > 0) {
       const uploadGapMs = (100 + Math.random() * 50) * 1000;
       await delay(uploadGapMs);
     }
     const page = plan.pages[pageIdx];
-    const parentId = pageIdsByRelativePath.get(page.parentRelativePath);
-    if (!parentId) {
-      throw new Error(`Missing Docupedia parent page id for ${page.title}`);
-    }
     try {
-      const result = await findOrCreatePage({
-        title: page.title,
-        text: page.text,
-        parentId,
-        endpoint,
-        options,
-        authConfig,
-      });
-      if (result.action === "created") created += 1;
-      if (result.action === "existing") existing += 1;
-      try {
-        const record = await recordDocupediaUpload({ title: page.title, text: page.text, action: result.action });
-        if (record) {
-          console.log(`[docupedia] ${record.month}: ${record.monthlyTotal} articles over ${DOCUPEDIA_STAT_MIN_CHARACTERS} characters`);
-        }
-      } catch (error) {
-        console.warn(`[docupedia] upload statistics write failed for "${page.title}": ${String(error).slice(0, 200)}`);
-      }
-      await input.onProgress?.({
-        kind: "page_completed",
-        pageIndex: pageIdx + 1,
-        pageTotal: plan.pages.length,
-        title: page.title,
-        action: result.action,
-      });
+      await uploadPage(page, pageIdx);
     } catch (error) {
-      failed += 1;
-      await input.onProgress?.({
-        kind: "page_failed",
-        pageIndex: pageIdx + 1,
-        pageTotal: plan.pages.length,
-        title: page.title,
-        error: String(error).slice(0, 200),
-      });
-      console.warn(`[docupedia] skip failed page "${page.title}": ${String(error).slice(0, 200)}`);
+      if (isTransientDocupediaError(error)) deferred.push({ page, pageIdx, error });
+      else { failed += 1; await reportFailure(page, pageIdx, error); }
     }
+  }
+  for (let pass = 1; pass <= options.failedPasses && deferred.length; pass += 1) {
+    console.warn(`[docupedia] 第 ${pass} 次补传：${deferred.length} 篇瞬时失败页面，等待 ${Math.round(options.failedPassDelayMs / 1000)}s`);
+    await delay(options.failedPassDelayMs);
+    const still: typeof deferred = [];
+    for (const item of deferred) {
+      try {
+        await uploadPage(item.page, item.pageIdx);
+      } catch (error) {
+        still.push({ ...item, error });
+      }
+    }
+    deferred = still;
+  }
+  for (const item of deferred) {
+    failed += 1;
+    await reportFailure(item.page, item.pageIdx, item.error);
   }
 
   return {

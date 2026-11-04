@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 export function executeMeegle(args: string[], timeout: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn("meegle", args, { detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "", stderr = "", finished = false;
+    let stdout = "", stderr = "", stdoutBytes = 0, finished = false;
     let escalation: ReturnType<typeof setTimeout> | undefined;
     const stop = (signal: NodeJS.Signals) => {
       if (process.platform !== "win32" && child.pid) {
@@ -27,7 +27,8 @@ export function executeMeegle(args: string[], timeout: number): Promise<string> 
     child.stdout.on("data", (chunk: string) => {
       if (finished) return;
       stdout += chunk;
-      if (Buffer.byteLength(stdout) > 10 * 1024 * 1024) fail("MEEGLE_CLI_OUTPUT_LIMIT", "飞书 CLI 响应超过大小限制");
+      stdoutBytes += Buffer.byteLength(chunk);
+      if (stdoutBytes > 10 * 1024 * 1024) fail("MEEGLE_CLI_OUTPUT_LIMIT", "飞书 CLI 响应超过大小限制");
     });
     child.stderr.on("data", (chunk: string) => { if (!finished) stderr = (stderr + chunk).slice(-64 * 1024); });
     child.once("error", error => {

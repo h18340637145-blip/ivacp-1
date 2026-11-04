@@ -7,7 +7,7 @@ import { Download, Filter, LayoutGrid, Play, Plus, Search, Upload } from "lucide
 import { DirectJiraAnalysis } from "@/features/direct-analysis/components/direct-jira-analysis";
 import { useProcessAction } from "@/features/tickets/use-process-action";
 import { createRuleGroupSourceSummary, getConfiguredSources } from "@/domain/issue-source/contracts";
-import { loadRuleGroupFilters } from "@/features/workflow/filter-service";
+import { loadRuleGroupSummary } from "@/features/workflow/filter-service";
 import { useFilterAction } from "@/features/workflow/use-filter-action";
 import { useLiveData } from "@/shared/hooks/use-live-data";
 import type { RuleGroup } from "@/domain/entities";
@@ -35,7 +35,7 @@ export function KanbanBoard() {
   const groups = state.ruleGroups;
   const filter = useFilterAction(groups);
   const process = useProcessAction();
-  const summaries = useLiveData(useCallback(async () => Object.fromEntries(await Promise.all(groups.map(async (group) => [group.id, (await loadRuleGroupFilters(group)).summary] as const))), [groups]));
+  const summaries = useLiveData(useCallback(async () => Object.fromEntries(await Promise.all(groups.map(async (group) => [group.id, await loadRuleGroupSummary(group)] as const))), [groups]));
   const needle = query.trim().toLowerCase();
   const visible = groups.filter((group) => (
     !needle || [group.name, group.jql, group.meegleMql ?? "", ...Object.keys(group.model_to_files ?? {})].some((value) => value.toLowerCase().includes(needle))

@@ -16,6 +16,7 @@
     "jira:attachments": "node scripts/download-jira-attachments.mjs",
     "cleanup:data": "node scripts/cleanup-old-data.mjs",
     "baseline:golden": "node scripts/build-golden-baseline.mjs",
+    "docupedia:upload": "node --env-file-if-exists=.env --import tsx scripts/docupedia-upload.ts",
     "eval:accuracy": "tsx scripts/eval-accuracy.ts",
     "eval:coverage": "tsx scripts/eval-set-coverage.ts",
     "eval:export-truth": "node --env-file-if-exists=.env --import tsx scripts/export-eval-set.ts"

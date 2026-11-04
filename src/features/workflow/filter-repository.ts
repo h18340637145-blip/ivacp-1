@@ -53,8 +53,9 @@ export async function commitFilterRun(run: FilterRun, snapshots: TicketSnapshot[
       }
       const reconciled = await db.assignments.toArray();
       const staleIds = autoAssignmentIdsToUnassign({ ...reconciliation, successfulRuleGroupIds: [run.ruleGroupId], assignments: reconciled });
-      for (const id of staleIds) await db.assignments.update(id, { ruleGroupId: "", latestAttemptTaskId: undefined, processingStartedAt: undefined,
-        ...(reconciled.find((row) => row.id === id)?.status === "processing" ? { status: "pending" } : {}) });
+      const reconciledById = new Map(reconciled.map((row) => [row.id, row]));
+      await Promise.all(staleIds.map((id) => db.assignments.update(id, { ruleGroupId: "", latestAttemptTaskId: undefined, processingStartedAt: undefined,
+        ...(reconciledById.get(id)?.status === "processing" ? { status: "pending" } : {}) })));
       const stale = new Set(staleIds);
       const owned = new Set([...byIdentity].filter(([, row]) => row.ruleGroupId === run.ruleGroupId && !stale.has(row.id)).map(([key]) => key));
       retained = snapshots.filter((snapshot) => snapshot.projectKey && snapshot.workItemTypeKey && snapshot.workItemId

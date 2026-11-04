@@ -20,8 +20,8 @@ export function FewShotRetrievalPanel({ audit }: { audit?: FewShotRetrievalAudit
           <div className="space-y-1">
             <p className="text-muted-foreground">注入案例（命中路径与分数，不代表最终结论来自该票）</p>
             <ul className="space-y-1">
-              {audit.selected.map((item) => (
-                <li key={item.ticketKey} className="flex flex-wrap items-center gap-2">
+              {audit.selected.map((item, index) => (
+                <li key={`${item.ticketKey}:${item.sampleKind}:${index}`} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{item.ticketKey}</span>
                   <span className="text-muted-foreground">{item.sampleKind === "approved" ? "人工确认" : "纠错"} · {item.routes.join("+") || "重排"} · 召回 {item.recallScore} · 最终 {item.finalScore}</span>
                 </li>

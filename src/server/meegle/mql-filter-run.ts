@@ -82,6 +82,20 @@ function withRequestedProjectKey(item: unknown, projectKey: string, workItemType
   return patched;
 }
 
+/** 全进程限制同时执行的 MQL 查询数：每条响应最多 10MB，解析后体积更大，多请求 × 多更高优先级规则组并发会撑爆堆内存。 */
+const MQL_QUERY_CONCURRENCY = 2;
+let activeQueries = 0;
+const queryWaiters: Array<() => void> = [];
+async function withQuerySlot<T>(task: () => Promise<T>): Promise<T> {
+  if (activeQueries >= MQL_QUERY_CONCURRENCY) await new Promise<void>((resolve) => queryWaiters.push(resolve));
+  else activeQueries += 1;
+  try { return await task(); }
+  finally {
+    const next = queryWaiters.shift();
+    if (next) next(); else activeQueries -= 1;
+  }
+}
+
 export interface MeegleMqlFilterRunResult {
   runId: string;
   filterResults: Record<string, MeegleFilteredItem[]>;
@@ -147,18 +161,17 @@ export async function runMeegleMqlFilter(body: unknown): Promise<MeegleMqlFilter
       const fullMql = ensureFullMql(group.meegleMql!.trim(), projectKey);
       const workItemType = extractWorkItemTypeFromMql(fullMql);
       console.log("飞书 MQL 执行", { ruleGroupId: group.id, fullMql: fullMql.slice(0, 200) });
-      const response = await runMeegleJson<unknown>([
+      const response = await withQuerySlot(() => runMeegleJson<unknown>([
         "workitem", "query",
         "--project-key", projectKey,
         "--mql", fullMql,
-      ]);
-      console.log("飞书 MQL 响应", { ruleGroupId: group.id, response: JSON.stringify(response).slice(0, 500) });
+      ]));
       const items = extractMeegleMqlItems(response);
       if (!items) {
         console.error("飞书 MQL 响应格式无效", { ruleGroupId: group.id, rawKeys: Object.keys(response as object) });
         return { ruleGroupId: group.id, error: new Error("飞书 MQL 响应格式无效") };
       }
-      console.log("飞书 MQL 提取工作项", { ruleGroupId: group.id, count: items.length, sample: items[0] ? JSON.stringify(items[0]).slice(0, 300) : "empty" });
+      console.log("飞书 MQL 提取工作项", { ruleGroupId: group.id, count: items.length, });
       return {
         ruleGroupId: group.id,
         items: items.map((item) => withRequestedProjectKey(item, projectKey, workItemType)),

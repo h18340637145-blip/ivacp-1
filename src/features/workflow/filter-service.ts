@@ -31,6 +31,20 @@ export async function loadRuleGroupFilters(group: RuleGroup): Promise<RuleGroupF
   return { summary, latest, snapshots: { jira: entries[0][1], meegle } };
 }
 
+/** 看板只需要来源摘要：用 count 代替整表读取快照，避免筛票写库期间 liveQuery 反复加载全部 rawData 导致页面卡死。 */
+export async function loadRuleGroupSummary(group: RuleGroup): Promise<RuleGroupSourceSummary> {
+  const runs = await db.filterRuns.where("ruleGroupId").equals(group.id).toArray();
+  const latest = { jira: latestFilterRun(runs.filter((run) => run.source === "jira")), meegle: latestFilterRun(runs.filter((run) => run.source === "meegle")) };
+  const summary = buildSourceSummary(group, latest);
+  const meegleRun = latest.meegle;
+  if (summary.meegle.configured && meegleRun?.status === "completed" && summary.meegle.status === "completed") {
+    const owned = new Set((await db.assignments.where("ruleGroupId").equals(group.id).toArray()).map(meegleFilterIssueIdentityKey));
+    summary.meegle.issueCount = await db.snapshots.where("filterRunId").equals(meegleRun.id).filter((row) => row.origin === "filter" && Boolean(row.projectKey && row.workItemTypeKey && row.workItemId
+      && owned.has(meegleFilterIssueIdentityKey({ projectKey: row.projectKey, workItemTypeKey: row.workItemTypeKey, workItemId: row.workItemId })))).count();
+  }
+  return summary;
+}
+
 /** Abort must also settle callers when a fetch/body reader ignores cancellation. */
 function settleOnAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
