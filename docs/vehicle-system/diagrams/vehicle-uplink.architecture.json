@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "VehicleService 与 Bosch HAL：信号上行",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1140, 730]
+  },
+  "components": [
+    { "id": "vehicle-input", "type": "external", "label": "车辆网络 / MCU", "sublabel": "信号来源，固件不在本次范围", "pos": [60, 80], "size": [230, 82] },
+    { "id": "inc-reader", "type": "backend", "label": "IncVdataComm", "sublabel": "QNX · INC 监听线程", "pos": [450, 80], "size": [230, 82] },
+    { "id": "signal-decoder", "type": "backend", "label": "BusHandler / Ch01", "sublabel": "QNX · 解码、缩放与有效性", "pos": [840, 80], "size": [230, 82] },
+    { "id": "qnx-service", "type": "backend", "label": "VehicleService", "sublabel": "QNX · 属性路由与过滤", "pos": [840, 320], "size": [230, 82] },
+    { "id": "android-client", "type": "messagebus", "label": "VehicleClient", "sublabel": "Android · 初始化与变化回调", "pos": [450, 320], "size": [230, 82] },
+    { "id": "bosch-hal", "type": "backend", "label": "Bosch HAL", "sublabel": "Android · HIDL 或 AIDL 分支", "pos": [60, 320], "size": [230, 82] },
+    { "id": "android-interface", "type": "frontend", "label": "Android IVehicle", "sublabel": "上层订阅者接收属性事件", "pos": [60, 560], "size": [230, 82] },
+    { "id": "android-store", "type": "database", "label": "Android 属性缓存", "sublabel": "普通 get 读取本地状态", "pos": [450, 560], "size": [230, 82] },
+    { "id": "qnx-context", "type": "database", "label": "PropContext", "sublabel": "QNX · 按属性与区域保存状态", "pos": [840, 560], "size": [230, 82] }
+  ],
+  "connections": [
+    { "id": "inc-ingress", "from": "vehicle-input", "to": "inc-reader", "label": "INC vdata", "variant": "emphasis" },
+    { "id": "decode-frame", "from": "inc-reader", "to": "signal-decoder", "label": "解析信号", "variant": "emphasis" },
+    { "id": "property-change", "from": "signal-decoder", "to": "qnx-service", "label": "属性变化回调", "variant": "emphasis", "labelDy": 80 },
+    { "id": "cross-os-event", "from": "qnx-service", "to": "android-client", "label": "FDBus + Protobuf", "variant": "emphasis" },
+    { "id": "hal-update", "from": "android-client", "to": "bosch-hal", "label": "更新并通知", "variant": "emphasis" },
+    { "id": "subscriber-event", "from": "bosch-hal", "to": "android-interface", "label": "订阅事件", "variant": "emphasis", "labelDy": 80 },
+    { "id": "qnx-state", "from": "qnx-service", "to": "qnx-context", "label": "保存当前值", "labelDy": 80 },
+    { "id": "hal-state", "from": "bosch-hal", "to": "android-store", "label": "保存接收值" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "数据语义", "items": ["属性 ID、CAN 消息 ID 与信号位布局是不同标识。", "初始值、有效采样与定时重发不能混为一谈。"] },
+    { "dot": "amber", "title": "图示边界", "items": ["仅展示普通上行主链路；插件分支与下行见手册。", "HIDL 与 AIDL 是替代实现，不代表同时运行。"] }
+  ]
+}
