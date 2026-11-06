@@ -18,7 +18,9 @@ it("镜像查询投影关联字段，读取区间外创建的上下文且仅返�
   const calls = query.mock.calls;
   expect(calls[0][0]).toContain("'$.snapshotId'");
   expect(calls[1][0]).toContain("'$.sourceSnapshotId'");
-  for (const [sql] of calls.slice(2)) {
+  expect(calls[4][0]).toContain("table_name = 'processTasks'");
+  expect(calls[4][0]).not.toContain("replyText");
+  for (const [sql] of calls.slice(2, 4)) {
     expect(sql).toContain("source = 'meegle' AND deleted = 0");
     expect(sql).not.toContain("record_created_at");
     expect(sql).not.toContain("replyText");

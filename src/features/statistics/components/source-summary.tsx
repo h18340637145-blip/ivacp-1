@@ -15,6 +15,8 @@ export function SourceSummary({ title, description, stats, rateLabel }: SourceSu
   const metrics: Array<[string, string | number]> = [
     ["处理票数", stats.processedTickets],
     ["成功分析次数", stats.successfulRuns],
+    ["开始分析票数（含失败）", stats.startedTickets],
+    ["分析次数（含重复与失败）", stats.startedRuns],
     ["复核通过", stats.approved],
     ["复核驳回", stats.rejected],
     ["未复核", stats.pending],

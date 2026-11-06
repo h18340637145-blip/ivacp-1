@@ -22,11 +22,13 @@ it.skipIf(!baseURL)("统计完整身份、刷新、月份查询、团队失败�
     });
     const page = await context.newPage(); const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
-    await page.goto("/statistics"); await page.getByText("所选范围暂无成功处理记录", { exact: true }).waitFor();
+    await page.goto("/statistics"); await page.getByText("所选范围暂无分析记录", { exact: true }).waitFor();
     await page.evaluate(async () => {
       const database = await new Promise<IDBDatabase>(resolve => { const request = indexedDB.open("IvacpDB"); request.onsuccess = () => resolve(request.result); });
       await new Promise<void>((resolve, reject) => {
-        const tx = database.transaction(["snapshots", "processResults"], "readwrite");
+        const tx = database.transaction(["snapshots", "processResults", "processTasks"], "readwrite");
+        // 仅失败的 Jira 分析：不计入处理票数，但计入开始分析票数与分析次数
+        tx.objectStore("processTasks").put({ id: "failed1", source: "jira", ticketKey: "FAIL-1", ruleGroupId: "g", snapshotId: "x", status: "failed", error: "失败", createdAt: new Date(new Date().getFullYear(), 0, 2) });
         for (const [i, projectKey] of ["p1", "p2"].entries()) {
           tx.objectStore("snapshots").put({ id: `s${i}`, source: "meegle", projectKey, workItemTypeKey: "issue", workItemId: 42 });
           tx.objectStore("processResults").put({ id: `r${i}`, source: "meegle", ticketKey: "42", snapshotId: `s${i}`, createdAt: new Date(new Date().getFullYear(), 0, 2), reviewStatus: "approved", manualReviewedAt: new Date() });
@@ -38,7 +40,11 @@ it.skipIf(!baseURL)("统计完整身份、刷新、月份查询、团队失败�
     const localReport = page.getByRole("heading", { name: /我的统计/ }); await localReport.waitFor();
     // 报告用真实 IndexedDB 结果生成，跨项目同号必须保留两张票。
     await page.getByRole("button", { name: "复制统计报告", exact: true }).click();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("| 飞书项目 | 2 | 2 | 2 |");
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toContain("| 飞书项目 | 2 | 2 | 2 | 2 |");
+    expect(copied).toContain("| Jira | 0 | 0 | 1 | 1 |");
+    expect(copied).toContain("开始分析票数（含失败）：**3**，分析次数（含重复与失败）：**3**");
+    await page.getByText("分析次数（含重复与失败）", { exact: true }).first().waitFor();
     await page.getByRole("combobox", { name: "起始月份", exact: true }).click(); await page.getByRole("option", { name: "12 月", exact: true }).click();
     await page.getByRole("combobox", { name: "结束月份", exact: true }).click(); await page.getByRole("option", { name: "1 月", exact: true }).click();
     await page.getByText("起始月份不能晚于结束月份", { exact: true }).waitFor(); expect(await page.getByRole("button", { name: "查询", exact: true }).isDisabled()).toBe(true);

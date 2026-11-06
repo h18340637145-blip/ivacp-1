@@ -16,6 +16,22 @@ export interface StatisticsRun {
   handoverAt?: Date | string;
 }
 
+/** 一次开始分析（无论成功、失败或仍在进行） */
+export interface StatisticsAttempt {
+  source: "jira" | "meegle";
+  attemptId: string;
+  ticketKey: string;
+  startedAt: Date | string;
+}
+
+/** 开始分析口径：含失败与进行中的分析 */
+export interface AttemptStatistics {
+  /** 范围内开始过分析的票数（按票去重） */
+  startedTickets: number;
+  /** 范围内开始分析的次数（同票重复分析分别计入） */
+  startedRuns: number;
+}
+
 export interface DwellStatistics {
   maxDwellMs: number | null;
   minDwellMs: number | null;
@@ -39,7 +55,7 @@ export interface HandoverPeriodStatistics {
   unknownHandovers: number;
 }
 
-export interface SourceStatistics extends DwellStatistics, TokenStatistics, HandoverPeriodStatistics {
+export interface SourceStatistics extends DwellStatistics, TokenStatistics, HandoverPeriodStatistics, AttemptStatistics {
   processedTickets: number;
   successfulRuns: number;
   approved: number;
@@ -62,6 +78,8 @@ export interface AnnualStatistics {
   handover: HandoverPeriodStatistics;
   processedTickets: number;
   successfulRuns: number;
+  startedTickets: number;
+  startedRuns: number;
   invalidRecords: number;
 }
 
@@ -102,7 +120,12 @@ export function mergeHandover(items: HandoverPeriodStatistics[]): HandoverPeriod
   };
 }
 
-export function calculateAnnualStatistics(records: StatisticsRun[], now = new Date(), range?: MonthRange): AnnualStatistics {
+export function calculateAnnualStatistics(
+  records: StatisticsRun[],
+  now = new Date(),
+  range?: MonthRange,
+  attempts: StatisticsAttempt[] = [],
+): AnnualStatistics {
   const year = range?.year ?? now.getFullYear();
   const startMonth = range?.startMonth ?? 1;
   const endMonth = range?.endMonth ?? 12;
@@ -143,7 +166,19 @@ export function calculateAnnualStatistics(records: StatisticsRun[], now = new Da
       maxDwellMs: null, minDwellMs: null, avgDwellMs: null, avgSampleCount: 0,
       maxTokens: null, avgTokens: null, totalTokens: 0, tokenSampleCount: 0,
       workHoursHandovers: 0, offHoursHandovers: 0, unknownHandovers: 0,
+      startedTickets: 0, startedRuns: 0,
     };
+    const startedTickets = new Set<string>();
+    const startedIds = new Set<string>();
+    for (const attempt of attempts) {
+      if (attempt.source !== source || !attempt.ticketKey || !attempt.attemptId || startedIds.has(attempt.attemptId)) continue;
+      const time = new Date(attempt.startedAt).getTime();
+      if (!Number.isFinite(time) || time < start || time > end) continue;
+      startedIds.add(attempt.attemptId);
+      startedTickets.add(attempt.ticketKey);
+    }
+    result.startedTickets = startedTickets.size;
+    result.startedRuns = startedIds.size;
     const dwells = [...latest.values()].map((record) => Number.isFinite(record.dwellMs) ? record.dwellMs as number : DEFAULT_DWELL_MS);
     Object.assign(result, summarizeDwell(dwells));
     allDwells.push(...dwells);
@@ -171,5 +206,7 @@ export function calculateAnnualStatistics(records: StatisticsRun[], now = new Da
   return { year, startMonth, endMonth, generatedAt: now, jira, meegle, dwell: summarizeDwell(allDwells),
     tokens: summarizeTokens(allTokens), handover: mergeHandover([jira, meegle]), invalidRecords,
     processedTickets: jira.processedTickets + meegle.processedTickets,
-    successfulRuns: jira.successfulRuns + meegle.successfulRuns };
+    successfulRuns: jira.successfulRuns + meegle.successfulRuns,
+    startedTickets: jira.startedTickets + meegle.startedTickets,
+    startedRuns: jira.startedRuns + meegle.startedRuns };
 }

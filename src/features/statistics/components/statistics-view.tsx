@@ -153,6 +153,8 @@ export function StatisticsView() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat label="处理票数" value={report.processedTickets} icon={<BarChart3 aria-hidden />} tone="primary" />
               <Stat label="成功分析次数" value={report.successfulRuns} icon={<Gauge aria-hidden />} />
+              <Stat label="开始分析票数" value={report.startedTickets} hint="含分析失败、进行中，按票去重" icon={<BarChart3 aria-hidden />} />
+              <Stat label="分析次数" value={report.startedRuns} hint="含重复与失败：同一张票分析两次计 2" icon={<Gauge aria-hidden />} />
               <Stat label="工作时间转入票数" value={report.handover.workHoursHandovers} hint="周一至周五 9:00–19:00（东八区）" />
               <Stat label="非工作时间转入票数" value={report.handover.offHoursHandovers} hint="含周末" tone="warning" />
               <Stat label="最大流转时间" value={dwellText(report.dwell.maxDwellMs)} icon={<Timer aria-hidden />} />
@@ -166,10 +168,10 @@ export function StatisticsView() {
               />
             </div>
 
-            {report.processedTickets === 0 ? (
+            {report.processedTickets === 0 && report.startedRuns === 0 ? (
               <EmptyState
                 icon={<BarChart3 aria-hidden />}
-                title="所选范围暂无成功处理记录"
+                title="所选范围暂无分析记录"
                 description={data?.scope === "team" ? "成员需要先把本地数据备份到服务器，团队统计才会包含其记录。" : "调整年份或月份范围后重新查询。"}
               />
             ) : null}

@@ -1,3 +1,34 @@
+## 当前目标：分析中 dev 服务因内存阈值自动重启（2026-11-06）
+
+- 状态：完成（代码层修复）；未在用户运行中的 dev 服务上复现验证（未重启用户服务，需用户重启后生效）。
+- 现象：`next dev` 日志「Server is approaching the used memory threshold, restarting...」，进行中的分析被中断。
+- 原因：Next dev 每个请求结束时检查 V8 堆，已用 > 上限 80%（本机上限 7865MB，阈值约 6.3GB）即退出重启（仅 dev 有此看门狗）。`log-extract.ts` 对解压目录每个非 CAN 文件整块 readFile + split，且同一批文件读 3 遍；meegle-7121683964 两个附件解压约 20GB / 6370 文件，单目录单进程峰值堆约 976MB、耗时 145s；前端并发 3 张票 + webpack dev 自身内存叠加后越过阈值。
+- 范围：`log-extract.ts` 改为流式逐行扫描（单行上限、命中行拷贝、Android/QNX 达到截断长度后停止收集），`readTextFile` 只读前 N 字节；输出保持不变。不改 Next 配置与启动脚本，不重启用户服务。
+- 验收清单：
+  - [x] 新增 `test/log-extract-streaming.test.ts`（6 例）：CRLF / 末行无换行 / 跨块中文 / 超长行 / 提前结束 / 缺失文件 / 筛选结果 / 截断 / readTextFile。
+  - [x] 真实目录（meegle-7121683964 单附件约 10GB）复测，同一进程独立运行函数：无命中峰值堆 976MB→80MB（145s→97s）；人为重命中（hexId=ONPROP，窗口 10:00–11:00）4730MB→451MB（184s→100s），输出 JSON 与旧实现逐字节一致。
+  - [x] typecheck 干净；改动文件 eslint 干净；全量 vitest 553 通过 / 41 跳过；同步 ARCHITECTURE。
+- 行为差异：单行 > 1M 字符只检查开头 1M；原实现对 > 512MB 文件整读失败会静默跳过，现在会被扫描。
+- 未做 / 建议：未在 dev 服务内端到端复现；同批文件仍扫描 3 遍（可合并为一遍以缩短耗时，需用户确认）；业务长期运行建议使用 `next build` + `next start`（无内存看门狗）。
+
+## 当前目标：统计增加「开始分析票数」与「分析次数」（含失败）（2026-11-06）
+
+- 状态：完成。
+- 背景：现有统计只来自成功结果（processResults / analysisHistories），分析失败的票不计入。
+- 范围：每次开始分析都会写入 processTask（running / completed / failed，重跑不删除），以此为口径新增两个指标：
+  - 开始分析票数：范围内开始过分析的票（含失败、进行中），按统计票身份去重；
+  - 分析次数：范围内开始分析的次数（含重复与失败，票 1 分析两次算 2）。
+  - 无对应 processTask 的结果 / 历史（旧数据、仅部分备份）按结果时间补计一次开始，避免漏计。
+  - 本地统计与团队（MySQL 镜像）统计、来源卡片、顶部指标、成员明细、复制报告同步展示；不改原有指标口径，不升 schema。
+- 验收清单：
+  - [x] 纯函数统计两个新指标（Jira / 飞书 / 合计），团队合并求和。
+  - [x] 本地读取 processTasks；服务端投影 processTasks 及 processTaskId 关联字段。
+  - [x] 页面与报告展示；无成功结果但有失败分析时不再显示为空（空态文案改为「所选范围暂无分析记录」）。
+  - [x] 新增单测；typecheck、相关 eslint、vitest 通过；同步 PRODUCT / ARCHITECTURE。
+- 改动：`statistics-records.ts`（buildStatisticsAttempts）、`annual-statistics.ts`、`team-statistics.ts`（领域 + 服务端）、`load-local-statistics.ts`、`weekly-report.ts`（报告表格增加「成功分析次数 / 开始分析票数 / 分析次数」列）、统计页 `statistics-view` / `source-summary` / `member-table`。
+- 验证：typecheck 干净；改动文件 eslint 干净；全量 vitest 547 通过 / 41 跳过；新增 `test/statistics-attempts.test.ts`（失败与重复计数、旧结果补计、团队合并、镜像解析、IndexedDB 刷新保留），`statistics-mirror-query` 增加 processTasks 查询断言。/tmp 独立副本 `next build --webpack` + `next start -p 3100`，显式运行 `statistics-browser.test.ts` 通过（种入失败任务 → 刷新 → 页面指标与复制报告正确；接口 mock，离线证据）。
+- 未验证 / 备注：默认 Turbopack `next build` 在本机副本中 panic（code-frame 渲染 “Pipeline logger” 注释时的字符边界错误，与本改动无关，未在基线核对）；未连真实 MySQL 验证团队统计；未用真实业务数据核对数值。
+
 ## 当前目标：MySQL 接口性能优化（2026-11-04）
 
 - 状态：完成。独立库 `ivacp_perf`（已删除）种入 3 账号 × 4500 行 sync_records（大 data）+ 600 标注；直接调用服务端函数计时，中位数 3 次，**本机真实 MySQL，数据为合成**。

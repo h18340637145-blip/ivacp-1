@@ -7,7 +7,7 @@ import {
   type TokenStatistics,
   mergeHandover,
 } from "./annual-statistics";
-import { buildStatisticsRuns, type RawStatisticsTables } from "./statistics-records";
+import { buildStatisticsAttempts, buildStatisticsRuns, type RawStatisticsTables } from "./statistics-records";
 
 export interface TeamMemberStatistics {
   owner: string;
@@ -57,6 +57,8 @@ export function mergeSourceStatistics(items: SourceStatistics[]): SourceStatisti
   return {
     processedTickets,
     successfulRuns: sum((item) => item.successfulRuns),
+    startedTickets: sum((item) => item.startedTickets),
+    startedRuns: sum((item) => item.startedRuns),
     approved,
     rejected,
     pending: sum((item) => item.pending),
@@ -82,6 +84,8 @@ export function mergeAnnualStatistics(items: AnnualStatistics[], range: { year: 
     handover: mergeHandover([jira, meegle]),
     processedTickets: jira.processedTickets + meegle.processedTickets,
     successfulRuns: jira.successfulRuns + meegle.successfulRuns,
+    startedTickets: jira.startedTickets + meegle.startedTickets,
+    startedRuns: jira.startedRuns + meegle.startedRuns,
     invalidRecords: items.reduce((total, item) => total + item.invalidRecords, 0),
   };
 }
@@ -93,8 +97,8 @@ export function buildTeamStatistics(
 ): TeamStatistics {
   const members = [...rawByOwner.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([owner, tables]) => ({ owner, statistics: calculateAnnualStatistics(buildStatisticsRuns(tables), now, range) }))
-    .filter((member) => member.statistics.successfulRuns > 0 || member.statistics.invalidRecords > 0);
+    .map(([owner, tables]) => ({ owner, statistics: calculateAnnualStatistics(buildStatisticsRuns(tables), now, range, buildStatisticsAttempts(tables)) }))
+    .filter((member) => member.statistics.successfulRuns > 0 || member.statistics.startedRuns > 0 || member.statistics.invalidRecords > 0);
   const first = members[0]?.statistics ?? calculateAnnualStatistics([], now, range);
   const rangeInfo = { year: first.year, startMonth: first.startMonth, endMonth: first.endMonth };
   return {

@@ -6,7 +6,7 @@ import { buildTeamStatistics, type TeamStatistics } from "@/domain/analysis/team
 import { deserializeRecord, reviveDates, toDate } from "@/domain/storage/serialization";
 
 /**
- * 团队统计：读取服务端镜像 sync_records 中全部账号的 processResults / analysisHistories，关联快照与分配的最小身份字段。
+ * 团队统计：读取服务端镜像 sync_records 中全部账号的 processResults / analysisHistories / processTasks，关联快照与分配的最小身份字段。
  * source / ticket_key / record_created_at 用抽取列；其余统计字段只投影所需 JSON 字段（避免回传整条结论），
  * 投影结果仍是序列化记录（Date 为 {"$date": iso}），用 deserializeRecord 还原。
  */
@@ -14,8 +14,9 @@ import { deserializeRecord, reviveDates, toDate } from "@/domain/storage/seriali
 type StatisticsTable = keyof RawStatisticsTables;
 
 const PROJECTED_FIELDS: Record<StatisticsTable, string[]> = {
-  processResults: ["snapshotId", "assignmentId", "createdAt", "reviewStatus", "manualReviewedAt", "dwellMs", "tokenUsage", "handoverAt"],
-  analysisHistories: ["sourceResultId", "sourceSnapshotId", "assignmentId", "resultCreatedAt", "reviewStatus"],
+  processTasks: ["snapshotId", "assignmentId", "createdAt"],
+  processResults: ["processTaskId", "snapshotId", "assignmentId", "createdAt", "reviewStatus", "manualReviewedAt", "dwellMs", "tokenUsage", "handoverAt"],
+  analysisHistories: ["sourceResultId", "sourceProcessTaskId", "sourceSnapshotId", "assignmentId", "resultCreatedAt", "reviewStatus"],
   snapshots: ["projectKey", "workItemTypeKey", "workItemId"],
   assignments: ["projectKey", "workItemTypeKey", "workItemId"],
 };
@@ -44,12 +45,16 @@ function decode(data: unknown): Record<string, unknown> {
 }
 
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+const str = (value: unknown) => (typeof value === "string" ? value : undefined);
 const reviewStatus = (value: unknown) =>
   value === "approved" || value === "rejected" || value === "pending" ? value : "pending";
 
 /** 镜像行 → 按账号分组的统计原始表（纯函数，便于测试） */
 export function groupStatisticsRows(
-  rows: { processResults: StatisticsMirrorRow[]; analysisHistories: StatisticsMirrorRow[]; snapshots?: StatisticsMirrorRow[]; assignments?: StatisticsMirrorRow[] },
+  rows: {
+    processResults: StatisticsMirrorRow[]; analysisHistories: StatisticsMirrorRow[];
+    snapshots?: StatisticsMirrorRow[]; assignments?: StatisticsMirrorRow[]; processTasks?: StatisticsMirrorRow[];
+  },
 ): Map<string, RawStatisticsTables> {
   const byOwner = new Map<string, RawStatisticsTables>();
   const tablesOf = (owner: string) => {
@@ -67,6 +72,7 @@ export function groupStatisticsRows(
     const createdAt = toDate(data.createdAt) ?? toDate(row.record_created_at) ?? "";
     tablesOf(String(row.owner)).processResults.push({
       id: String(row.record_id),
+      processTaskId: str(data.processTaskId),
       snapshotId: typeof data.snapshotId === "string" ? data.snapshotId : undefined,
       assignmentId: typeof data.assignmentId === "string" ? data.assignmentId : undefined,
       source,
@@ -85,12 +91,24 @@ export function groupStatisticsRows(
     const data = decode(row.data);
     tablesOf(String(row.owner)).analysisHistories.push({
       sourceResultId: typeof data.sourceResultId === "string" ? data.sourceResultId : "",
+      sourceProcessTaskId: str(data.sourceProcessTaskId),
       sourceSnapshotId: typeof data.sourceSnapshotId === "string" ? data.sourceSnapshotId : undefined,
       assignmentId: typeof data.assignmentId === "string" ? data.assignmentId : undefined,
       source,
       ticketKey: row.ticket_key ?? "",
       resultCreatedAt: toDate(data.resultCreatedAt) ?? "",
       reviewStatus: reviewStatus(data.reviewStatus),
+    });
+  }
+  for (const row of rows.processTasks ?? []) {
+    const source = row.source;
+    if (source !== "jira" && source !== "meegle") continue;
+    const data = decode(row.data);
+    const tables = tablesOf(String(row.owner));
+    (tables.processTasks ??= []).push({
+      id: String(row.record_id), source, ticketKey: row.ticket_key ?? "",
+      snapshotId: str(data.snapshotId), assignmentId: str(data.assignmentId),
+      createdAt: toDate(data.createdAt) ?? toDate(row.record_created_at) ?? "",
     });
   }
   for (const name of ["snapshots", "assignments"] as const) {
@@ -142,14 +160,23 @@ export async function readTeamRawStatistics(range?: MonthRange): Promise<Map<str
     );
     return rows as StatisticsMirrorRow[];
   });
-  // 四个查询互不依赖，并发执行
-  const [[processResults], [analysisHistories], identityRows] = await Promise.all([
-    processResultsQuery, analysisHistoriesQuery, Promise.all(identityQueries),
+  // 每次开始分析的任务（含失败），按任务创建时间粗筛
+  const processTasksQuery = pool.query<RowDataPacket[]>(
+    `SELECT owner, record_id, source, ticket_key, record_created_at, ${projectionSql(PROJECTED_FIELDS.processTasks)}
+       FROM sync_records
+      WHERE table_name = 'processTasks' AND deleted = 0
+        ${bounds ? "AND (record_created_at IS NULL OR record_created_at BETWEEN ? AND ?)" : ""}`,
+    bounds ? [bounds.start, bounds.end] : [],
+  );
+  // 五个查询互不依赖，并发执行
+  const [[processResults], [analysisHistories], identityRows, [processTasks]] = await Promise.all([
+    processResultsQuery, analysisHistoriesQuery, Promise.all(identityQueries), processTasksQuery,
   ]);
   return groupStatisticsRows({
     processResults: processResults as StatisticsMirrorRow[],
     analysisHistories: analysisHistories as StatisticsMirrorRow[],
     snapshots: identityRows[0], assignments: identityRows[1],
+    processTasks: processTasks as StatisticsMirrorRow[],
   });
 }
 

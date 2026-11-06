@@ -1428,6 +1428,14 @@ Jira的inflight键、task门禁、归档及最终提交比较快照中的不可�
 
 ProcessResponse/ProcessResult新增非索引可选analysisRunId和analysisGroupName（分析时目录名），由服务端确认后回传；客户端落库时与当前task.id核对。AI复核仅在服务端曾返回运行身份时提交runId，新结果按不可变分析目录名精确读取相应票/run子目录，不依赖后续规则组名称，找不到返回404，不能读到旧父目录证据。旧结果不虚构runId，原有无run请求仍兼容票目录。Meegle继续使用签名artifactRef，客户端补齐meegle-工单前缀；本轮没有新增云存储或Jira后台恢复API。
 
+## 解压日志流式扫描（2026-11-06）
+
+`log-extract.ts` 的 `buildExtractMarkdown`、`extractVehicleHalHashLines`、`buildFilteredLogsBySignalIds` 统一通过 `forEachTextLine` 流式逐行读取（1MB 块，行划分与 `split(/\r?\n/)` 一致；单行超过 `MAX_SCAN_LINE_CHARS`=1M 字符只保留开头，丢弃至下一换行；读取失败按无内容处理，取消信号照常抛出）。命中行复制后保存，避免切片字符串持有整块父串；Android / QNX 命中累计超过 `MAX_LOG_CHARS` 后不再收集（输出本就截断到该长度）；`extract.md` 不截断。`readTextFile` 只读取文件开头 maxChars 字节。背景：`next dev` 在请求结束时若 V8 已用堆 > 上限 80% 会自动重启进程，原实现整读 + split 在 20GB 级附件上单目录峰值堆可达 4.7GB，叠加并发分析触发重启并中断其他进行中的分析。生产模式（`next start`）无该看门狗。
+
+## 开始分析口径（2026-11-06）
+
+`statistics-records.ts` 新增 `buildStatisticsAttempts`：以 `processTasks`（`beginProcessAttempt` 每次开始分析写入，失败 / 中断只改状态不删除）生成 `StatisticsAttempt`，票身份沿用结果的快照 / 分配关联；结果 `processTaskId` 或历史 `sourceProcessTaskId` 找不到任务时按结果时间补计。`calculateAnnualStatistics` 第 4 个可选参数接收 attempts，输出 `startedTickets`（按票去重）与 `startedRuns`（按任务计数），团队合并求和。本地 `loadLocalStatistics` 在同一只读事务内追加读取 `processTasks`；服务端 `team-statistics.ts` 并发增加 processTasks 查询（按 `record_created_at` 粗筛，只投影 snapshotId / assignmentId / createdAt），结果 / 历史投影增加任务关联 ID。无 schema 升版。
+
 ## 当前统计身份实现（2026-10-28）
 
 `src/domain/analysis/statistics-records.ts` 统一提取当前模型的统计运行。飞书结果通过 snapshotId、历史通过 sourceSnapshotId 关联分析原快照；其次使用 assignmentId 关联分配。完整身份采用项目、类型、字符串化工作项 ID 的元组，避免不同项目或类型中的同号被合并；身份不可用时保留分配 ID 回退及无分配旧记录的兼容边界。

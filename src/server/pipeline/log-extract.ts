@@ -1,9 +1,57 @@
 import fs from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import path from "node:path";
 import { findFiles, isArchiveFile } from "@/server/pipeline/archive";
 import { MAX_LOG_CHARS } from "@/server/pipeline/constants";
+import { throwIfPipelineCancelled } from "@/server/pipeline/process/runtime";
 import { isSupportedCanTrace } from "@/server/pipeline/signals";
 import { SignalIdRecord, TimeWindow } from "@/server/pipeline/types";
+
+/** 单行上限：超长行（二进制文件或无换行文件）只保留开头部分，避免整块文件进入内存 */
+export const MAX_SCAN_LINE_CHARS = 1 << 20;
+const SCAN_CHUNK_BYTES = 1 << 20;
+
+/** 复制字符串，避免保留切片引用的整块父字符串 */
+const detach = (value: string) => Buffer.from(value, "utf8").toString("utf8");
+
+/**
+ * 流式逐行读取文本（与 content.split(/\r?\n/) 的行划分一致），内存只与块大小和单行上限相关。
+ * onLine 返回 false 时提前结束；读取失败视为无内容（与原整读时的容错一致），取消信号照常抛出。
+ */
+export async function forEachTextLine(filePath: string, onLine: (line: string) => boolean | void): Promise<void> {
+  const stream = createReadStream(filePath, { encoding: "utf8", highWaterMark: SCAN_CHUNK_BYTES });
+  let pending = "";
+  let overflowed = false;
+  const emit = (line: string) => onLine(line) !== false;
+  try {
+    for await (const chunk of stream as AsyncIterable<string>) {
+      throwIfPipelineCancelled();
+      let start = 0;
+      for (let newline = chunk.indexOf("\n"); newline !== -1; newline = chunk.indexOf("\n", start)) {
+        const piece = chunk.slice(start, newline);
+        start = newline + 1;
+        if (overflowed) { overflowed = false; continue; }
+        const line = pending ? pending + piece : piece;
+        pending = "";
+        if (!emit(line.endsWith("\r") ? line.slice(0, -1) : line)) return;
+      }
+      if (overflowed) continue;
+      pending += chunk.slice(start);
+      if (pending.length > MAX_SCAN_LINE_CHARS) {
+        const head = pending.slice(0, MAX_SCAN_LINE_CHARS);
+        pending = "";
+        overflowed = true;
+        if (!emit(head)) return;
+      }
+    }
+    if (pending && !overflowed) emit(pending);
+  } catch (error) {
+    throwIfPipelineCancelled();
+    if (!(error instanceof Error && "code" in error)) throw error;
+  } finally {
+    stream.destroy();
+  }
+}
 
 export function parseFlexibleTimestamp(text: string, fallbackYear?: number): Date | null {
   const fullMatch = text.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:[.,](\d{1,6}))?/);
@@ -156,22 +204,14 @@ export async function buildExtractMarkdown(
   for (const filePath of allFiles) {
     if (isArchiveFile(filePath) || isSupportedCanTrace(filePath)) continue;
 
-    let content = "";
-    try {
-      content = await fs.readFile(filePath, "utf-8");
-    } catch {
-      content = "";
-    }
-    if (!content) continue;
-
     const matchedLines: string[] = [];
-    for (const line of content.split(/\r?\n/)) {
-      if (!line || !lineContainsSignalId(line, signalIds)) continue;
+    await forEachTextLine(filePath, (line) => {
+      if (!line || !lineContainsSignalId(line, signalIds)) return;
       const timestamp = parseFlexibleTimestamp(line, fallbackYear);
-      if (!timestamp) continue;
-      if (timestamp.getTime() < startAt.getTime() || timestamp.getTime() > endAt.getTime()) continue;
-      matchedLines.push(line);
-    }
+      if (!timestamp) return;
+      if (timestamp.getTime() < startAt.getTime() || timestamp.getTime() > endAt.getTime()) return;
+      matchedLines.push(detach(line));
+    });
 
     if (matchedLines.length === 0) continue;
 
@@ -201,20 +241,15 @@ export async function extractVehicleHalHashLines(extractDir: string): Promise<st
   const seen = new Set<string>();
   for (const filePath of await findFiles(extractDir, () => true)) {
     if (isArchiveFile(filePath) || isSupportedCanTrace(filePath)) continue;
-    let content = "";
-    try {
-      content = await fs.readFile(filePath, "utf-8");
-    } catch {
-      continue;
-    }
-    if (!content.includes(VEHICLE_HAL_HASH_MARKER)) continue;
-    for (const raw of content.split(/\r?\n/)) {
-      const line = raw.trim();
-      if (!line.includes(VEHICLE_HAL_HASH_MARKER) || seen.has(line)) continue;
+    await forEachTextLine(filePath, (raw) => {
+      if (!raw.includes(VEHICLE_HAL_HASH_MARKER)) return;
+      const line = detach(raw.trim());
+      if (seen.has(line)) return;
       seen.add(line);
       found.push(line);
-      if (found.length >= MAX_HASH_LINES) return found;
-    }
+      if (found.length >= MAX_HASH_LINES) return false;
+    });
+    if (found.length >= MAX_HASH_LINES) return found;
   }
   return found;
 }
@@ -236,30 +271,34 @@ export async function buildFilteredLogsBySignalIds(
   const allFiles = await findFiles(extractDir, () => true);
   const androidMatches: string[] = [];
   const qnxMatches: string[] = [];
+  // 输出最终截断为 MAX_LOG_CHARS，累计已超过上限后的命中行不会出现在结果中，无需继续保存
+  const hashSet = new Set(hashLines);
+  let androidChars = 0;
+  let qnxChars = 0;
 
   for (const filePath of allFiles) {
     if (isArchiveFile(filePath) || isSupportedCanTrace(filePath)) continue;
+    const android = isAndroidLog(filePath);
+    const qnx = !android && isQnxLog(filePath);
+    if (!android && !qnx) continue;
+    if (android ? androidChars > MAX_LOG_CHARS : qnxChars > MAX_LOG_CHARS) continue;
 
-    let content = "";
-    try {
-      content = await fs.readFile(filePath, "utf-8");
-    } catch {
-      content = "";
-    }
-    if (!content) continue;
-
-    for (const line of content.split(/\r?\n/)) {
-      if (!line || !lineContainsSignalId(line, signalIds)) continue;
+    await forEachTextLine(filePath, (line) => {
+      if (!line || !lineContainsSignalId(line, signalIds)) return;
       const timestamp = parseFlexibleTimestamp(line, fallbackYear);
-      if (!timestamp) continue;
-      if (timestamp.getTime() < startAt.getTime() || timestamp.getTime() > endAt.getTime()) continue;
+      if (!timestamp) return;
+      if (timestamp.getTime() < startAt.getTime() || timestamp.getTime() > endAt.getTime()) return;
 
-      if (isAndroidLog(filePath)) {
-        androidMatches.push(line);
-      } else if (isQnxLog(filePath)) {
-        qnxMatches.push(line);
+      if (android) {
+        androidMatches.push(detach(line));
+        if (!hashSet.has(line)) androidChars += line.length + 1;
+        if (androidChars > MAX_LOG_CHARS) return false;
+      } else {
+        qnxMatches.push(detach(line));
+        qnxChars += line.length + 1;
+        if (qnxChars > MAX_LOG_CHARS) return false;
       }
-    }
+    });
   }
 
   return {
@@ -269,12 +308,22 @@ export async function buildFilteredLogsBySignalIds(
   };
 }
 
-/** Read text file, capped at maxChars */
+/** 读取文件开头 maxChars 字节并按 UTF-8 解码（只读需要的部分，避免整读大文件） */
 export async function readTextFile(filePath: string, maxChars = MAX_LOG_CHARS): Promise<string> {
   try {
-    const buf = await fs.readFile(filePath);
-    const text = buf.toString("utf-8", 0, maxChars);
-    return text;
+    const handle = await fs.open(filePath, "r");
+    try {
+      const buffer = Buffer.alloc(Math.max(0, maxChars));
+      let read = 0;
+      while (read < buffer.length) {
+        const { bytesRead } = await handle.read(buffer, read, buffer.length - read, read);
+        if (bytesRead === 0) break;
+        read += bytesRead;
+      }
+      return buffer.toString("utf-8", 0, read);
+    } finally {
+      await handle.close();
+    }
   } catch { return ""; }
 }
 

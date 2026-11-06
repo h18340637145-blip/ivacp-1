@@ -39,6 +39,8 @@ export function MemberTable({ members }: { members: TeamMemberStatistics[] }) {
               <TableHead className="w-[30%]">处理票数</TableHead>
               <TableHead className="text-right">Jira</TableHead>
               <TableHead className="text-right">飞书项目</TableHead>
+              <TableHead className="text-right">开始分析票数</TableHead>
+              <TableHead className="text-right">分析次数</TableHead>
               <TableHead className="text-right">复核覆盖率</TableHead>
               <TableHead className="text-right">平均流转</TableHead>
             </TableRow>
@@ -63,6 +65,8 @@ export function MemberTable({ members }: { members: TeamMemberStatistics[] }) {
                   </TableCell>
                   <TableCell className="tabular text-right">{jira}</TableCell>
                   <TableCell className="tabular text-right">{meegle}</TableCell>
+                  <TableCell className="tabular text-right">{statistics.startedTickets}</TableCell>
+                  <TableCell className="tabular text-right">{statistics.startedRuns}</TableCell>
                   <TableCell className="tabular text-right">{percentText(memberCoverage(statistics))}</TableCell>
                   <TableCell className="tabular text-right">{dwellText(statistics.dwell.avgDwellMs)}</TableCell>
                 </TableRow>
