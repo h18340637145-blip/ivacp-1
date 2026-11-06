@@ -120,14 +120,14 @@ export async function readTeamRawStatistics(range?: MonthRange): Promise<Map<str
   const pool = await getPool();
   const bounds = range ? rangeBounds(range) : null;
   // 结果按创建时间粗筛；历史的归档时间晚于原结果时间，只能按下界筛；时间列缺失的保留（计入无效记录）
-  const [processResults] = await pool.query<RowDataPacket[]>(
+  const processResultsQuery = pool.query<RowDataPacket[]>(
     `SELECT owner, record_id, source, ticket_key, record_created_at, ${projectionSql(PROJECTED_FIELDS.processResults)}
        FROM sync_records
       WHERE table_name = 'processResults' AND deleted = 0
         ${bounds ? "AND (record_created_at IS NULL OR record_created_at BETWEEN ? AND ?)" : ""}`,
     bounds ? [bounds.start, bounds.end] : [],
   );
-  const [analysisHistories] = await pool.query<RowDataPacket[]>(
+  const analysisHistoriesQuery = pool.query<RowDataPacket[]>(
     `SELECT owner, record_id, source, ticket_key, ${projectionSql(PROJECTED_FIELDS.analysisHistories)}
        FROM sync_records
       WHERE table_name = 'analysisHistories' AND deleted = 0
@@ -135,13 +135,17 @@ export async function readTeamRawStatistics(range?: MonthRange): Promise<Map<str
     bounds ? [bounds.start] : [],
   );
   // 身份上下文可能早于统计区间，不能按快照创建时间筛掉；只取最小身份投影。
-  const identityRows = await Promise.all((["snapshots", "assignments"] as const).map(async table => {
+  const identityQueries = (["snapshots", "assignments"] as const).map(async table => {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT owner, record_id, source, ticket_key, ${projectionSql(PROJECTED_FIELDS[table])}
          FROM sync_records WHERE table_name = ? AND source = 'meegle' AND deleted = 0`, [table],
     );
     return rows as StatisticsMirrorRow[];
-  }));
+  });
+  // 四个查询互不依赖，并发执行
+  const [[processResults], [analysisHistories], identityRows] = await Promise.all([
+    processResultsQuery, analysisHistoriesQuery, Promise.all(identityQueries),
+  ]);
   return groupStatisticsRows({
     processResults: processResults as StatisticsMirrorRow[],
     analysisHistories: analysisHistories as StatisticsMirrorRow[],

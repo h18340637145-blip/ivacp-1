@@ -17,12 +17,17 @@ export interface RuleGroupFilters {
   snapshots: Record<TicketSource, TicketSnapshot[]>;
 }
 
-export async function loadRuleGroupFilters(group: RuleGroup): Promise<RuleGroupFilters> {
+/** 传入已读取的该规则组全部快照时，复用它们而不再按 filterRunId 重复读取（快照含较大 rawData）。 */
+export async function loadRuleGroupFilters(group: RuleGroup, groupSnapshots?: TicketSnapshot[]): Promise<RuleGroupFilters> {
   const runs = await db.filterRuns.where("ruleGroupId").equals(group.id).toArray();
   const latest = { jira: latestFilterRun(runs.filter((run) => run.source === "jira")), meegle: latestFilterRun(runs.filter((run) => run.source === "meegle")) };
   const summary = buildSourceSummary(group, latest);
   const entries = await Promise.all((["jira", "meegle"] as const).map(async (source) => [source,
-    summary[source].configured && latest[source]?.status === "completed" ? await db.snapshots.where("filterRunId").equals(latest[source]!.id).filter((row) => row.origin === "filter").toArray() : [],
+    summary[source].configured && latest[source]?.status === "completed"
+      ? groupSnapshots
+        ? groupSnapshots.filter((row) => row.filterRunId === latest[source]!.id && row.origin === "filter")
+        : await db.snapshots.where("filterRunId").equals(latest[source]!.id).filter((row) => row.origin === "filter").toArray()
+      : [],
   ] as const));
   const owned = new Set((await db.assignments.where("ruleGroupId").equals(group.id).toArray()).map(meegleFilterIssueIdentityKey));
   const meegle = entries[1][1].filter((row) => row.projectKey && row.workItemTypeKey && row.workItemId

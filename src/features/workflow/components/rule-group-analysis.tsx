@@ -31,7 +31,8 @@ export function RuleGroupAnalysis({ id }: { id: string }) {
   const process = useProcessAction();
   const loader = useCallback(async () => {
     if (!group) return null;
-    const [filters, tasks, results, snapshots] = await Promise.all([loadRuleGroupFilters(group), db.processTasks.where("ruleGroupId").equals(id).toArray(), db.processResults.where("ruleGroupId").equals(id).toArray(), db.snapshots.where("ruleGroupId").equals(id).toArray()]);
+    const [tasks, results, snapshots] = await Promise.all([db.processTasks.where("ruleGroupId").equals(id).toArray(), db.processResults.where("ruleGroupId").equals(id).toArray(), db.snapshots.where("ruleGroupId").equals(id).toArray()]);
+    const filters = await loadRuleGroupFilters(group, snapshots);
     return { ...filters, tasks, results, snapshotsById: new Map(snapshots.map((row) => [row.id, row])) };
   }, [group, id]);
   const state = useLiveData(loader);

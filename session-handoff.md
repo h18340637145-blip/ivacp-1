@@ -1,3 +1,33 @@
+## 当前目标：MySQL 接口性能优化（2026-11-04）
+
+- 状态：完成。独立库 `ivacp_perf`（已删除）种入 3 账号 × 4500 行 sync_records（大 data）+ 600 标注；直接调用服务端函数计时，中位数 3 次，**本机真实 MySQL，数据为合成**。
+- 保留：`labeling.ts` 的 `getItem` 只查本条目标题（原为扫描整个来源全部快照）888→3ms；`exportJsonl` 分批并发 + 上述改动 44.8s→0.23s；`listItems` 三个查询并发 2067→648ms；`team-statistics.ts` 四个查询并发 ~5.0s→3.6s。
+- 未动/无收益：`pushRecords` 500 条约 0.4–0.5s、`finalizeFullBackup`/`readMirrorStatus`/`pullRecords`/`listTemplates` 均 <60ms，无需优化。团队统计剩余耗时是 MySQL 内 JSON_EXTRACT 解析，需加索引/冗余列（改存储结构），**待用户同意**。
+- 检查：tsc、eslint 干净；全量 vitest 543 通过 / 41 跳过 / 0 失败。未验证：浏览器页面、真实业务数据量。
+
+## 前一目标：IndexedDB 读取 / 接口请求性能优化（2026-11-04）
+
+- 状态：完成 1 项有效优化；其余尝试未改善已回退。自动检查：typecheck 干净、改动文件 eslint 干净、浏览器 workflow/kanban 5 例通过；全量 vitest 534 通过 / 9 失败，失败均为 MySQL `ECONNREFUSED 127.0.0.1:3306`（labeling/team-templates/template-concurrency，本机无 MySQL，与本改动无关）。
+- 方法：/tmp 独立副本构建（不碰用户服务），浏览器内种入 6 规则组 × 400 工单（rawData≈20KB）、200 任务、200 结果（traceData 大），基线与改动版本双端口交替 A/B 各 3×5 次；接口全部 mock，仅为离线证据，非真实业务。
+- 发现：规则组页 `loadRuleGroupFilters` 先按 filterRunId 读一遍快照、`rule-group-analysis` 又按 ruleGroupId 读同批快照（含大 rawData），重复反序列化。
+- 保留的改动：`loadRuleGroupFilters(group, groupSnapshots?)` 可复用已读快照；规则组页先读任务/结果/快照，再传入快照。规则组页就绪耗时中位数 ≈1005–1030ms → ≈718–747ms（约 -28%）；看板（≈340–390ms）与工单详情（≈300–370ms）无变化。
+- 已回退（实测无改善）：按票身份建索引替代逐行 filter+sort；工单行分批渲染（每批 100）。
+- 未验证：真实网络/外部接口、真实用户数据量、开发模式；未做构建回归以外的浏览器逐项交互验证；未触及存储结构、依赖与运行中服务。
+
+## 当前目标：页面加载/跳转提速循环（2026-11-04）
+
+- 状态：停止（第 1 轮无改善，已回退）；未留下代码改动。
+- 方法：在 /tmp 独立副本构建 + `next start -p 3100`（不碰用户服务/.next），Playwright 冷加载 5 次取中位数（TTFB/FCP/LCP/load/JS 传输）与侧栏站内跳转；页面 /、/statistics、/templates、/labeling、/settings/data、/terminal（/meegle 重定向到 /?source=meegle，已排除）。仅本机 localhost、空 IndexedDB、无外部接口，属 mock/离线证据。
+- 基线：冷加载 load 约 100–120ms，FCP 60–80ms，站内跳转 45–60ms；各页 JS 传输一致（约 468KB）。
+- 第 1 轮：AppShell 中 ChatDrawer 改 next/dynamic 首次打开才加载 → 各指标均在噪声内（load 98–133ms，jsKB 468→481），无改善，已 `git checkout` 回退；未跑 typecheck/vitest（无保留改动）。
+- 下一步候选（需你决定）：本地基线已很快，本脚本难以分辨优化；真实慢点可能在带数据的 IndexedDB 读取、/api 调用或开发模式。请告知“哪个页面、什么环境（dev/prod、数据量）感觉慢”后再定向测量。
+
+## 当前目标：车辆信号分析后续开发方向调研文档（2026-11-04）
+
+- 状态：纯文档，待用户审核；未改代码、未运行测试。
+- 范围：依据 docs/vehicle-system/ 手册输出 [docs/requirements/vehicle-system-roadmap-review.md](docs/requirements/vehicle-system-roadmap-review.md)（D1–D7 方向、优先级、待决问题）。
+- 验收：[x] 文档生成；[ ] 用户审核并确认优先级与 6 个待决问题后再开始实现。
+
 ## 当前目标：project.json 导入/导出 + 每服务器配置 + 放开非管理员终端（2026-11-02）
 
 - 状态：完成；自动检查通过（vitest 539 通过 / 41 跳过，typecheck 干净，改动文件 eslint 干净）；未做构建、浏览器回归与真实网关/业务端连接验证。

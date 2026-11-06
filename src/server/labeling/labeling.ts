@@ -98,6 +98,34 @@ async function loadTitles(pool: Pool, owner: string, source?: ItemSource): Promi
   return index;
 }
 
+/** 单条目只查自己的标题：优先引用的快照，其次同工单最新快照，避免扫描整个来源的快照 */
+async function loadTitleFor(pool: Pool, owner: string, source: ItemSource, row: RowDataPacket): Promise<TitleIndex> {
+  const index: TitleIndex = { bySnapshotId: new Map(), byTicket: new Map() };
+  const snapshotId = text(row.snapshot_id);
+  const ticketKey = text(row.ticket_key);
+  const [byId, byTicket] = await Promise.all([
+    snapshotId
+      ? pool.query<RowDataPacket[]>(
+          `SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '$.title')) AS title FROM sync_records
+           WHERE owner = ? AND table_name = 'snapshots' AND record_id = ? AND source = ? AND deleted = 0`,
+          [owner, snapshotId, source],
+        )
+      : null,
+    pool.query<RowDataPacket[]>(
+      `SELECT JSON_UNQUOTE(JSON_EXTRACT(data, '$.title')) AS title FROM sync_records
+       WHERE owner = ? AND table_name = 'snapshots' AND source = ? AND ticket_key = ? AND deleted = 0
+         AND JSON_UNQUOTE(JSON_EXTRACT(data, '$.title')) <> ''
+       ORDER BY record_created_at DESC LIMIT 1`,
+      [owner, source, ticketKey],
+    ),
+  ]);
+  const idTitle = byId ? text(byId[0][0]?.title) : "";
+  if (idTitle) index.bySnapshotId.set(snapshotId, idTitle);
+  const ticketTitle = text(byTicket[0][0]?.title);
+  if (ticketTitle) index.byTicket.set(`${source}:${ticketKey}`, ticketTitle);
+  return index;
+}
+
 function titleOf(titles: TitleIndex, source: ItemSource, row: RowDataPacket): string {
   return titles.bySnapshotId.get(text(row.snapshot_id)) ?? titles.byTicket.get(`${source}:${text(row.ticket_key)}`) ?? "";
 }
@@ -126,14 +154,16 @@ function toSummary(row: RowDataPacket, source: ItemSource, titles: TitleIndex, a
 
 export async function listItems(owner: string, filter: LabelListFilter = {}): Promise<LabelListResult> {
   const pool = await getPool();
-  const annotations = await loadAnnotations(pool, owner);
-  const titles = await loadTitles(pool, owner, filter.source);
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT ${LIST_FIELDS} FROM sync_records
-     WHERE owner = ? AND table_name = 'processResults' AND deleted = 0 AND source IN (?)
-     ORDER BY updated_at DESC`,
-    [owner, filter.source ? [filter.source] : SOURCES],
-  );
+  const [annotations, titles, [rows]] = await Promise.all([
+    loadAnnotations(pool, owner),
+    loadTitles(pool, owner, filter.source),
+    pool.query<RowDataPacket[]>(
+      `SELECT ${LIST_FIELDS} FROM sync_records
+       WHERE owner = ? AND table_name = 'processResults' AND deleted = 0 AND source IN (?)
+       ORDER BY updated_at DESC`,
+      [owner, filter.source ? [filter.source] : SOURCES],
+    ),
+  ]);
   const all: LabelItemSummary[] = [];
   for (const row of rows) {
     const source = rowSource(row);
@@ -160,8 +190,9 @@ export async function getItem(owner: string, itemId: string): Promise<LabelItemD
   );
   const row = rows[0];
   if (!row) return null;
-  const annotation = (await loadAnnotations(pool, owner, itemId)).get(itemId);
-  const summary = toSummary(row, source, await loadTitles(pool, owner, source), annotation);
+  const [annotations, titles] = await Promise.all([loadAnnotations(pool, owner, itemId), loadTitleFor(pool, owner, source, row)]);
+  const annotation = annotations.get(itemId);
+  const summary = toSummary(row, source, titles, annotation);
   const detail = {
     replyText: text(row.reply_text),
     signalSummary: text(row.signal_summary),
@@ -218,16 +249,23 @@ export async function deleteAnnotation(owner: string, itemId: string): Promise<v
 export async function exportJsonl(owner: string): Promise<string> {
   const pool = await getPool();
   const annotations = await loadAnnotations(pool, owner);
+  const exportable = [...annotations.values()].filter(
+    (annotation) => annotation.verdict !== "unusable" && annotation.purposes.length > 0 && !annotation.purposes.includes("exclude"),
+  );
   const lines: string[] = [];
-  for (const annotation of annotations.values()) {
-    if (annotation.verdict === "unusable" || annotation.purposes.length === 0 || annotation.purposes.includes("exclude")) continue;
-    const item = await getItem(owner, annotation.itemId).catch(() => null);
-    if (!item) continue;
-    const record = toExportRecord(
-      { itemId: item.itemId, source: item.source, issueKey: item.issueKey, scene: item.scene, aiConclusion: item.replyText },
-      annotation,
-    );
-    if (record) lines.push(JSON.stringify(record));
+  // 分批并发读取条目，保持输出顺序且不超过连接池容量
+  for (let offset = 0; offset < exportable.length; offset += 4) {
+    const batch = exportable.slice(offset, offset + 4);
+    const items = await Promise.all(batch.map((annotation) => getItem(owner, annotation.itemId).catch(() => null)));
+    batch.forEach((annotation, index) => {
+      const item = items[index];
+      if (!item) return;
+      const record = toExportRecord(
+        { itemId: item.itemId, source: item.source, issueKey: item.issueKey, scene: item.scene, aiConclusion: item.replyText },
+        annotation,
+      );
+      if (record) lines.push(JSON.stringify(record));
+    });
   }
   return lines.join("\n") + (lines.length ? "\n" : "");
 }
