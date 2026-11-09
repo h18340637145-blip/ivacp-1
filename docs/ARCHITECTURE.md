@@ -1432,6 +1432,12 @@ ProcessResponse/ProcessResult新增非索引可选analysisRunId和analysisGroupN
 
 `log-extract.ts` 的 `buildExtractMarkdown`、`extractVehicleHalHashLines`、`buildFilteredLogsBySignalIds` 统一通过 `forEachTextLine` 流式逐行读取（1MB 块，行划分与 `split(/\r?\n/)` 一致；单行超过 `MAX_SCAN_LINE_CHARS`=1M 字符只保留开头，丢弃至下一换行；读取失败按无内容处理，取消信号照常抛出）。命中行复制后保存，避免切片字符串持有整块父串；Android / QNX 命中累计超过 `MAX_LOG_CHARS` 后不再收集（输出本就截断到该长度）；`extract.md` 不截断。`readTextFile` 只读取文件开头 maxChars 字节。背景：`next dev` 在请求结束时若 V8 已用堆 > 上限 80% 会自动重启进程，原实现整读 + split 在 20GB 级附件上单目录峰值堆可达 4.7GB，叠加并发分析触发重启并中断其他进行中的分析。生产模式（`next start`）无该看门狗。
 
+## dev 内存阈值与编译缓存（2026-11-06，2026-11-09 更新）
+
+`next dev` 的 webpack 编译产物会随路由编译和热更新在进程内累积（隔离副本实测：全部路由编译后常驻约 2.2GB，每轮共享代码热更新再增加约 1.5GB），是触发 dev 内存看门狗重启的主因。`next.config.ts` 设置 `onDemandEntries`（闲置 15 秒回收，最多保留 2 个），dev 脚本显式设置 `NODE_OPTIONS=--max-old-space-size=10240`（阈值约 8GB）。两者只影响 dev；生产模式不受影响。
+
+2026-11-09 用户的 `meegle-7147491031` 分析在约 10 GB 堆上限处发生 OOM。真实附件目录约 4.1 GB，原有流式版本提取峰值堆约 13 MB、时间窗和 hash 扫描约 41 MB，不能解释该堆占用。闲置路由回收与提高上限未消除 webpack 热更新累积。开发启动脚本因此改用显式 `next dev --turbopack`，保留热更新和现有终端网关；10 GB 上限保留。原 webpack 的 watchOptions 和 onDemandEntries 配置保留，供显式 webpack 调试使用。生产构建仍按 README 使用 `npm run build -- --webpack`，生产启动不变。具体本地对比和验证边界见 [开发服务内存验证](validation/2026-11-09-dev-memory.md)。
+
 ## 开始分析口径（2026-11-06）
 
 `statistics-records.ts` 新增 `buildStatisticsAttempts`：以 `processTasks`（`beginProcessAttempt` 每次开始分析写入，失败 / 中断只改状态不删除）生成 `StatisticsAttempt`，票身份沿用结果的快照 / 分配关联；结果 `processTaskId` 或历史 `sourceProcessTaskId` 找不到任务时按结果时间补计。`calculateAnnualStatistics` 第 4 个可选参数接收 attempts，输出 `startedTickets`（按票去重）与 `startedRuns`（按任务计数），团队合并求和。本地 `loadLocalStatistics` 在同一只读事务内追加读取 `processTasks`；服务端 `team-statistics.ts` 并发增加 processTasks 查询（按 `record_created_at` 粗筛，只投影 snapshotId / assignmentId / createdAt），结果 / 历史投影增加任务关联 ID。无 schema 升版。

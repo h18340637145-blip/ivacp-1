@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "NODE_OPTIONS=--max-old-space-size=10240 next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "terminal:gateway": "tsx terminal-gateway/server.ts",
-    "dev:with-terminal": "concurrently \"next dev --webpack\" \"tsx terminal-gateway/server.ts\"",
+    "dev:with-terminal": "concurrently \"NODE_OPTIONS=--max-old-space-size=10240 next dev --turbopack\" \"tsx terminal-gateway/server.ts\"",
     "migrate:legacy": "node --env-file-if-exists=.env --import tsx scripts/migrate-legacy.ts",
     "jira:attachments": "node scripts/download-jira-attachments.mjs",
     "cleanup:data": "node scripts/cleanup-old-data.mjs",

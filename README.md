@@ -13,6 +13,8 @@ npm ci
 npm run dev
 ```
 
+`npm run dev` 和 `npm run dev:with-terminal` 使用 Turbopack 开发模式，保留热更新，避免 webpack 开发编译产物反复累积导致堆耗尽；后者同时启动现有终端网关。启动参数保留 10 GB 堆上限。修改脚本后，下一次重新启动才会生效。
+
 打开 `http://localhost:3000`。账号沿用本地 `docs/login.json`；不要把实际密码粘贴到文档。环境参数放在被忽略的 `.env` / `.env.local`，包括 `AUTH_SECRET`、Qwen 的 `BASE_URL` / `QWEN_API_KEY` / `QWEN_MODEL`、Jira 的连接配置，以及可选 `MYSQL_URL`、`CAN_PYTHON_BIN`。生产环境必须配置稳定的 `AUTH_SECRET`；本地 HTTP 生产预览按环境配置 `AUTH_COOKIE_SECURE=false`。
 
 ```bash

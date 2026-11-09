@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "*": ["node_modules/@swc/core-linux-x64-gnu", "node_modules/@swc/core-linux-x64-musl", ...heavyDataGlobs],
   },
+  // dev 下 webpack 编译缓存会随路由编译和热更新累积，触发 Next 的内存阈值自动重启；尽快回收闲置路由
+  onDemandEntries: { maxInactiveAge: 15_000, pagesBufferLength: 2 },
   serverExternalPackages: ["ssh2", "mysql2", "playwright"],
   // 旧版路由 → 新版统一路由（查询参数会自动透传）
   async redirects() {

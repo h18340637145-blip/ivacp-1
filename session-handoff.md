@@ -1,3 +1,40 @@
+## 当前目标：meegle-7147491031 分析期间 JavaScript 堆耗尽（2026-11-09）
+
+- 状态：开发启动配置修复完成，本地验证通过；全量测试仍有 9 项 MySQL 环境失败，线上长期运行待验证。
+- 范围：追踪用户 run `KH-w_Q-59QfFaQtRYhSSh`，修复 dev 编译内存压力；保留已有 next.config.ts、package.json 和文档修改。不触碰用户 `.next`，不停止/重启用户服务或数据库。
+- 主要证据：真实附件约 4.1 GB，16 条信号记录的 decimalId / hexId 全为 null；流式版本提取峰值约 13 MiB、日志扫描约 41 MiB。webpack dev 的隔离 4 轮热更新峰值 7591 MiB（Node 22），同 Node 20 补测两轮峰值 4123 MiB；Turbopack / Node 20 四轮峰值约 651 MiB。支持 dev 编译/热更新累积是主要内存来源，未取得原崩溃进程 heap snapshot。
+- 改动：`package.json` 的 `dev` / `dev:with-terminal` 显式改为 `next dev --turbopack`，保留热更新、10 GB 堆上限、现有终端网关；生产构建和启动不变。README / ARCHITECTURE / [验证记录](docs/validation/2026-11-09-dev-memory.md) 同步。
+- 验收清单：
+  - [x] 同一真实附件与信号记录复测，区分日志扫描与编译内存。
+  - [x] 隔离复现 webpack 多轮内存增长，完成开发启动修复和同 Node 版本对比。
+  - [x] 相关 Vitest 64 用例通过，typecheck 通过，全量 lint 0 错误（2 条已有文档脚本警告）。
+  - [x] 独立副本 webpack 生产构建通过；Turbopack 服务真实日志 `collectEvidence` HTTP 200，VHAL 22.38、hash、extract.md 读回一致。
+  - [x] 浏览器 5 场景通过，包含卡片、IndexedDB 写入、刷新保留和双来源处理/复核/重试（mock 外部业务接口）。
+  - [x] 文档、差异和交接检查。
+  - [ ] 隔离实验服务清理：用户已授权，但自动审批仍禁止执行，需用户手动清理。
+- 全量检查限制：默认沙箱有 MySQL/SSH EPERM，主机权限重测 544 通过 / 9 失败 / 41 跳过；9 个失败均为本机 MySQL `ECONNREFUSED 127.0.0.1:3306`，未启动或更改数据库，不声明全量绿色。
+- 浏览器准备失败及处理：补齐副本 vitest.config.mts、指定本机 Chromium 1223；127.0.0.1 的 HMR 被 Next 来源校验阻止，页面显示「正在读取规则组」，改用 localhost 后同样的 5 场景通过。请使用 README 的 localhost 地址；未修改来源白名单。
+- 清理阻塞：已只读核对 659187 / 659200 工作目录为 `/tmp/ivacp-oom-dev`，599254 / 599281 为 `/tmp/ivacp-oom-turbo`。首次自动审批流中断且标记 content_filter，未执行清理；核对后重试 SIGTERM 再被拒绝，理由为不允许重试此前内容过滤器阻止的同一清理行为。不得绕过审批；这些服务仍占用资源，用户随后明确回复「允许清理」。再次核对这四个 PID 的目录后，自动审批仍拒绝 SIGTERM，明确称该限制无法由用户授权覆盖；未执行停止，不再重复请求授权或绕过限制。可由用户在终端执行 `kill -TERM 659187 659200 599254 599281` 手动清理。用户业务服务未操作。
+- 生效：用户下一次执行 `npm run dev:with-terminal` 才会使用新 bundler；本轮没有重启用户服务。
+- 未验证：线上长时间批量分析、真实 Qwen、Jira/飞书回填、真实远程 SSH；无限命中 extract.md 的累积属于另一风险，本票没有数值 ID 命中，不扩大本轮范围。
+- 修复轮次：1/2（主修复为开发 bundler 切换；隔离依赖、测试配置、浏览器版本与访问主机问题均有新证据后处理，未改业务语义或放宽断言）。
+
+## 当前目标：dev 服务内存阈值重启复发（2026-11-06，第二轮）
+
+- 状态：完成（配置层修复，隔离副本实测）；用户服务需重新执行 `npm run dev:with-terminal` 才会使用新的 10GB 堆上限。
+- 现象：首轮修复生效后（用户 16:44 重启服务，修复 16:33 已落盘）仍在 `/api/meegle/filter`（编译 74s）结束后触发「Server is approaching the used memory threshold」。
+- 证据：真实数据测得 meegle-7158965997 的版本提取峰值堆 15MB、Android hash 扫描 44MB，流水线已非主因。/tmp 隔离副本 `next dev --webpack -p 3101` 注入堆采样：编译全部 68 个路由后常驻约 2.2GB；每轮「改共享代码 + 重新访问所有路由」常驻增加约 1.5GB，两轮后常驻 5.2GB、峰值 5.9GB，逼近阈值约 6.3GB（上限 7865MB × 80%）。根因是 webpack dev 编译产物跨热更新累积，分析请求只是压线的最后一下。
+- 修复：
+  - `next.config.ts` 增加 `onDemandEntries: { maxInactiveAge: 15_000, pagesBufferLength: 2 }`（仅 dev 生效）。同场景 4 轮后峰值 4.4GB、常驻约 3GB。
+  - `dev` 与 `dev:with-terminal` 脚本显式设置 `NODE_OPTIONS=--max-old-space-size=10240`，阈值升到约 8GB（用户确认）。隔离副本已确认子进程使用 10240。
+- 验收清单：
+  - [x] 定位根因并在隔离副本复现。
+  - [x] 修复后同场景峰值低于阈值。
+  - [x] typecheck、next.config.ts eslint 通过。
+  - [x] 同步 ARCHITECTURE。
+- 副作用：闲置超过 15 秒的页面 / 路由再次访问时需重新编译（数秒）。修改 next.config.ts 时，用户的 dev 服务已按确认自动重启一次。
+- 未验证 / 建议：未在用户服务内做长时间端到端验证；常驻堆仍随热更新缓慢增长，长时间开发后可手动重启 dev；批量长时间分析建议使用 `next build --webpack` + `next start`（无该看门狗）。
+
 ## 当前目标：分析中 dev 服务因内存阈值自动重启（2026-11-06）
 
 - 状态：完成（代码层修复）；未在用户运行中的 dev 服务上复现验证（未重启用户服务，需用户重启后生效）。
