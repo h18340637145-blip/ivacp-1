@@ -1,0 +1,6 @@
+import {finalizePresentation} from '/Users/huo2wx/.codex/plugins/cache/openai-primary-runtime/presentations/26.1026.10807/skills/presentations/container_tools/artifact_tool_utils.mjs';
+const root='/Users/huo2wx/coding/nextjs/ivacp/ivacp';
+const skill='/Users/huo2wx/.codex/plugins/cache/openai-primary-runtime/presentations/26.1026.10807/skills/presentations';
+const b=root+'/docs/loop-engineering/progress-sharing-12-build/harness-fence-edit';
+const result=await finalizePresentation({workspaceDir:root,candidatePath:b+'/candidate.pptx',finalPath:b+'/final/validated.pptx',pythonExecutable:'/Users/huo2wx/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3',integrityValidatorPath:skill+'/container_tools/inspect_presentation_package_integrity.py',layoutValidatorPath:skill+'/container_tools/inspect_presentation_layout_geometry.py',layoutArgs:['--expected-slide-size-emu','15240000,8572500','--validate-bullet-geometry','--validate-heading-fit'],explicitTotalSlideCount:12,fontPolicy:{basis:'design',families:['Microsoft YaHei']},verifyArtifactToolImport:true,receiptPath:b+'/validation.json'});
+console.log(JSON.stringify({path:result.finalPath,integrity:result.packageIntegrity.status,layout:result.presentationLayout.finding_count,font:result.fontSelection.passed,import:result.firstPartyImport.passed,slides:result.firstPartyImport.slideCount}));

@@ -1,0 +1,9 @@
+{
+  "slideId": "m90b6t0r",
+  "page": 10,
+  "pages": 12,
+  "deletedShapes": 24,
+  "textIssues": 0,
+  "addition": "用图理解：外层篱笆比作 Harness，表示规则、工具、权限、验收和停止条件；篱笆内部的箭头比作 Loop，表示执行、检查、修复和再检查；中央的 GPT-5 代表提出下一步与工具调用的模型。以 GPT-5 为核心的 Agent 可以运行在这样的工程框架中。官方资料支持的是 Agent 运行方式，不能据此断言 GPT-5 本身采用这种模型架构或训练方法。",
+  "manuscriptPath": "/Users/huo2wx/coding/nextjs/ivacp/ivacp/output/ivacp-progress-sharing-20261102/IVACP近期进展-逐页讲稿与命令附录.md"
+}

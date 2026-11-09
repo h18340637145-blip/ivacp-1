@@ -1,0 +1,149 @@
+{
+  "docs/PRODUCT.md": {
+    "sha256": "0579a02af774f6ecca71d2c96f1d59598f17d8f8eba697b56cca0111d70cde3b"
+  },
+  "session-handoff.md": {
+    "sha256": "0392fc0672a25cc89a1869338614a7e519814d0ccf3f3d076e07bd9b4035472a"
+  },
+  "docs/feishu_space_access.md": {
+    "sha256": "3a21f20ebc4ceef106b614f9ca36cc34887d5355d63e9ce53b72a3a89b670a90"
+  },
+  "src/server/meegle/cli-command.ts": {
+    "sha256": "896ee7bcff583faa886ba22000ccdb7c159f9fec21e0ab9463713366dc563c3f"
+  },
+  "src/server/meegle/cli.ts": {
+    "sha256": "bb17572870ef7e701abc1c6993156ecbb08610216309efb3265d18ddf620965f"
+  },
+  "docs/WORKFLOW.md": {
+    "sha256": "9044550853bdb7247d6d27906613c3ad38e3c5ab7c1a04eef7ff1bf6fa519fe0"
+  },
+  "src/server/meegle/mql-filter-run.ts": {
+    "sha256": "029e86fa615206daeaa93eb7145509510bc0a4fc74890264fc8298a8af047af8"
+  },
+  "src/server/meegle/comment.ts": {
+    "sha256": "8653545f18d51c6e3a0db57225135e7c0713088662153f359f8bb55541829983"
+  },
+  "src/server/meegle/workflow.ts": {
+    "sha256": "6ee6466536ce4d1f3a426b748831adf6e61fb787b5ae97db09f2407fa71e8b5e"
+  },
+  "src/features/tickets/services/process.ts": {
+    "sha256": "047d3e98fb46b1f152f067912a022d3502dfb0058cb3f9e0b5ae0ffab0ab45dd"
+  },
+  "src/server/jira/connection.ts": {
+    "sha256": "4995dd9a9be77d97abb28e965ec535d3ecf780104e6287c3649f27aa30a4171b"
+  },
+  "src/server/jira/filter.ts": {
+    "sha256": "fa8152925ac722129f7ee0acd8ace852db10735f25a7fd265a00216de865ad7f"
+  },
+  "src/server/jira/comment.ts": {
+    "sha256": "a4c2b9ac0c83201a22251a5e18366af4ca6986f33105ecddf9c72c7e8a50dd7d"
+  },
+  "src/server/jira/transition.ts": {
+    "sha256": "51f0faf5b4f534b09935802b908e76bb26170f4cd55bc83cfceae9b87c0d83de"
+  },
+  "src/server/pipeline/process/orchestrator.ts": {
+    "sha256": "5ab5741c7f49fc2790c2805462301b56d29c84993668ef183e40a8dca1d030dc"
+  },
+  "docs/ARCHITECTURE.md": {
+    "sha256": "b2496307337d615b05294cce2759ad7922159bd71659b02ffb194aca59eea5a1"
+  },
+  "src/features/chat/lib/knowledge-service.ts": {
+    "sha256": "c72abdfcf90fd11ef902c8b27027d6d316b884625f32de114dd11eede6c26fd7"
+  },
+  "src/features/chat/lib/conversation.ts": {
+    "sha256": "2e7c16a6e4fee7cf9fd455a8963e19ee7eecd0abf424b6875875629ec3cfc5b0"
+  },
+  "src/features/chat/lib/memory-service.ts": {
+    "sha256": "10a7d8b0b5f5acca59648ff93af0eb9afc60a6fd6f21e9d55fa1574ce345f178"
+  },
+  "src/server/chat/memory.ts": {
+    "sha256": "a74237899a2c74c7b0139152b1d9a1d2c1aa5030a66a3c3085f25c85f6c1b0f1"
+  },
+  "src/domain/knowledge/memory-core.ts": {
+    "sha256": "952d675c6ca7dc7b2ec39db56f724d12d63b578a7919222b8e117da19ffb6ef2"
+  },
+  "src/features/tickets/services/few-shot.ts": {
+    "sha256": "f6f0293fbdcf20e1512e69ee156c545a160924987948b80ae0e22aadf1dda97f"
+  },
+  "src/domain/analysis/few-shot-rerecall.ts": {
+    "sha256": "2f04463520c64f2c5ca8a7538baaba7797e0e3a55e875137caf213a0835310dc"
+  },
+  "src/features/statistics/load-local-statistics.ts": {
+    "sha256": "ef2047424aca83ba3c3fb90c58d8835aaef10b3c775bc291c8fbcff17157565b"
+  },
+  "src/server/statistics/team-statistics.ts": {
+    "sha256": "c1933439c90806c314565ab0622aabfd614165e5fb3421cba782c1358afcf959"
+  },
+  "src/server/templates/team-templates.ts": {
+    "sha256": "a3c348c05aa450ae08682e793abbbfcac27c0c9cb0189556f9368b76c48c517c"
+  },
+  "src/features/templates/services.ts": {
+    "sha256": "ed3e0dc25711376907a84774744928ead37911f45df882d9fa8b3553173d7ef6"
+  },
+  "src/server/labeling/labeling.ts": {
+    "sha256": "d2858fa9c6f0cfd168d628949215c9e04bc974fa48efdd913720245aebb6434a"
+  },
+  "src/features/labeling/components/annotation-editor.tsx": {
+    "sha256": "50c12fdbe73e658ec9df6afad3661696af573db46af1d9549636bed15f687630"
+  },
+  "src/app/api/labeling/export/route.ts": {
+    "sha256": "073375df93548d2e764b8288219077859db03d90a6b6e993ded979610f307624"
+  },
+  "src/server/pipeline/process/version-vhal-stage.ts": {
+    "sha256": "c1822766a7ac11c86bb49a3971a4a7ff1d1140ebf415c59a5a089ad972aaa015"
+  },
+  "src/server/pipeline/log-versions.ts": {
+    "sha256": "f10fc56a272e05569393af22fa90356765677c02b90f7ae8a84c41fa0c66c2a6"
+  },
+  "src/server/pipeline/version-vhal/resolution.ts": {
+    "sha256": "ec238dc814268dfefc157f6606b7a0a8d838566b8210d856c21f63b478c69b17"
+  },
+  "src/server/pipeline/version-vhal/signals.ts": {
+    "sha256": "22a08b768bbd8841ffb1960a38e4f0fcb43bb6d4c9de5540e4dc9d1c09f8a5f8"
+  },
+  "src/server/pipeline/process/effective-configuration.ts": {
+    "sha256": "a3463e4e254243d08f430d900276a0d9b00cc8c8dc0acaca398a9db7d99f0a13"
+  },
+  "docs/SEQUENCE_DIAGRAMS.md": {
+    "sha256": "a527003a7621c8e54d644d48c56da4e401668c7fff5c9484b33f5accf9af69be"
+  },
+  "src/server/terminal/project-file.ts": {
+    "sha256": "bc10ff6a050732915400c578cc251b70e51c12f77eb22fb4ea2ca9e23ef3fa25"
+  },
+  "src/server/terminal/projects.ts": {
+    "sha256": "3d1e9e81e8fde18eeaa19b30192e652d1a667c9a0cbda3073425422d0fdc90d9"
+  },
+  "src/server/terminal/sync/remote.ts": {
+    "sha256": "38217bf9a01f23b435aca4b82ebeccb46dcb911ac4b1016c51d515c3a5ac76fc"
+  },
+  "src/server/terminal/sync/runner.ts": {
+    "sha256": "a4471c2da0451f572fa0bab698b30bd8fcce7bf48857454bcb051a4ee6b775b8"
+  },
+  "terminal-gateway/session-manager.ts": {
+    "sha256": "36f564ef286e8f80fd96661a5fa2a65e11a9ced033f84c7f18651c927e63ea80"
+  },
+  "AGENTS.md": {
+    "sha256": "0d1e90566e88ec0ee15cbfafa334933eff97a672165662f54265beb5f3db0593"
+  },
+  "docs/loop-engineering/minimal-loop-agents-review.md": {
+    "sha256": "fe5f5f311258d25d53fcb6c9ea2d7cc23f29ed70e0b2b914f4d4b078d1ef7045"
+  },
+  "package.json": {
+    "sha256": "b4ad870b96144c2b344e35e31705004743ed4dc76b7138c06fa79a6157a0e59c"
+  },
+  "README.md": {
+    "sha256": "33499dd00a32ff7742c2426c1e649e37a9b82e66d8623f8227720736227d7dcd"
+  },
+  "test/terminal-project-file.test.ts": {
+    "sha256": "edab19b58e56c950331dbc6d8f59d593045aab61472743dc15bd6c111d593ced"
+  },
+  "test/terminal-client-service.test.ts": {
+    "sha256": "dfe38dd3e5b1b8c94b60489c0fd93ecc54c51e32bc47a31db040cba532d88a10"
+  },
+  "src/features/terminal/components/terminal-workspace.tsx": {
+    "sha256": "98d978a2f5354e9b6db9bbe6b165928607fe301f8d65d9878d378100682b7926"
+  },
+  "docs/loop-engineering/project-adoption-review.md": {
+    "sha256": "1f614041a6457b81822d95dbedfeb5a6502c68cb2370b37092dfcc41d6bcda36"
+  }
+}
