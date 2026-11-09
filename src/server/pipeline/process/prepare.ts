@@ -102,6 +102,18 @@ export async function loadModelConfig(ctx: ProcessContext): Promise<ModelConfigD
         logger.log("PREPARING", `proto 文件未找到: ${fileConfig.proto}`);
       }
     }
+    // 很多车型只提供 VHAL type.h；proto 缺失或无 Property_ID 时用它解析 Property ID。
+    if (!/\benum\s+Property_ID\s*\{/.test(protoContent)) {
+      try {
+        const typeHeader = await fs.readFile(path.join(basePaths.proto_dir, "type.h"), "utf-8");
+        if (/\benum\s+class\s+VehicleProperty\b/.test(typeHeader)) {
+          protoContent = typeHeader;
+          logger.log("PREPARING", "已改用 type.h 解析 Property ID");
+        }
+      } catch {
+        // type.h 为可选文件。
+      }
+    }
   }
   return { jsonContent, parsedConfigItems, protoContent };
 }

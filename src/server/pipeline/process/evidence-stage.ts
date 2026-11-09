@@ -20,6 +20,8 @@ export interface EvidenceBundle {
   extractMarkdown: string;
   androidLog: string;
   qnxLog: string;
+  /** Android/QNX 中按信号 ID 与时间窗真实命中的行数（不含版本/hash 行）。 */
+  logSignalHits: number;
   evidencePacket: EvidencePacket;
   evidencePacketText: string;
   reviewEvidence: ReviewEvidence;
@@ -78,6 +80,7 @@ export async function collectEvidence(
     ? `当前配置 VHAL版本：${vhal.version}，VER_PRO_CFG=${vhal.raw}，来源：${vhal.file}`
     : vhal.status === "unavailable" ? `VHAL版本提取失败：${vhal.file}：${vhal.error}` : "未配置 Proto 根目录，跳过 VHAL版本提取");
   let boschVehicleHalHashLines: string[] = [];
+  let logSignalHits = 0;
   versionFooter = formatLogVersions(logVersions) + formatVhalVersion(vhal);
   if (hasExtractedLogs) {
     extractMarkdown = await buildExtractMarkdown(extractDir, commentTimeWindow, signals.signalIdRecords);
@@ -85,11 +88,13 @@ export async function collectEvidence(
     boschVehicleHalHashLines = filteredLogs.boschVehicleHalHashLines;
     androidLog = filteredLogs.android;
     qnxLog = filteredLogs.qnx;
+    logSignalHits = filteredLogs.androidHits + filteredLogs.qnxHits;
+    logger.log("PARSING", `信号 ID 日志命中：Android=${filteredLogs.androidHits} QNX=${filteredLogs.qnxHits}，已解析 ID 的属性 ${signals.signalIdRecords.filter((record) => record.decimalId !== null || record.hexId !== null).length}/${signals.signalIdRecords.length}`);
   } else {
     extractMarkdown = "# CAN Trace Window Extract\n\n未生成筛选结果：没有解压日志目录。\n";
   }
   await saveStepLog(logRoot, "log-versions.json", JSON.stringify({ schemaVersion: 1, records: logVersions, vhal, boschVehicleHalHashLines }, null, 2));
-  metrics.evidenceCompleteness.androidQnxLogLinesFound = Boolean(androidLog.trim() || qnxLog.trim());
+  metrics.evidenceCompleteness.androidQnxLogLinesFound = logSignalHits > 0;
   extractMarkdown += versionFooter;
   androidLog += versionFooter;
   metrics.counts.androidLogChars = androidLog.length;
@@ -149,6 +154,7 @@ export async function collectEvidence(
     extractMarkdown,
     androidLog,
     qnxLog,
+    logSignalHits,
     evidencePacket,
     evidencePacketText,
     reviewEvidence,

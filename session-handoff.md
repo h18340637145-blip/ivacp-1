@@ -1,4 +1,34 @@
-## 当前目标：meegle-7147491031 分析期间 JavaScript 堆耗尽（2026-11-09）
+## 本轮文档目标：提示词优化建议整理供用户审核（2026-11-09）
+
+- 状态：文档交付完成；建议待用户审核，未实施。
+- 范围：新增 [提示词优化审核建议](docs/prompt-review-20261109.md)，涵盖导出 8 个规则组、内置提示词、优先级、业务口径待确认项与后续 A/B 验证建议；仅记录交接，不修改代码或提示词配置。
+- 验收清单：
+  - [x] 建议形成独立中文文档，标明证据范围、实施边界和待审核状态。
+  - [x] 检查文档内容、14 个本地链接、格式和本轮差异；纯文档任务不运行应用测试。
+- 其他目标的已有记录与未提交修改保留；本文不改变下方业务修复目标的状态。
+
+## 当前目标：无 CAN 时结论兜底与 Step4 按真实日志命中调用（2026-11-09）
+
+- 状态：已完成（离线证据）；未做真实 Qwen 端到端复跑。
+- 背景证据：本地 29 次运行中 10 次 `can_in_zip` 最终结论为「空」/「无相关信号日志」；Step4 25/29 输出为空。根因：26/30 次运行 `proto 文件未找到: com.bosch.cm.platform.vehicle.proto`，冻结快照只有 `type.h`，`signals_id.json` 的 ID 全为 null → 日志零命中；但 BoschVehicleHalHash 与版本/配置摘要使 Step4 输入非空，模型只能回「空」，Step5 又把「空」当作非空结论。
+- 范围（用户确认）：Step5 有效输出判定 + 无 CAN 混合兜底；Step4 按真实命中调用；修复 type.h Property ID 解析。
+- 实现：
+  - `src/server/pipeline/signals.ts`：`parseProtoPropertyIds` 支持 `enum class VehicleProperty`（去注释后取十进制/十六进制值，hexId 为完整 32 位；<0x10000 不生成 hexId 防止子串误命中）。
+  - `src/server/pipeline/process/prepare.ts`：车型 proto 缺失或无 `Property_ID` 时回退 `proto_dir/type.h`。
+  - `log-extract.ts` 返回 `androidHits/qnxHits`；`evidence-stage.ts` 输出 `logSignalHits` 并修正 `androidQnxLogLinesFound` 指标；`log-summary-stage.ts` 命中为 0 时跳过 Step4。
+  - `src/domain/analysis/model-output.ts` 新增 `isMeaningfulModelOutput`；`conclusion-stage.ts` 混合兜底，最终兜底也用有效性判定；`constants.ts` 新增 `MISSING_CAN_TRACE_REPLY/NOTICE/FOLLOW_UP`、`INSUFFICIENT_EVIDENCE_REPLY`。
+- 验收清单：
+  - [x] 有效输出判定 + 无 CAN 混合兜底：`test/step5-evidence-fallback.test.ts` 覆盖「空」、有命中、摘要仍无效。
+  - [x] Step4 按真实命中调用：单测覆盖仅 hash/版本行不调用；`log-extract-streaming` 覆盖命中计数。
+  - [x] type.h 解析与 prepare 回退单测；离线回放：有信号的 41 次历史运行 ID 解析成功 4→35；仍有解压目录的 4 次运行命中 0→151/38/24/61（7143816659、7161992835、7160699019、7158965997）。
+  - [x] `npm run typecheck`、相关 eslint、全量 vitest（572 通过 / 41 跳过）通过。
+  - [x] PIPELINE_GUIDE / ARCHITECTURE / WORKFLOW / SEQUENCE_DIAGRAMS 已同步。
+- 未完成 / 待跟进：
+  - 未用真实 Qwen 复跑上述工单验证最终结论质量；Step4 因命中增加会被实际调用，提示词效果待观察。
+  - 时间窗问题未修：评论中设备旧时钟（如 2024-01-01）导致窗口失真（7160699019）、窗口跨度过大（7143816659 跨 15 天）、评论与 trace 可能存在 8 小时时区偏差、评论时间与 trace 不重叠（7153546460）。
+  - 其余 6 次运行无 effective-config 快照，无法离线复核。
+
+## 前一目标：meegle-7147491031 分析期间 JavaScript 堆耗尽（2026-11-09）
 
 - 状态：开发启动配置修复完成，本地验证通过；全量测试仍有 9 项 MySQL 环境失败，线上长期运行待验证。
 - 范围：追踪用户 run `KH-w_Q-59QfFaQtRYhSSh`，修复 dev 编译内存压力；保留已有 next.config.ts、package.json 和文档修改。不触碰用户 `.next`，不停止/重启用户服务或数据库。

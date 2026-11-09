@@ -125,7 +125,7 @@ async function runStages(ctx: ProcessContext, signal?: AbortSignal): Promise<Pro
     evidence.androidLog += `\n\n${configurationSummary}\n\n${versionCheck.summary}`;
     evidence.evidencePacketText += `\n\n${configurationSummary}\n\n${versionCheck.summary}`;
     await saveStepLog(ctx.logRoot, "step4_android_qnx_input.md", ["<Android日志筛选结果>", evidence.androidLog, "</Android日志筛选结果>", "<QNX日志筛选结果>", evidence.qnxLog || "空", "</QNX日志筛选结果>"].join("\n"));
-    const aiAndroidQnxSummary = await runAndroidQnxStep(ctx, evidence.androidLog, evidence.qnxLog, aiStages);
+    const aiAndroidQnxSummary = await runAndroidQnxStep(ctx, evidence.androidLog, evidence.qnxLog, aiStages, evidence.logSignalHits);
     check();
     let reply = await runFinalConclusion(ctx, { classified, commentsText, aiRequirements, aiSignals, aiUpperSummary, aiAndroidQnxSummary, upperBundle, canTraceText: preview.canTraceText, signals, evidence });
     check();

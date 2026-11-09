@@ -25,6 +25,18 @@ export const MIN_DIFF_SECONDS = 5400;       // 90min: both within range → both
 
 export const MEEGLE_MISSING_ANALYSIS_ATTACHMENTS_REPLY = "车控车设问题分析需要CAN trace，请复测并提取问题发生时的Android log, QNX log, CAN trace，依次从应用->Framework再转给VHAL分析，谢谢";
 
+/** 无 CAN trace 且日志、摘要均无有效证据时的固定补件结论 */
+export const MISSING_CAN_TRACE_REPLY = `【缺 CAN trace 】${MEEGLE_MISSING_ANALYSIS_ATTACHMENTS_REPLY}`;
+
+/** 有 CAN trace 但各步骤与评论兜底均无有效输出时的固定结论 */
+export const INSUFFICIENT_EVIDENCE_REPLY = "【缺 CAN trace】本次自动分析未得到有效结论，请复核问题发生时间并补充对应时段的 Android log、QNX log、CAN trace 后重新分析。";
+
+/** 无 CAN trace 但有其他证据时，摘要结论前的置信度标注 */
+export const MISSING_CAN_TRACE_NOTICE = "【缺 CAN trace，基于评论与 Android/QNX 日志，】";
+
+/** 无 CAN trace 摘要结论末尾的补件提示 */
+export const MISSING_CAN_TRACE_FOLLOW_UP = "请复测并提供问题发生时的 CAN trace（同时附 Android log、QNX log），以便确认总线信号与上层表现是否一致。";
+
 export const MAX_LOG_CHARS    = 12_000;     // per-section cap: ~8 000 tokens each
 
 export const MAX_CAN_CHARS    = 12_000;     // CAN trace cap

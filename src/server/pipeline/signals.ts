@@ -543,35 +543,62 @@ export async function recoverViaSelfCheck(
   return recovered;
 }
 
-export function parseProtoPropertyIds(protoContent: string): Record<string, { decimalId: number | null; hexId: string | null }> {
-  const propIdMap: Record<string, { decimalId: number | null; hexId: string | null }> = {};
-  const enumStart = protoContent.indexOf("enum Property_ID {");
-  if (enumStart === -1) return propIdMap;
+type PropertyIdMap = Record<string, { decimalId: number | null; hexId: string | null }>;
 
+/** 返回从 start 处第一个 `{` 起到匹配 `}` 的结束位置；注释中的花括号不计入。 */
+function findEnumBlockEnd(content: string, start: number): number {
+  const masked = content.slice(start).replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) => " ".repeat(comment.length));
   let braceDepth = 0;
-  let enumEnd = -1;
-  for (let index = enumStart; index < protoContent.length; index += 1) {
-    const char = protoContent[index];
+  for (let index = 0; index < masked.length; index += 1) {
+    const char = masked[index];
     if (char === "{") braceDepth += 1;
     if (char === "}") {
       braceDepth -= 1;
-      if (braceDepth === 0) {
-        enumEnd = index + 1;
-        break;
-      }
+      if (braceDepth === 0) return start + index + 1;
     }
   }
-  if (enumEnd === -1) return propIdMap;
+  return -1;
+}
 
-  const enumContent = protoContent.slice(enumStart, enumEnd);
-  const pattern = /(\w+)\s*=\s*(\d+);\s*\/\/\s*([^|]+)/g;
+function toPropertyHex(value: number): string {
+  return `0X${(value >>> 0).toString(16).toUpperCase()}`;
+}
+
+/** 解析 `.proto` 的 `enum Property_ID` 或 C++ `type.h` 的 `enum class VehicleProperty`。 */
+export function parseProtoPropertyIds(protoContent: string): PropertyIdMap {
+  const propIdMap: PropertyIdMap = {};
+  const protoStart = protoContent.search(/enum\s+Property_ID\s*\{/);
+  if (protoStart !== -1) {
+    const enumEnd = findEnumBlockEnd(protoContent, protoStart);
+    if (enumEnd === -1) return propIdMap;
+    const enumContent = protoContent.slice(protoStart, enumEnd);
+    const pattern = /(\w+)\s*=\s*(\d+);\s*\/\/\s*([^|]+)/g;
+    for (const match of enumContent.matchAll(pattern)) {
+      const [, propName, decimalText, comment] = match;
+      const hexMatch = comment.toUpperCase().match(/(0X[0-9A-F]+)/);
+      propIdMap[propName] = {
+        decimalId: Number(decimalText),
+        hexId: hexMatch?.[1] ?? null,
+      };
+    }
+    return propIdMap;
+  }
+
+  const typeHStart = protoContent.search(/enum\s+class\s+VehicleProperty\b[^{]*\{/);
+  if (typeHStart === -1) return propIdMap;
+  const enumEnd = findEnumBlockEnd(protoContent, typeHStart);
+  if (enumEnd === -1) return propIdMap;
+  // 去掉注释后再匹配，避免注释里的 `(0xC1EC | VehiclePropertyGroup:VENDOR)` 等短 ID 被误用。
+  const enumContent = protoContent
+    .slice(protoContent.indexOf("{", typeHStart) + 1, enumEnd - 1)
+    .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, " ");
+  const pattern = /\b([A-Za-z_]\w*)\s*=\s*(0[xX][0-9A-Fa-f]+|\d+)\s*(?=[,}]|$)/g;
   for (const match of enumContent.matchAll(pattern)) {
-    const [, propName, decimalText, comment] = match;
-    const hexMatch = comment.toUpperCase().match(/(0X[0-9A-F]+)/);
-    propIdMap[propName] = {
-      decimalId: Number(decimalText),
-      hexId: hexMatch?.[1] ?? null,
-    };
+    const [, propName, valueText] = match;
+    const value = Number(valueText);
+    if (!Number.isSafeInteger(value)) continue;
+    // 过短的十六进制会以子串方式误命中大量日志，只保留十进制边界匹配。
+    propIdMap[propName] = { decimalId: value, hexId: value >= 0x10000 ? toPropertyHex(value) : null };
   }
   return propIdMap;
 }

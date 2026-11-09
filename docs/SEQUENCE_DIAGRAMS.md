@@ -974,6 +974,16 @@ sequenceDiagram
       P->>S: 固定结论与完整响应，跳过Step4/5
     else 部分缺少、未知、冲突或大小写差异
       P->>P: 将摘要加入Step4/5证据并继续
+      alt 信号 ID + 时间窗真实命中 > 0
+        P->>P: Step4 Android/QNX 摘要
+      else 仅 hash/版本/配置摘要
+        P->>P: 跳过 Step4
+      end
+      alt 无 CAN、无命中且 Step3/Step4 均为无效占位输出
+        P->>P: 固定「缺 CAN trace 补件」结论
+      else 其余无 CAN / 无一致性提示词
+        P->>P: 摘要提示词生成结论（无 CAN 时标注置信度低并附补件提示）
+      end
       P->>S: 保存最终完整响应
     end
   end

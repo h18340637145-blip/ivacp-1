@@ -852,7 +852,7 @@ PROJECT_ROOT/
 **重新处理**：同一工单再次分析会覆盖原文件（无时间戳后缀）。  
 **日志展开策略**：顶层日志包解压后，会继续递归展开其中的嵌套压缩文件；Android `aplog.*.gz`、QNX `Bosch-*.zip` 等文件会在展开后再参与日志搜集。  
 **信号归一化策略**：AI Step 2 提取的 token 先在车型配置 JSON 中按 `prop`、`getSignals`、`setSignals` 建索引匹配，再统一收敛到 `prop`，最后用 proto `Property_ID` 枚举映射 decimal/hex id。  
-**时间窗日志筛选**：路由优先从 Jira 评论中提取问题发生时间；若评论给出完整时间戳，则以评论时间范围筛日志；若只有时间点，则结合 trace 日期补全年月日并扩展短时间窗。只有评论缺失时间时，才回退到 trace 录制时间。筛出的 Android/QNX 文本既写入 `extract.md`，也作为 Step 4 的实际模型输入。  
+**时间窗日志筛选**：路由优先从 Jira 评论中提取问题发生时间；若评论给出完整时间戳，则以评论时间范围筛日志；若只有时间点，则结合 trace 日期补全年月日并扩展短时间窗。只有评论缺失时间时，才回退到 trace 录制时间。筛出的 Android/QNX 文本既写入 `extract.md`，也作为 Step 4 的实际模型输入；Step 4 仅在按信号 Property ID 真实命中至少一行时调用（BoschVehicleHalHash、版本与配置摘要不算命中，`collectEvidence` 返回 `logSignalHits`）。Property ID 优先解析车型 `.proto` 的 `enum Property_ID`，缺失时回退 proto 目录 `type.h` 的 `enum class VehicleProperty`。Step 5 在无 CAN 或无一致性提示词时，用 `isMeaningfulModelOutput`（`src/domain/analysis/model-output.ts`）过滤「空」等占位输出：无 CAN 且无任何有效证据时输出固定补件结论，否则用摘要提示词生成并标注缺 CAN trace、置信度低。  
 **度量基线**：`pipeline-metrics.json` 是后续准确率和速度优化的统一观测入口；`scripts/build-golden-baseline.mjs` 会聚合所有 metrics，输出 `docs/golden-baseline/golden-baseline.json` 和 `golden-baseline.md`，其中 `golden-baseline.json` 供脚本比较，Markdown 供人工审阅。
 **结构化证据边界**：完整 CAN / 日志 / Step 产物必须落盘保留；Token 预算只能裁剪模型输入，不能裁剪审计证据。结构化证据校验复用 `IssueValidationRun` 记录总体 advisory verdict，复用 `IssueValidationCheck` 记录每一条结构化断言的 expected / actual / message / evidenceSource / confidence，不引入后端数据库，也不改变 Jira 回填权限判断。
 

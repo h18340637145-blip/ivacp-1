@@ -5,7 +5,16 @@ import { buildErrorPatternBlock, buildReviewSamplePromptBlocks } from "@/domain/
 import type { GroundingEvidenceSource } from "@/domain/analysis/structured-evidence-validation";
 import { chat } from "@/server/ai/qwen";
 import { embedTexts } from "@/server/ai/embeddings";
-import { MAX_STEP5_CAN_SUMMARY_CHARS, MAX_STEP5_RAW_CAN_CHARS, MIN_STEP5_CAN_SUMMARY_CHARS } from "@/server/pipeline/constants";
+import { isMeaningfulModelOutput } from "@/domain/analysis/model-output";
+import {
+  INSUFFICIENT_EVIDENCE_REPLY,
+  MAX_STEP5_CAN_SUMMARY_CHARS,
+  MAX_STEP5_RAW_CAN_CHARS,
+  MIN_STEP5_CAN_SUMMARY_CHARS,
+  MISSING_CAN_TRACE_FOLLOW_UP,
+  MISSING_CAN_TRACE_NOTICE,
+  MISSING_CAN_TRACE_REPLY,
+} from "@/server/pipeline/constants";
 import { recordMetricStage, setPromptMetric } from "@/server/pipeline/metrics";
 import { saveStepLog } from "@/server/pipeline/paths-logging";
 import {
@@ -130,11 +139,33 @@ export async function runFinalConclusion(ctx: ProcessContext, input: ConclusionI
       logger.log("AI_STEP5", `一致性分析完成，${finalReply.length} 字符，耗时 ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     } else {
       const t0 = Date.now();
-      finalReply = aiAndroidQnxSummary || aiUpperSummary ||
-        await chat(summaryPrompt, [issueScenePromptBlock, upperBundle].filter(Boolean).join("\n\n"));
+      const missingCan = !canTraceText;
+      const validAndroidQnx = isMeaningfulModelOutput(aiAndroidQnxSummary) ? aiAndroidQnxSummary : "";
+      const validUpper = isMeaningfulModelOutput(aiUpperSummary) ? aiUpperSummary : "";
+      const hasLogHits = evidence.logSignalHits > 0;
+      if (missingCan && !validAndroidQnx && !validUpper && !hasLogHits) {
+        finalReply = MISSING_CAN_TRACE_REPLY;
+        logger.log("AI_STEP5", "无 CAN trace，且日志无信号命中、Step3/Step4 均无有效输出，输出固定补件结论");
+      } else {
+        const summaryInput = [
+          issueScenePromptBlock,
+          missingCan ? `<证据缺口>\n未获取到 CAN trace，无法确认总线信号；请只依据下列评论与日志证据给出结论，并明确置信度低。\n</证据缺口>` : "",
+          upperBundle,
+          validUpper ? `<上层日志摘要>\n${validUpper}\n</上层日志摘要>` : "",
+          validAndroidQnx ? `<Android+QNX日志摘要>\n${validAndroidQnx}\n</Android+QNX日志摘要>` : "",
+          hasLogHits ? evidencePacketBlock : "",
+        ].filter(Boolean).join("\n\n");
+        const summary = stripThinkTags(await chat(summaryPrompt, summaryInput)).cleaned;
+        setPromptMetric(metrics, "AI_STEP5", summaryInput, summary);
+        if (isMeaningfulModelOutput(summary)) {
+          finalReply = missingCan ? [MISSING_CAN_TRACE_NOTICE, summary.trim(), MISSING_CAN_TRACE_FOLLOW_UP].join("\n\n") : summary;
+        } else if (missingCan) {
+          finalReply = MISSING_CAN_TRACE_REPLY;
+          logger.log("AI_STEP5", "无 CAN trace 摘要结论无有效内容，改为固定补件结论");
+        }
+        logger.log("AI_STEP5", `摘要提示词生成结论（${missingCan ? "缺 CAN trace" : "无一致性 prompt"}；日志命中 ${evidence.logSignalHits} 行，Step3 ${validUpper ? "有效" : "无效"}，Step4 ${validAndroidQnx ? "有效" : "无效"}）`);
+      }
       recordMetricStage(metrics, "AI_STEP5", t0);
-      setPromptMetric(metrics, "AI_STEP5", upperBundle, finalReply);
-      logger.log("AI_STEP5", "使用日志摘要作为最终结果（无 CAN trace 或无一致性 prompt）");
     }
   } else if (classified.mode === "can_only") {
     const comparePrompt = request.prompts.COMPARE_CANTRACE?.trim();
@@ -167,12 +198,16 @@ export async function runFinalConclusion(ctx: ProcessContext, input: ConclusionI
     }
   }
 
-  if (!finalReply) {
-    logger.log("AI_STEP5", "兜底：仅基于评论进行摘要分析…");
+  if (!isMeaningfulModelOutput(finalReply)) {
+    logger.log("AI_STEP5", "兜底：Step5 无有效输出，仅基于评论进行摘要分析…");
     const t0 = Date.now();
     finalReply = await chat(summaryPrompt, [issueScenePromptBlock, commentsText].filter(Boolean).join("\n\n"));
     recordMetricStage(metrics, "AI_STEP5", t0);
     setPromptMetric(metrics, "AI_STEP5", commentsText, finalReply);
+    if (!isMeaningfulModelOutput(finalReply)) {
+      logger.log("AI_STEP5", "评论兜底仍无有效输出，输出固定补件结论");
+      finalReply = canTraceText ? INSUFFICIENT_EVIDENCE_REPLY : MISSING_CAN_TRACE_REPLY;
+    }
   }
   return finalReply;
 }

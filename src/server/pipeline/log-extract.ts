@@ -258,13 +258,13 @@ export async function buildFilteredLogsBySignalIds(
   extractDir: string,
   window: TimeWindow,
   signalIds: SignalIdRecord[],
-): Promise<{ android: string; qnx: string; boschVehicleHalHashLines: string[] }> {
+): Promise<{ android: string; qnx: string; boschVehicleHalHashLines: string[]; androidHits: number; qnxHits: number }> {
   const hashLines = await extractVehicleHalHashLines(extractDir);
   const withHash = (androidLines: string[]) => [...hashLines, ...androidLines.filter((line) => !hashLines.includes(line))].join("\n").slice(0, MAX_LOG_CHARS);
   const startAt = parseFlexibleTimestamp(window.start);
   const endAt = parseFlexibleTimestamp(window.end);
   if (!startAt || !endAt || signalIds.length === 0) {
-    return { android: withHash([]), qnx: "", boschVehicleHalHashLines: hashLines };
+    return { android: withHash([]), qnx: "", boschVehicleHalHashLines: hashLines, androidHits: 0, qnxHits: 0 };
   }
 
   const fallbackYear = startAt.getFullYear();
@@ -303,6 +303,9 @@ export async function buildFilteredLogsBySignalIds(
 
   return {
     boschVehicleHalHashLines: hashLines,
+    // 真实信号命中行数，不含 BoschVehicleHalHash 版本行。
+    androidHits: androidMatches.filter((line) => !hashSet.has(line)).length,
+    qnxHits: qnxMatches.length,
     android: withHash(androidMatches),
     qnx: qnxMatches.join("\n").slice(0, MAX_LOG_CHARS),
   };

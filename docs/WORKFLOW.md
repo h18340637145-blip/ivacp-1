@@ -389,6 +389,8 @@ Step 5 前，系统会基于 `evidence-packet.json` 对处理前召回的 few-sh
 ### 3.5.4 日志筛选时间窗规则
 
 - Step 4 的 Android/QNX 日志提取优先使用上层评论中的时间信息，而不是 CAN trace 录制时间。
+- Step 4 仅在 Android/QNX 按信号 Property ID 与时间窗真实命中时调用；Property ID 在车型 `.proto` 缺失时回退 `type.h`。
+- 无 CAN trace 时 Step 5 采用混合兜底：Step3/Step4 为「空」等占位输出且无日志命中 → 固定「缺 CAN trace 补件」结论；有有效证据 → 摘要提示词生成结论并标注置信度低、附补件提示。
 - 若评论中存在 `YYYY-MM-DD HH:MM:SS` 形式的完整时间戳，则取评论里的最早 / 最晚时间作为筛选时间窗。
 - 若评论中只有“问题发生时间 09:58”或“时间点13:52:22附近”这类时间点，则结合 trace 日期补全年月日，并默认向后扩展 5 分钟作为时间窗。
 - 只有在评论中完全提取不到时间时，才回退到 CAN trace 录制开始 / 结束时间。

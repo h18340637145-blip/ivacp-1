@@ -74,6 +74,13 @@ describe("日志流式扫描", () => {
       "2026-11-06 10:02:00.000 I Vhal: set 557 中文 value=2",
     ].join("\n"));
     expect(logs.qnx).toBe("2026-11-06 10:03:00.000 I Vhal: set 557 中文 value=3\n2026-11-06 10:04:00 0X22D 尾行\r");
+    expect({ androidHits: logs.androidHits, qnxHits: logs.qnxHits }).toEqual({ androidHits: 2, qnxHits: 2 });
+  });
+
+  it("只有 BoschVehicleHalHash 行时真实命中数为 0", async () => {
+    const logs = await buildFilteredLogsBySignalIds(dir, window, [{ prop: "Q", decimalId: 999999, hexId: null, access: "READ" }] as unknown as SignalIdRecord[]);
+    expect(logs.android).toBe("BoschVehicleHalHash abc");
+    expect(logs.androidHits + logs.qnxHits).toBe(0);
   });
 
   it("命中超过截断长度时输出仍为前 MAX_LOG_CHARS 字符", async () => {

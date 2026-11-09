@@ -73,7 +73,7 @@ flowchart TD
 | CAN 读取与绘图 | 仅 Step2 直接提取并成功映射的信号进入 CAN；解析 ASC/BLF，结合 DBC 生成曲线与摘要 | 图片、信号值/区间、报文特性、trace 时间范围、交互曲线数据 | [signals.ts](../src/server/pipeline/signals.ts)、[plot_can_signals.js](../scripts/plot_can_signals.js) |
 | AI_STEP3 | `both` / `can_in_zip` 模式下，将评论 + 需求 + 信号提取结果生成上层摘要；与绘图并行 | `step3_upper_summary.md` | [log-summary-stage.ts](../src/server/pipeline/process/log-summary-stage.ts) |
 | 证据汇总 | 等待 CAN；确定评论/trace 时间窗；按时间与 Property ID 筛 Android/QNX 日志；提取版本与 hash；生成结构化证据包 | `extract.md`、`log-versions.json`、`evidence-packet.json`、Step4 输入 | [evidence-stage.ts](../src/server/pipeline/process/evidence-stage.ts) |
-| AI_STEP4 | 对筛选后的 Android/QNX 输入做摘要 | `step4_android_qnx.md`；需配置提示词且输入非空 | [log-summary-stage.ts](../src/server/pipeline/process/log-summary-stage.ts) |
+| AI_STEP4 | 对筛选后的 Android/QNX 输入做摘要 | `step4_android_qnx.md`；需配置提示词，且按信号 Property ID + 时间窗真实命中至少一行（BoschVehicleHalHash、版本与配置摘要不计入），否则跳过 | [log-summary-stage.ts](../src/server/pipeline/process/log-summary-stage.ts) |
 | VERSION_VHAL_CHECK | AI逐对比较 SOC/SCC；从 Android 最新编译日期 hash 追溯 project.json 来源提交，经 RTC 关联同项目同分支组 VS commit，再定位根目录/bak 归档；读取对应 Excel 的 Vehicle property ID、MCU UP、IVI DOWN 与 Project | 四份检查产物、完整响应 versionVhalCheck；未知/冲突提示后继续，版本不一致或全部缺少且无大小写差异才停止 | [version-vhal-stage.ts](../src/server/pipeline/process/version-vhal-stage.ts) |
 | AI_STEP5 | 根据模式执行联合一致性分析、CAN 对比或摘要兜底；注入证据、场景、历史案例与错误模式 | 初步最终结论 | [conclusion-stage.ts](../src/server/pipeline/process/conclusion-stage.ts)、[step5.ts](../src/server/pipeline/step5.ts) |
 | 结论修正 | 保存并剥离 think；对照证据检查断言，按需模型自修正；特定结论追加博世 MAIN_VERSION；加场景标签 | `evidence-grounding.json`、最终结论 | [step5.ts](../src/server/pipeline/step5.ts)、[version-extract.ts](../src/server/pipeline/process/version-extract.ts)、[finish.ts](../src/server/pipeline/process/finish.ts) |
@@ -108,7 +108,7 @@ flowchart TD
 
 - `base_paths.json_dir` + `model_to_files[车型].json`：信号映射配置。
 - `base_paths.dbc_dir` + `model_to_files[车型].dbc`：CAN 解码所用 DBC，可为多个文件。
-- `base_paths.proto_dir` + `model_to_files[车型].proto`：Property ID 映射。
+- `base_paths.proto_dir` + `model_to_files[车型].proto`：Property ID 映射（`.proto` 的 `enum Property_ID`）；该文件缺失或无 `Property_ID` 时，改用同目录 `type.h` 的 `enum class VehicleProperty`（十进制值换算完整 32 位十六进制，忽略注释中的短 ID）。
 - `base_paths.proto_dir/type.h`：当前配置 VHAL 版本；读取固定文件名，不是 `model_to_files.proto` 指定文件。
 
 下载解压后先提取 SOC/SCC 并选择实际配置；JSON / Proto、DBC 和 type.h 均读取本次冻结副本。自动采用分支当前配置，失败回退用户路径并冻结其中可用文件，缺失项继续保留原有能力边界。
@@ -148,9 +148,9 @@ flowchart TD
 
 Step5 根据附件模式分流：
 
-- `both` / `can_in_zip`：有 `CONSISTENCY_SYSTEM` 且 CAN 预览文本非空时做联合分析，否则优先采用 Step4 / Step3 摘要，再降级。
+- `both` / `can_in_zip`：有 `CONSISTENCY_SYSTEM` 且 CAN 预览文本非空时做联合分析；否则按混合策略：Step3/Step4 输出先做有效性判定（「空」「（无相关信号日志）」「(empty)」等占位回答视为无效）。无 CAN 且日志无信号命中、Step3/Step4 均无效时直接输出固定「【缺 CAN trace 补件】」结论；否则用摘要提示词结合有效摘要与（有命中时）结构化证据包生成结论，无 CAN 时前置「缺 CAN trace，置信度低」标注并追加补件提示，摘要仍无效则输出固定补件结论。
 - `can_only`：有 `COMPARE_CANTRACE` 且 CAN 预览文本非空时做 CAN 对比，否则用摘要提示词。
-- 所有模式若仍无结论，再仅基于评论做兜底摘要。
+- 所有模式若仍无有效结论（同一有效性判定），再仅基于评论做兜底摘要；仍无效时输出固定补件/证据不足结论。
 
 正式 Step5 结论生成会加结构化输出要求：现象、证据、根因、结论、置信度。常规低温生成；识别高优先级时最多并行生成 3 份草稿再合并。最终再做证据断言自检，相关报告写入 `evidence-grounding.json`。摘要兜底不等价于具有完整 CAN 证据的联合分析。
 

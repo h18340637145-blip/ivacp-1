@@ -39,15 +39,21 @@ export async function runUpperSummaryStep(
   return aiUpperSummary;
 }
 
-/** Step 4：Android + QNX 日志摘要（需要提示词且至少有一类日志） */
+/** Step 4：Android + QNX 日志摘要（需要提示词且按信号 ID 与时间窗至少真实命中一行日志） */
 export async function runAndroidQnxStep(
   ctx: ProcessContext,
   androidLog: string,
   qnxLog: string,
   aiStages: Record<string, string>,
+  signalHits: number,
 ): Promise<string> {
   const androidQnxPrompt = ctx.request.prompts.ANDROID_QNX_LOG_SUMMARY_SYSTEM?.trim();
-  if (!(androidQnxPrompt && (androidLog || qnxLog))) return "";
+  if (!androidQnxPrompt) return "";
+  if (signalHits <= 0) {
+    // 只有版本、配置或 BoschVehicleHalHash 行时调用模型只会得到「空」，直接跳过。
+    ctx.logger.log("AI_STEP4", "Android/QNX 日志无信号 ID 命中，跳过 Step4");
+    return "";
+  }
   const logContent = [
     androidLog ? `<Android日志>\n${androidLog}\n</Android日志>` : "",
     qnxLog     ? `<QNX日志>\n${qnxLog}\n</QNX日志>`             : "",
